@@ -73,14 +73,19 @@ export class MidtransGateway implements PaymentGateway {
       body.bank_transfer = { bank: params.paymentMethod || 'bca' };
     }
 
-    // E-wallet specific
-    if (paymentType === 'gopay' || paymentType === 'shopeepay') {
+    // QRIS and e-wallet: use Snap API
+    if (paymentType === 'qris' || paymentType === 'gopay' || paymentType === 'shopeepay') {
       body.callbacks = { finish: 'https://example.com/payment/finish' };
     }
 
     const auth = Buffer.from(`${config.MIDTRANS_SERVER_KEY}:`).toString('base64');
 
-    const response = await fetch(`${baseUrl}/v2/charge`, {
+    // Use Snap API for QRIS/e-wallet, Core API for bank transfer
+    const endpoint = (paymentType === 'qris' || paymentType === 'gopay' || paymentType === 'shopeepay')
+      ? `${baseUrl}/snap/v1/transactions`
+      : `${baseUrl}/v2/charge`;
+
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -96,9 +101,16 @@ export class MidtransGateway implements PaymentGateway {
 
     const result = (await response.json()) as MidtransChargeResponse;
 
+    // Snap API returns redirect_url, Core API returns va_numbers
+    let paymentUrl = result.redirect_url || '';
+    if (!paymentUrl && result.va_numbers) {
+      // For bank transfer, construct VA page URL
+      paymentUrl = `https://${config.MIDTRANS_ENVIRONMENT === 'production' ? 'app.midtrans.com' : 'app.sandbox.midtrans.com'}/snap/v2/vtweb/${params.orderId}`;
+    }
+
     return {
       gatewayReference: result.transaction_id,
-      paymentUrl: result.redirect_url || '',
+      paymentUrl,
       expiresAt: result.expiry_time ? new Date(result.expiry_time).toISOString() : undefined,
     };
   }

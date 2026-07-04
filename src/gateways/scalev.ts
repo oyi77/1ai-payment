@@ -6,7 +6,6 @@
  * Callback payload: see docs/03-gateway-specs.md
  */
 
-import crypto from 'crypto';
 import { getConfig } from '../config/env';
 import { logger } from '../utils/logger';
 import { GatewayError } from '../utils/errors';
@@ -18,6 +17,9 @@ import type {
   CreatePaymentResult,
   PaymentMethod,
 } from './base';
+
+const SANDBOX_URL = 'https://sandbox.scalev.com';
+const PRODUCTION_URL = 'https://api.scalev.com';
 
 interface ScalevCallbackPayload {
   transaction_id: string;
@@ -42,9 +44,6 @@ interface ScalevCreateResponse {
   };
   message?: string;
 }
-
-const SANDBOX_URL = 'https://sandbox.scalev.com';
-const PRODUCTION_URL = 'https://api.scalev.com';
 
 export class ScalevGateway implements PaymentGateway {
   readonly name = 'scalev';
