@@ -56,36 +56,37 @@ export class IPaymuGateway implements PaymentGateway {
 
     const baseUrl = config.IPAYMU_ENVIRONMENT === 'production' ? PRODUCTION_URL : SANDBOX_URL;
 
-    // Build signature: SHA256(va + orderId + amount + apiKey)
-    const signature = crypto
-      .createHash('sha256')
-      .update(`${config.IPAYMU_VA_KEY}${params.orderId}${params.amount}${config.IPAYMU_API_KEY}`)
-      .digest('hex');
-
     const body = {
       name: params.customerName || 'Customer',
-      phone: '',
       email: params.customerEmail || '',
+      phone: '',
       amount: params.amount,
       notifyUrl: 'https://pay.1ai.dev/webhook/ipaymu',
       returnUrl: 'https://example.com/payment/finish',
+      cancelUrl: 'https://example.com/payment/cancel',
       referenceId: params.orderId,
       paymentMethod: params.paymentMethod || 'va',
-      product: [
-        {
-          name: 'Payment',
-          qty: 1,
-          price: params.amount,
-        },
-      ],
-      signature,
+      paymentChannel: 'va',
     };
+
+    const bodyStr = JSON.stringify(body);
+    const bodyHash = crypto.createHash('sha256').update(bodyStr).digest('hex').toLowerCase();
+    const stringToSign = `POST:${config.IPAYMU_VA_KEY}:${bodyHash}:${config.IPAYMU_API_KEY}`;
+    const signature = crypto
+      .createHmac('sha256', config.IPAYMU_API_KEY)
+      .update(`POST:${config.IPAYMU_VA_KEY}:${bodyHash}:${config.IPAYMU_API_KEY}`)
+      .digest('hex')
+      .toLowerCase();
+
+    const timestamp = Date.now().toString();
 
     const response = await fetch(`${baseUrl}/api/v2/payment`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'key': config.IPAYMU_API_KEY,
+        'va': config.IPAYMU_VA_KEY,
+        'signature': signature,
+        'timestamp': timestamp,
       },
       body: JSON.stringify(body),
     });
