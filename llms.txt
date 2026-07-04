@@ -1,0 +1,42 @@
+# 1ai-payment — LLM Context Index
+
+> Machine-readable index for LLM context injection. Payment gateway aggregation microservice for 1ai-ecosystem.
+
+## Core
+- docs/00-overview.md: System overview, problem statement, design principles, scope
+- docs/01-architecture.md: Architecture diagrams, data flow, database schema, deployment
+- docs/02-api-reference.md: API contracts, request/response schemas, authentication
+- docs/03-gateway-specs.md: Per-gateway integration specs (Midtrans, Tripay, Duitku, NOWPayments, iPaymu, Scalev, Xendit)
+- docs/04-rollout-plan.md: Migration phases, rollback plan, monitoring, security checklist
+
+- src/index.ts: Entry point — Hono server, middleware, route registration
+- src/config/env.ts: Environment configuration (100% externalized, no hardcoded values)
+- src/config/database.ts: LibSQL/SQLite initialization, schema creation
+- src/gateways/base.ts: PaymentGateway interface with createPayment, getPaymentMethods (Provider/Plugin pattern)
+- src/gateways/midtrans.ts: Midtrans — SHA-512 signature, createPayment via /v2/charge
+- src/gateways/tripay.ts: Tripay — HMAC-SHA256 signature, createPayment via /transaction/create
+- src/gateways/duitku.ts: Duitku — MD5 signature, createPayment via /inquiry
+- src/gateways/nowpayments.ts: NOWPayments — HMAC-SHA512 signature, createPayment via /v1/invoice
+- src/gateways/ipaymu.ts: iPaymu — SHA-256 signature, createPayment via /api/v2/payment
+- src/gateways/scalev.ts: Scalev — HMAC-SHA256 signature, createPayment via /api/v1/transaction
+- src/gateways/xendit.ts: Xendit — X-Callback-Token header, createPayment via /v2/invoices & /callback_virtual_accounts
+- src/gateways/index.ts: Gateway registry (add gateway = implement + register)
+- src/routes/webhook.ts: POST /webhook/:gateway — verify, normalize, lookup order, forward
+- src/routes/payment.ts: POST /api/payments (create), GET /api/payments/:id (status), GET /api/gateways, GET /api/gateways/:gateway/methods
+- src/routes/health.ts: GET /health — service health + gateway config status
+- src/services/order.service.ts: Order registry CRUD, idempotent creates, metadata support
+- src/services/forwarder.service.ts: Async event forwarding with 3-retry backoff, metadata passthrough
+- src/services/gateway.service.ts: Gateway health status, methods listing
+- src/middleware/auth.ts: X-API-Key authentication for /api/* endpoints
+- src/middleware/rate-limit.ts: In-memory sliding window rate limiter
+- src/utils/crypto.ts: Timing-safe compare, HMAC signing, ID generation
+- src/utils/errors.ts: Typed error classes (Signature, OrderNotFound, Duplicate, GatewayError)
+- src/utils/logger.ts: Structured logging (no raw payloads — security rule)
+
+## Conventions
+- Stack: TypeScript / Hono / LibSQL (SQLite)
+- Provider/Plugin pattern for all gateway integrations
+- Idempotent webhooks (duplicate callbacks = same result)
+- Thin routing layer (no business logic — credits, subscriptions in owning projects)
+- Security-first (signature verification, timing-safe comparison, no payload logging)
+- Metadata preserved through full lifecycle (create → callback → forward)
