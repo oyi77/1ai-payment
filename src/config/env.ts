@@ -141,6 +141,7 @@ export function getGatewayConfig(gateway: string) {
       };
     case 'scalev':
       return {
+        apiKey: config.SCALEV_STOREFRONT_API_KEY,
         storefrontApiKey: config.SCALEV_STOREFRONT_API_KEY,
         storeId: config.SCALEV_STORE_ID,
         variantId: config.SCALEV_VARIANT_ID,
