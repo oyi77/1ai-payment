@@ -34,9 +34,11 @@ export interface Config {
   IPAYMU_VA_KEY: string;
   IPAYMU_ENVIRONMENT: 'sandbox' | 'production';
 
-  // Scalev
-  SCALEV_API_KEY: string;
-  SCALEV_MERCHANT_ID: string;
+  // Scalev (Headless Commerce Platform - NOT a simple payment gateway)
+  SCALEV_STOREFRONT_API_KEY: string;    // sfpk_... from Scalev dashboard > Storefront API
+  SCALEV_STORE_ID: string;              // Store unique_id from Scalev dashboard
+  SCALEV_VARIANT_ID: string;            // Product variant ID from Scalev product variants
+  SCALEV_WEBHOOK_SECRET: string;        // Webhook secret for signature verification
   SCALEV_ENVIRONMENT: 'sandbox' | 'production';
 
   // Xendit
@@ -89,8 +91,10 @@ export function getConfig(): Config {
     IPAYMU_VA_KEY: optional('IPAYMU_VA_KEY'),
     IPAYMU_ENVIRONMENT: (optional('IPAYMU_ENVIRONMENT', 'sandbox') as Config['IPAYMU_ENVIRONMENT']),
 
-    SCALEV_API_KEY: optional('SCALEV_API_KEY'),
-    SCALEV_MERCHANT_ID: optional('SCALEV_MERCHANT_ID'),
+    SCALEV_STOREFRONT_API_KEY: optional('SCALEV_STOREFRONT_API_KEY'),
+    SCALEV_STORE_ID: optional('SCALEV_STORE_ID'),
+    SCALEV_VARIANT_ID: optional('SCALEV_VARIANT_ID'),
+    SCALEV_WEBHOOK_SECRET: optional('SCALEV_WEBHOOK_SECRET'),
     SCALEV_ENVIRONMENT: (optional('SCALEV_ENVIRONMENT', 'sandbox') as Config['SCALEV_ENVIRONMENT']),
 
     XENDIT_API_KEY: optional('XENDIT_API_KEY'),
@@ -99,7 +103,6 @@ export function getConfig(): Config {
 
     LOG_LEVEL: (optional('LOG_LEVEL', 'info') as Config['LOG_LEVEL']),
   };
-
   return cachedConfig;
 }
 
@@ -138,8 +141,10 @@ export function getGatewayConfig(gateway: string) {
       };
     case 'scalev':
       return {
-        apiKey: config.SCALEV_API_KEY,
-        merchantId: config.SCALEV_MERCHANT_ID,
+        storefrontApiKey: config.SCALEV_STOREFRONT_API_KEY,
+        storeId: config.SCALEV_STORE_ID,
+        variantId: config.SCALEV_VARIANT_ID,
+        webhookSecret: config.SCALEV_WEBHOOK_SECRET,
         environment: config.SCALEV_ENVIRONMENT,
       };
     case 'xendit':
