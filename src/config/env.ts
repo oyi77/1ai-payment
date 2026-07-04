@@ -34,17 +34,31 @@ export interface Config {
   IPAYMU_VA_KEY: string;
   IPAYMU_ENVIRONMENT: 'sandbox' | 'production';
 
-  // Scalev (Headless Commerce Platform - NOT a simple payment gateway)
-  SCALEV_STOREFRONT_API_KEY: string;    // sfpk_... from Scalev dashboard > Storefront API
-  SCALEV_STORE_ID: string;              // Store unique_id from Scalev dashboard
-  SCALEV_VARIANT_ID: string;            // Product variant ID from Scalev product variants
-  SCALEV_WEBHOOK_SECRET: string;        // Webhook secret for signature verification
+  // Scalev (Headless Commerce Platform)
+  SCALEV_STOREFRONT_API_KEY: string;
+  SCALEV_STORE_ID: string;
+  SCALEV_VARIANT_ID: string;
+  SCALEV_WEBHOOK_SECRET: string;
   SCALEV_ENVIRONMENT: 'sandbox' | 'production';
 
   // Xendit
   XENDIT_API_KEY: string;
   XENDIT_CALLBACK_TOKEN: string;
   XENDIT_ENVIRONMENT: 'sandbox' | 'production';
+
+  // Telegram Stars
+  TELEGRAM_BOT_TOKEN: string;
+  TELEGRAM_WEBHOOK_SECRET: string;
+
+  // Telegram Payments
+  TELEGRAM_PAYMENT_PROVIDER_TOKEN: string;
+
+  // PayPal
+  PAYPAL_CLIENT_ID: string;
+  PAYPAL_CLIENT_SECRET: string;
+  PAYPAL_WEBHOOK_ID: string;
+  PAYPAL_WEBHOOK_SECRET: string;
+  PAYPAL_ENVIRONMENT: 'sandbox' | 'production';
 
   // Logging
   LOG_LEVEL: 'debug' | 'info' | 'warn' | 'error';
@@ -101,6 +115,17 @@ export function getConfig(): Config {
     XENDIT_CALLBACK_TOKEN: optional('XENDIT_CALLBACK_TOKEN'),
     XENDIT_ENVIRONMENT: (optional('XENDIT_ENVIRONMENT', 'sandbox') as Config['XENDIT_ENVIRONMENT']),
 
+    TELEGRAM_BOT_TOKEN: optional('TELEGRAM_BOT_TOKEN'),
+    TELEGRAM_WEBHOOK_SECRET: optional('TELEGRAM_WEBHOOK_SECRET'),
+
+    TELEGRAM_PAYMENT_PROVIDER_TOKEN: optional('TELEGRAM_PAYMENT_PROVIDER_TOKEN'),
+
+    PAYPAL_CLIENT_ID: optional('PAYPAL_CLIENT_ID'),
+    PAYPAL_CLIENT_SECRET: optional('PAYPAL_CLIENT_SECRET'),
+    PAYPAL_WEBHOOK_ID: optional('PAYPAL_WEBHOOK_ID'),
+    PAYPAL_WEBHOOK_SECRET: optional('PAYPAL_WEBHOOK_SECRET'),
+    PAYPAL_ENVIRONMENT: (optional('PAYPAL_ENVIRONMENT', 'sandbox') as Config['PAYPAL_ENVIRONMENT']),
+
     LOG_LEVEL: (optional('LOG_LEVEL', 'info') as Config['LOG_LEVEL']),
   };
   return cachedConfig;
@@ -153,6 +178,25 @@ export function getGatewayConfig(gateway: string) {
         apiKey: config.XENDIT_API_KEY,
         callbackToken: config.XENDIT_CALLBACK_TOKEN,
         environment: config.XENDIT_ENVIRONMENT,
+      };
+    case 'telegram_stars':
+      return {
+        botToken: config.TELEGRAM_BOT_TOKEN,
+        webhookSecret: config.TELEGRAM_WEBHOOK_SECRET,
+      };
+    case 'telegram_payments':
+      return {
+        botToken: config.TELEGRAM_BOT_TOKEN,
+        providerToken: config.TELEGRAM_PAYMENT_PROVIDER_TOKEN,
+        webhookSecret: config.TELEGRAM_WEBHOOK_SECRET,
+      };
+    case 'paypal':
+      return {
+        clientId: config.PAYPAL_CLIENT_ID,
+        clientSecret: config.PAYPAL_CLIENT_SECRET,
+        webhookId: config.PAYPAL_WEBHOOK_ID,
+        webhookSecret: config.PAYPAL_WEBHOOK_SECRET,
+        environment: config.PAYPAL_ENVIRONMENT,
       };
     default:
       throw new Error(`Unknown gateway: ${gateway}`);

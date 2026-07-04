@@ -2,9 +2,10 @@
  * Gateway registry — maps gateway names to implementations.
  *
  * Adding a new gateway:
- * 1. Implement PaymentGateway interface
- * 2. Add to registry below
- * 3. Add webhook route in routes/webhook.ts
+ * 1. Create directory src/gateways/<name>/
+ * 2. Implement payment.ts, webhook.ts, index.ts
+ * 3. Register in registry below
+ * 4. Add webhook route in routes/webhook.ts
  */
 
 import type { PaymentGateway } from './base';
@@ -15,6 +16,9 @@ import { NowPaymentsGateway } from './nowpayments';
 import { IPaymuGateway } from './ipaymu';
 import { ScalevGateway } from './scalev';
 import { XenditGateway } from './xendit';
+import { TelegramStarsGateway } from './telegram-stars';
+import { TelegramPaymentsGateway } from './telegram-payments';
+import { PayPalGateway } from './paypal';
 
 export type { PaymentGateway, NormalizedPaymentEvent, PaymentStatus, CreatePaymentParams, CreatePaymentResult, PaymentMethod } from './base';
 
@@ -26,6 +30,9 @@ const registry: Record<string, PaymentGateway> = {
   ipaymu: new IPaymuGateway(),
   scalev: new ScalevGateway(),
   xendit: new XenditGateway(),
+  telegram_stars: new TelegramStarsGateway(),
+  telegram_payments: new TelegramPaymentsGateway(),
+  paypal: new PayPalGateway(),
 };
 
 export function getGateway(name: string): PaymentGateway | undefined {

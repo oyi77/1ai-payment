@@ -211,7 +211,8 @@ export class ScalevGateway implements PaymentGateway {
     const status = this.extractStatus(payload);
 
     // Extract our order_id from notes field (format: "1ai-payment:<order_id>")
-    const notes = (payload as Record<string, unknown>).notes as string || '';
+    const payloadAny = payload as unknown as Record<string, unknown>;
+    const notes = (payloadAny.notes as string) || '';
     const orderIdMatch = notes.match(/^1ai-payment:(.+)$/);
     const orderId = orderIdMatch ? orderIdMatch[1] : payload.secret_slug || payload.id;
 

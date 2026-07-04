@@ -27,7 +27,7 @@ import type { Order } from '../services/order.service';
 
 export const webhookRoutes = new Hono();
 
-const GATEWAYS = ['midtrans', 'tripay', 'duitku', 'nowpayments', 'ipaymu', 'scalev', 'xendit'] as const;
+const GATEWAYS = ['midtrans', 'tripay', 'duitku', 'nowpayments', 'ipaymu', 'scalev', 'xendit', 'telegram_stars', 'telegram_payments', 'paypal'] as const;
 
 for (const gatewayName of GATEWAYS) {
   webhookRoutes.post(`/${gatewayName}`, async (c) => {
