@@ -6,6 +6,9 @@
  * - POST /webhook/tripay
  * - POST /webhook/duitku
  * - POST /webhook/nowpayments
+ * - POST /webhook/ipaymu
+ * - POST /webhook/scalev
+ * - POST /webhook/xendit
  *
  * Flow: receive → verify signature → normalize → lookup order → forward to project
  * Returns 200 immediately. Forwarding happens asynchronously with retries.
@@ -85,12 +88,20 @@ for (const gatewayName of GATEWAYS) {
     // Look up order — try by gateway_reference first, then order_id
     let order: Order | null = null;
 
-    if (event.gateway_reference) {
+    // For Scalev, the order_id extracted from notes field is our internal order_id
+    if (gatewayName === 'scalev' && event.order_id) {
+      const { getOrderById } = await import('../services/order.service');
+      order = await getOrderById(event.order_id);
+    }
+
+    // Try by gateway_reference (for gateways that provide it)
+    if (!order && event.gateway_reference) {
       const { getOrderByGatewayRef } = await import('../services/order.service');
       order = await getOrderByGatewayRef(event.gateway_reference);
     }
 
-    if (!order) {
+    // Try by order_id (for gateways that use our order_id directly)
+    if (!order && event.order_id) {
       const { getOrderById } = await import('../services/order.service');
       order = await getOrderById(event.order_id);
     }
