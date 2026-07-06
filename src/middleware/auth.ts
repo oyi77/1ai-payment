@@ -24,7 +24,7 @@ export async function authMiddleware(c: Context, next: Next) {
   const db = getDb();
   const keyHash = sha256Hash(apiKey);
   const result = await db.execute({
-    sql: 'SELECT id, name, active FROM merchants WHERE api_key_hash = ?',
+    sql: 'SELECT id, name, plan, active FROM merchants WHERE api_key_hash = ?',
     args: [keyHash],
   });
 
@@ -35,6 +35,7 @@ export async function authMiddleware(c: Context, next: Next) {
     }
     c.set('merchantId', merchant.id as string);
     c.set('merchantName', merchant.name as string);
+    c.set('merchantPlan', (merchant.plan as string) ?? 'free');
     await next();
     return;
   }
@@ -44,6 +45,7 @@ export async function authMiddleware(c: Context, next: Next) {
   if (apiKey === config.API_KEY) {
     c.set('merchantId', 'merch_default');
     c.set('merchantName', 'Default');
+    c.set('merchantPlan', 'free');
     await next();
     return;
   }

@@ -17,9 +17,11 @@ import {
   getOrderById,
   getOrderByIdempotencyKey,
   updateOrderStatus,
+  listOrders,
   type CreateOrderParams,
 } from '../services/order.service';
 import { getGateway, getAvailableGateways, getGatewayMethods } from '../services/gateway.service';
+import { getDb } from '../config/database';
 import { DuplicateOrderError, GatewayError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import {
@@ -30,6 +32,8 @@ import {
   errorSchema,
   orderToResponse,
   defaultHook,
+  transactionResponseSchema,
+  webhookDeliverySchema,
 } from '../schemas';
 
 type MerchantEnv = { Variables: { merchantId?: string; merchantName?: string } };
@@ -361,6 +365,178 @@ paymentRoutes.openapi(getGatewayMethodsRoute, async (c) => {
     return c.json({
       success: false as const,
       error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch methods' },
+    }, 500);
+  }
+});
+
+// ── GET /api/transactions ──────────────────────────────────────
+
+const listTransactionsRoute = createRoute({
+  method: 'get',
+  path: '/transactions',
+  tags: ['Transactions'],
+  summary: 'List transactions',
+  description: 'Returns transaction history for the authenticated merchant with filters.',
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    query: z.object({
+      status: z.string().optional().openapi({ example: 'success' }),
+      gateway: z.string().optional().openapi({ example: 'midtrans' }),
+      from: z.string().optional().openapi({ description: 'ISO date string', example: '2026-01-01' }),
+      to: z.string().optional().openapi({ description: 'ISO date string', example: '2026-12-31' }),
+      limit: z.coerce.number().int().min(1).max(100).default(50).openapi({ example: 50 }),
+      offset: z.coerce.number().int().min(0).default(0).openapi({ example: 0 }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Transaction list.',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: z.object({
+              transactions: z.array(transactionResponseSchema),
+              total: z.number(),
+              limit: z.number(),
+              offset: z.number(),
+            }),
+          }),
+        },
+      },
+    },
+    401: { description: 'Unauthorized.', content: { 'application/json': { schema: errorSchema } } },
+    500: { description: 'Internal error.', content: { 'application/json': { schema: errorSchema } } },
+  },
+});
+
+paymentRoutes.openapi(listTransactionsRoute, async (c) => {
+  const merchantId = c.get('merchantId') ?? 'merch_default';
+  const query = c.req.valid('query');
+
+  try {
+    const result = await listOrders({
+      merchant_id: merchantId,
+      gateway: query.gateway,
+      status: query.status,
+      from: query.from,
+      to: query.to,
+      limit: query.limit,
+      offset: query.offset,
+    });
+
+    return c.json({
+      success: true as const,
+      data: {
+        transactions: result.orders.map((o) => ({
+          id: o.id,
+          gateway: o.gateway,
+          gateway_reference: o.gateway_reference,
+          status: o.status,
+          amount: o.amount,
+          currency: o.currency,
+          payment_method: o.payment_method,
+          fee: o.fee,
+          net: o.net,
+          created_at: o.created_at,
+        })),
+        total: result.total,
+        limit: query.limit,
+        offset: query.offset,
+      },
+    }, 200);
+  } catch (err: unknown) {
+    logger.error('Error listing transactions', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({
+      success: false as const,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to list transactions' },
+    }, 500);
+  }
+});
+
+// ── GET /api/webhook-deliveries ────────────────────────────────
+
+const listWebhookDeliveriesRoute = createRoute({
+  method: 'get',
+  path: '/webhook-deliveries',
+  tags: ['Webhooks'],
+  summary: 'List webhook deliveries',
+  description: 'Returns webhook delivery log for the authenticated merchant.',
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    query: z.object({
+      order_id: z.string().optional().openapi({ example: 'pay_abc123' }),
+      limit: z.coerce.number().int().min(1).max(100).default(20).openapi({ example: 20 }),
+      offset: z.coerce.number().int().min(0).default(0).openapi({ example: 0 }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Webhook delivery list.',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: z.object({
+              deliveries: z.array(webhookDeliverySchema),
+              total: z.number(),
+            }),
+          }),
+        },
+      },
+    },
+    401: { description: 'Unauthorized.', content: { 'application/json': { schema: errorSchema } } },
+    500: { description: 'Internal error.', content: { 'application/json': { schema: errorSchema } } },
+  },
+});
+
+paymentRoutes.openapi(listWebhookDeliveriesRoute, async (c) => {
+  const merchantId = c.get('merchantId') ?? 'merch_default';
+  const query = c.req.valid('query');
+
+  try {
+    const db = getDb();
+    const conditions = ['o.merchant_id = ?'];
+    const args: Array<string | number> = [merchantId];
+
+    if (query.order_id) {
+      conditions.push('we.order_id = ?');
+      args.push(query.order_id);
+    }
+
+    const where = conditions.join(' AND ');
+    const limit = Math.min(query.limit, 100);
+
+    const countResult = await db.execute({
+      sql: `SELECT COUNT(*) as count FROM webhook_events we JOIN orders o ON we.order_id = o.id WHERE ${where}`,
+      args,
+    });
+    const total = Number((countResult.rows[0] as Record<string, unknown>).count);
+
+    const result = await db.execute({
+      sql: `SELECT we.* FROM webhook_events we JOIN orders o ON we.order_id = o.id WHERE ${where} ORDER BY we.created_at DESC LIMIT ? OFFSET ?`,
+      args: [...args, limit, query.offset],
+    });
+
+    return c.json({
+      success: true as const,
+      data: {
+        deliveries: result.rows.map((row) => ({
+          id: row.id as string,
+          gateway: row.gateway as string,
+          order_id: row.order_id as string | null,
+          status: row.status as string | null,
+          signature_valid: Number(row.signature_valid),
+          created_at: row.created_at as string,
+        })),
+        total,
+      },
+    }, 200);
+  } catch (err: unknown) {
+    logger.error('Error listing webhook deliveries', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({
+      success: false as const,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to list webhook deliveries' },
     }, 500);
   }
 });

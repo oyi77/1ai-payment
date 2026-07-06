@@ -202,3 +202,27 @@ export function getGatewayConfig(gateway: string) {
       throw new Error(`Unknown gateway: ${gateway}`);
   }
 }
+
+/**
+ * Get gateway config for a specific merchant.
+ * Checks merchant_gateways table first, falls back to platform env config.
+ */
+export async function getGatewayConfigForMerchant(gateway: string, merchantId: string) {
+  const { getDb } = await import('./database');
+  const { decrypt } = await import('../utils/crypto');
+  const db = getDb();
+  const result = await db.execute({
+    sql: 'SELECT credentials, environment FROM merchant_gateways WHERE merchant_id = ? AND gateway = ? AND enabled = 1',
+    args: [merchantId, gateway],
+  });
+
+  if (result.rows.length > 0) {
+    try {
+      return JSON.parse(decrypt(result.rows[0].credentials as string));
+    } catch {
+      // Fall through to platform config if decryption fails
+    }
+  }
+
+  return getGatewayConfig(gateway);
+}

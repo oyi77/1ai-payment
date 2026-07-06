@@ -1,8 +1,8 @@
 /**
- * Rate limiting middleware — in-memory sliding window.
+ * Rate limiting middleware — per-merchant with plan tiers.
  *
- * Payment endpoints: 10 req/min.
- * Webhook endpoints: 60 req/min.
+ * Keys by merchant_id (from auth context), falls back to IP.
+ * Plan tiers: free=30/min, pro=120/min, enterprise=600/min (API).
  */
 
 import type { Context, Next } from 'hono';
@@ -12,11 +12,27 @@ interface RateLimitOptions {
   max: number;
 }
 
+const PLAN_LIMITS: Record<string, number> = {
+  free: 30,
+  pro: 120,
+  enterprise: 600,
+};
+
 const counters = new Map<string, { count: number; resetAt: number }>();
 
 export function rateLimitMiddleware(options: RateLimitOptions) {
   return async (c: Context, next: Next) => {
-    const key = c.req.header('X-Forwarded-For') || c.req.header('CF-Connecting-IP') || 'unknown';
+    const merchantId = c.get('merchantId') as string | undefined;
+    const merchantPlan = c.get('merchantPlan') as string | undefined;
+
+    // Key by merchant if available, else by IP
+    const ip = c.req.header('X-Forwarded-For') || c.req.header('CF-Connecting-IP') || 'unknown';
+    const key = merchantId || ip;
+
+    // Use plan-based limit if available, else use configured max
+    const planLimit = merchantPlan ? PLAN_LIMITS[merchantPlan] : undefined;
+    const maxLimit = planLimit ?? options.max;
+
     const now = Date.now();
     const entry = counters.get(key);
 
@@ -28,7 +44,7 @@ export function rateLimitMiddleware(options: RateLimitOptions) {
 
     entry.count++;
 
-    if (entry.count > options.max) {
+    if (entry.count > maxLimit) {
       c.header('Retry-After', String(Math.ceil((entry.resetAt - now) / 1000)));
       return c.json({ success: false as const, error: { code: 'RATE_LIMITED', message: 'Too many requests' } }, 429);
     }

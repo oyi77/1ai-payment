@@ -16,6 +16,7 @@ import { initDatabase } from './config/database';
 import { webhookRoutes } from './routes/webhook';
 import { paymentRoutes } from './routes/payment';
 import { merchantRoutes } from './routes/merchant';
+import { refundRoutes } from './routes/refund';
 import { healthRoutes } from './routes/health';
 import { rateLimitMiddleware } from './middleware/rate-limit';
 import { defaultHook } from './schemas';
@@ -33,7 +34,7 @@ app.route('/', healthRoutes);
 app.route('/webhook', webhookRoutes);
 app.route('/api', paymentRoutes);
 app.route('/api', merchantRoutes);
-
+app.route('/api', refundRoutes);
 // Auto-generated OpenAPI JSON spec at /doc
 app.doc('/doc', {
   openapi: '3.1.0',

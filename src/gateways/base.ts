@@ -20,8 +20,8 @@ export interface NormalizedPaymentEvent {
 }
 
 export interface CreatePaymentParams {
-  orderId: string;        // 1ai-payment order ID
-  amount: number;         // In smallest currency unit
+  orderId: string;
+  amount: number;
   currency: string;
   paymentMethod?: string;
   customerName?: string;
@@ -29,9 +29,14 @@ export interface CreatePaymentParams {
 }
 
 export interface CreatePaymentResult {
-  gatewayReference: string;  // Gateway's transaction ID
-  paymentUrl: string;        // URL to redirect user to
-  expiresAt?: string;        // ISO timestamp
+  gatewayReference: string;
+  paymentUrl: string;
+  expiresAt?: string;
+}
+
+export interface RefundResult {
+  gatewayRefundId: string;
+  status: 'success' | 'pending' | 'failed';
 }
 
 export interface PaymentMethod {
@@ -61,4 +66,10 @@ export interface PaymentGateway {
    * metadata is injected from order registry, not from gateway.
    */
   normalizeEvent(body: unknown, metadata?: Record<string, unknown> | null): NormalizedPaymentEvent;
+
+  /**
+   * Refund a payment. Optional — gateways that don't support refunds
+   * should throw GatewayError('REFUND_NOT_SUPPORTED').
+   */
+  refundPayment?(gatewayRef: string, amount: number): Promise<RefundResult>;
 }

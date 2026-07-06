@@ -4,6 +4,7 @@
 
 import crypto from 'crypto';
 import { nanoid } from 'nanoid';
+import { getConfig } from '../config/env';
 
 /**
  * Timing-safe string comparison to prevent timing attacks.
@@ -60,4 +61,36 @@ export function generateApiKey(): string {
  */
 export function generateWebhookSecret(): string {
   return 'whsec_' + crypto.randomBytes(32).toString('hex');
+}
+
+// AES-256-GCM encryption for merchant gateway credentials
+const ENC_ALGORITHM = 'aes-256-gcm';
+const ENC_KEY_LENGTH = 32;
+const ENC_IV_LENGTH = 16;
+const ENC_TAG_LENGTH = 16;
+
+function getEncryptionKey(): Buffer {
+  const config = getConfig();
+  const secret = config.API_KEY || 'default-dev-key-change-in-production';
+  return crypto.createHash('sha256').update(secret).digest();
+}
+
+export function encrypt(plaintext: string): string {
+  const key = getEncryptionKey();
+  const iv = crypto.randomBytes(ENC_IV_LENGTH);
+  const cipher = crypto.createCipheriv(ENC_ALGORITHM, key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([iv, tag, encrypted]).toString('base64');
+}
+
+export function decrypt(ciphertext: string): string {
+  const key = getEncryptionKey();
+  const buf = Buffer.from(ciphertext, 'base64');
+  const iv = buf.subarray(0, ENC_IV_LENGTH);
+  const tag = buf.subarray(ENC_IV_LENGTH, ENC_IV_LENGTH + ENC_TAG_LENGTH);
+  const encrypted = buf.subarray(ENC_IV_LENGTH + ENC_TAG_LENGTH);
+  const decipher = crypto.createDecipheriv(ENC_ALGORITHM, key, iv);
+  decipher.setAuthTag(tag);
+  return decipher.update(encrypted) + decipher.final('utf8');
 }

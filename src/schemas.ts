@@ -162,6 +162,73 @@ export const rotateKeyResponseSchema = z.object({
   }),
 }).openapi('RotateKeyResponse');
 
+// ── Phase 2 schemas ────────────────────────────────────────────
+
+export const createRefundBodySchema = z.object({
+  order_id: z.string().min(1).openapi({ example: 'pay_abc123' }),
+  amount: z.number().int().positive().optional().openapi({ description: 'Refund amount. Omit for full refund.', example: 50000 }),
+  reason: z.string().max(500).optional().openapi({ example: 'Customer request' }),
+}).openapi('CreateRefundBody');
+
+export const refundResponseSchema = z.object({
+  id: z.string().openapi({ example: 'ref_abc123' }),
+  order_id: z.string().openapi({ example: 'pay_abc123' }),
+  merchant_id: z.string().openapi({ example: 'merch_abc123' }),
+  amount: z.number().openapi({ example: 50000 }),
+  gateway: z.string().openapi({ example: 'midtrans' }),
+  gateway_refund_id: z.string().nullable().openapi({ example: 'refund_xyz' }),
+  status: z.string().openapi({ example: 'success' }),
+  reason: z.string().nullable().openapi({ example: 'Customer request' }),
+  created_at: z.string().openapi({ example: '2026-07-06T10:00:00.000Z' }),
+  updated_at: z.string().openapi({ example: '2026-07-06T10:00:00.000Z' }),
+}).openapi('Refund');
+
+export const transactionResponseSchema = z.object({
+  id: z.string().openapi({ example: 'pay_abc123' }),
+  gateway: z.string().openapi({ example: 'midtrans' }),
+  gateway_reference: z.string().nullable().openapi({ example: 'trx_abc123' }),
+  status: z.string().openapi({ example: 'success' }),
+  amount: z.number().openapi({ example: 100000 }),
+  currency: z.string().openapi({ example: 'IDR' }),
+  payment_method: z.string().nullable().openapi({ example: 'qris' }),
+  fee: z.number().openapi({ example: 2500 }),
+  net: z.number().openapi({ example: 97500 }),
+  created_at: z.string().openapi({ example: '2026-07-06T10:00:00.000Z' }),
+}).openapi('Transaction');
+
+export const webhookDeliverySchema = z.object({
+  id: z.string().openapi({ example: 'evt_abc123' }),
+  gateway: z.string().openapi({ example: 'midtrans' }),
+  order_id: z.string().nullable().openapi({ example: 'pay_abc123' }),
+  status: z.string().nullable().openapi({ example: 'success' }),
+  signature_valid: z.number().openapi({ example: 1 }),
+  created_at: z.string().openapi({ example: '2026-07-06T10:00:00.000Z' }),
+}).openapi('WebhookDelivery');
+
+// ── Phase 3 schemas ────────────────────────────────────────────
+
+export const setGatewayCredentialsBodySchema = z.object({
+  credentials: z.record(z.string(), z.string()).openapi({
+    description: 'Gateway credentials as key-value pairs (e.g. apiKey, privateKey, merchantCode)',
+    example: { apiKey: 'your-key', privateKey: 'your-secret' },
+  }),
+  environment: z.enum(['sandbox', 'production']).default('sandbox').openapi({ example: 'sandbox' }),
+}).openapi('SetGatewayCredentials');
+
+export const merchantGatewayResponseSchema = z.object({
+  id: z.string().openapi({ example: 'mgw_abc123' }),
+  merchant_id: z.string().openapi({ example: 'merch_abc123' }),
+  gateway: z.string().openapi({ example: 'midtrans' }),
+  environment: z.string().openapi({ example: 'sandbox' }),
+  enabled: z.boolean().openapi({ example: true }),
+  created_at: z.string().openapi({ example: '2026-07-06T10:00:00.000Z' }),
+  updated_at: z.string().openapi({ example: '2026-07-06T10:00:00.000Z' }),
+}).openapi('MerchantGateway');
+
+export const toggleGatewayBodySchema = z.object({
+  enabled: z.boolean().openapi({ example: false }),
+}).openapi('ToggleGateway');
+
 // ── Helpers ────────────────────────────────────────────────────
 
 export function orderToResponse(order: {

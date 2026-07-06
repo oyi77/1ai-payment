@@ -13,6 +13,7 @@ import { logger } from '../utils/logger';
 export interface Order {
   id: string;
   project_id: string;
+  merchant_id: string;
   project_order_id: string | null;
   callback_url: string;
   gateway: string;
@@ -24,6 +25,8 @@ export interface Order {
   status: string;
   metadata: Record<string, unknown> | null;
   idempotency_key: string | null;
+  fee: number;
+  net: number;
   created_at: string;
   updated_at: string;
   forwarded_at: string | null;
@@ -160,8 +163,11 @@ export async function markForwarded(id: string, statusCode?: number, attempts?: 
 
 export async function listOrders(params: {
   project_id?: string;
+  merchant_id?: string;
   gateway?: string;
   status?: string;
+  from?: string;
+  to?: string;
   limit?: number;
   offset?: number;
 }): Promise<{ orders: Order[]; total: number }> {
@@ -169,7 +175,10 @@ export async function listOrders(params: {
   const conditions: string[] = [];
   const args: Array<string | number | null> = [];
 
-  if (params.project_id) {
+  if (params.merchant_id) {
+    conditions.push('merchant_id = ?');
+    args.push(params.merchant_id);
+  } else if (params.project_id) {
     conditions.push('project_id = ?');
     args.push(params.project_id);
   }
@@ -180,6 +189,14 @@ export async function listOrders(params: {
   if (params.status) {
     conditions.push('status = ?');
     args.push(params.status);
+  }
+  if (params.from) {
+    conditions.push('created_at >= ?');
+    args.push(params.from);
+  }
+  if (params.to) {
+    conditions.push('created_at <= ?');
+    args.push(params.to);
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -216,6 +233,7 @@ function mapRow(row: Record<string, unknown>): Order {
   return {
     id: row.id as string,
     project_id: row.project_id as string,
+    merchant_id: (row.merchant_id as string) ?? row.project_id as string,
     project_order_id: (row.project_order_id as string) ?? null,
     callback_url: row.callback_url as string,
     gateway: row.gateway as string,
@@ -227,6 +245,8 @@ function mapRow(row: Record<string, unknown>): Order {
     status: (row.status as string) ?? 'pending',
     metadata,
     idempotency_key: (row.idempotency_key as string) ?? null,
+    fee: Number(row.fee ?? 0),
+    net: Number(row.net ?? 0),
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
     forwarded_at: (row.forwarded_at as string) ?? null,

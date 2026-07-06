@@ -18,6 +18,7 @@ export async function initDatabase(): Promise<void> {
   const config = getConfig();
   db = createClient({ url: `file:${config.DATABASE_PATH}` });
 
+  // Core tables (safe to run every boot)
   await db.executeMultiple(`
     CREATE TABLE IF NOT EXISTS orders (
       id TEXT PRIMARY KEY,
@@ -43,13 +44,6 @@ export async function initDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
     CREATE INDEX IF NOT EXISTS idx_orders_idempotency ON orders(idempotency_key);
 
-    -- Per-merchant idempotency (Step 1.6)
-    -- merchant_id column added for multi-tenant scoping
-    -- Existing orders get merchant_id = project_id via migration
-    ALTER TABLE orders ADD COLUMN merchant_id TEXT;
-    UPDATE orders SET merchant_id = project_id WHERE merchant_id IS NULL;
-    CREATE INDEX IF NOT EXISTS idx_orders_merchant_idempotency ON orders(merchant_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
-
     CREATE TABLE IF NOT EXISTS webhook_events (
       id TEXT PRIMARY KEY,
       gateway TEXT NOT NULL,
@@ -64,6 +58,7 @@ export async function initDatabase(): Promise<void> {
 
     CREATE INDEX IF NOT EXISTS idx_webhook_events_gateway ON webhook_events(gateway);
     CREATE INDEX IF NOT EXISTS idx_webhook_events_created ON webhook_events(created_at);
+
     CREATE TABLE IF NOT EXISTS merchants (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -77,20 +72,63 @@ export async function initDatabase(): Promise<void> {
     );
 
     CREATE INDEX IF NOT EXISTS idx_merchants_api_key ON merchants(api_key_hash);
+
+    CREATE TABLE IF NOT EXISTS merchant_gateways (
+      id TEXT PRIMARY KEY,
+      merchant_id TEXT NOT NULL,
+      gateway TEXT NOT NULL,
+      credentials TEXT NOT NULL,
+      environment TEXT DEFAULT 'sandbox',
+      enabled INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(merchant_id, gateway)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_merchant_gateways_merchant ON merchant_gateways(merchant_id);
+
+    CREATE TABLE IF NOT EXISTS refunds (
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL,
+      merchant_id TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      gateway TEXT NOT NULL,
+      gateway_refund_id TEXT,
+      status TEXT DEFAULT 'pending',
+      reason TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_refunds_order ON refunds(order_id);
+    CREATE INDEX IF NOT EXISTS idx_refunds_merchant ON refunds(merchant_id);
   `);
 
+  // Idempotent column additions (ALTER TABLE doesn't support IF NOT EXISTS)
+  for (const col of ['merchant_id TEXT', 'fee INTEGER DEFAULT 0', 'net INTEGER DEFAULT 0']) {
+    try {
+      await db.execute(`ALTER TABLE orders ADD COLUMN ${col}`);
+    } catch { /* column already exists */ }
+  }
+
+  // Backfill merchant_id for existing orders
+  await db.execute("UPDATE orders SET merchant_id = project_id WHERE merchant_id IS NULL");
+
+  // Per-merchant idempotency index (requires merchant_id column to exist)
+  await db.execute(
+    'CREATE INDEX IF NOT EXISTS idx_orders_merchant_idempotency ON orders(merchant_id, idempotency_key) WHERE idempotency_key IS NOT NULL'
+  );
+
   // Seed default merchant from env API_KEY if no merchants exist
-  const config2 = getConfig();
   const existing = await db.execute('SELECT COUNT(*) as count FROM merchants');
   if ((existing.rows[0]?.count ?? 0) === 0) {
     await db.execute({
       sql: `INSERT OR IGNORE INTO merchants (id, name, api_key_hash, webhook_secret, active)
             VALUES ('merch_default', 'Default', ?, ?, 1)`,
-      args: [sha256Hash(config2.API_KEY), generateWebhookSecret()],
+      args: [sha256Hash(config.API_KEY), generateWebhookSecret()],
     });
     logger.info('Default merchant seeded from env API_KEY');
   }
 
   logger.info('Database initialized');
-
 }
