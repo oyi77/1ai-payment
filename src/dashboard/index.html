@@ -3,185 +3,541 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>1ai-payment Dashboard</title>
+  <title>1ai-payment — Merchant Portal</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
-    .login { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-    .login-box { background: #161b27; border: 1px solid #1e2740; border-radius: 12px; padding: 40px; width: 400px; text-align: center; }
-    .login-box h1 { font-size: 24px; margin-bottom: 8px; }
-    .login-box p { color: #94a3b8; margin-bottom: 24px; font-size: 14px; }
-    .login-box input { width: 100%; padding: 12px 16px; background: #0f1117; border: 1px solid #2d3a55; border-radius: 8px; color: #e2e8f0; font-size: 14px; margin-bottom: 16px; }
-    .login-box input:focus { outline: none; border-color: #818cf8; }
-    .login-box button { width: 100%; padding: 12px; background: #6366f1; border: none; border-radius: 8px; color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
-    .login-box button:hover { background: #4f46e5; }
-    .dashboard { display: none; max-width: 1200px; margin: 0 auto; padding: 24px; }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .header h1 { font-size: 20px; }
-    .header .merchant-name { color: #94a3b8; font-size: 14px; }
-    .nav { display: flex; gap: 4px; margin-bottom: 24px; }
-    .nav button { padding: 8px 16px; background: transparent; border: 1px solid transparent; border-radius: 6px; color: #94a3b8; cursor: pointer; font-size: 13px; }
-    .nav button.active { background: #1e2740; border-color: #2d3a55; color: #e2e8f0; }
-    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    a { color: #818cf8; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Layout ─────────────────────────────────── */
+    .page { display: none; min-height: 100vh; }
+    .page.active { display: flex; }
+    .center-page { align-items: center; justify-content: center; }
+
+    .card { background: #161b27; border: 1px solid #1e2740; border-radius: 12px; padding: 40px; width: 440px; max-width: 90vw; }
+    .card h1 { font-size: 24px; margin-bottom: 4px; }
+    .card h2 { font-size: 18px; margin-bottom: 4px; }
+    .card .subtitle { color: #94a3b8; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+
+    /* ── Forms ──────────────────────────────────── */
+    label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px; text-align: left; }
+    input, select { width: 100%; padding: 12px 16px; background: #0f1117; border: 1px solid #2d3a55; border-radius: 8px; color: #e2e8f0; font-size: 14px; margin-bottom: 16px; }
+    input:focus, select:focus { outline: none; border-color: #818cf8; }
+    input::placeholder { color: #4a5568; }
+    select option { background: #0f1117; }
+
+    .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+    .btn-primary { background: #6366f1; color: white; }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-primary:disabled { background: #4a5568; cursor: not-allowed; }
+    .btn-secondary { background: #1e2740; color: #e2e8f0; border: 1px solid #2d3a55; }
+    .btn-secondary:hover { background: #2d3a55; }
+    .btn-small { width: auto; padding: 8px 16px; font-size: 13px; }
+
+    .error-msg { color: #ef4444; font-size: 13px; margin-bottom: 12px; display: none; }
+    .error-msg.show { display: block; }
+    .success-msg { color: #22c55e; font-size: 13px; margin-bottom: 12px; }
+
+    .link-row { margin-top: 16px; font-size: 13px; color: #94a3b8; }
+
+    /* ── API Key reveal ─────────────────────────── */
+    .api-key-box { background: #0f1117; border: 1px solid #2d3a55; border-radius: 8px; padding: 16px; margin: 16px 0; word-break: break-all; font-family: monospace; font-size: 13px; color: #22c55e; position: relative; }
+    .api-key-box .copy-btn { position: absolute; top: 8px; right: 8px; background: #1e2740; border: 1px solid #2d3a55; border-radius: 6px; color: #94a3b8; padding: 4px 10px; font-size: 11px; cursor: pointer; }
+    .api-key-box .copy-btn:hover { background: #2d3a55; color: #e2e8f0; }
+
+    .warning-box { background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.3); border-radius: 8px; padding: 12px 16px; margin: 16px 0; font-size: 13px; color: #eab308; }
+
+    /* ── Dashboard ──────────────────────────────── */
+    .dash-layout { display: flex; min-height: 100vh; width: 100%; }
+    .sidebar { width: 240px; background: #161b27; border-right: 1px solid #1e2740; padding: 24px 16px; flex-shrink: 0; }
+    .sidebar .logo { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .sidebar .plan-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; background: rgba(129,140,248,0.15); color: #818cf8; margin-bottom: 24px; }
+    .sidebar nav { display: flex; flex-direction: column; gap: 2px; }
+    .sidebar nav button { text-align: left; padding: 10px 12px; background: transparent; border: none; border-radius: 6px; color: #94a3b8; cursor: pointer; font-size: 13px; }
+    .sidebar nav button:hover { background: #1e2740; color: #e2e8f0; }
+    .sidebar nav button.active { background: #1e2740; color: #e2e8f0; font-weight: 600; }
+    .sidebar .logout-btn { margin-top: auto; padding-top: 24px; }
+    .sidebar .logout-btn button { width: 100%; text-align: center; }
+
+    .main { flex: 1; padding: 32px; overflow-y: auto; }
+    .main h1 { font-size: 22px; margin-bottom: 24px; }
+
+    /* ── Stats ──────────────────────────────────── */
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
     .stat { background: #161b27; border: 1px solid #1e2740; border-radius: 8px; padding: 20px; }
-    .stat .label { font-size: 12px; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; }
+    .stat .label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
     .stat .value { font-size: 28px; font-weight: 700; }
-    .stat .value.success { color: #22c55e; }
-    .stat .value.pending { color: #eab308; }
-    .stat .value.failed { color: #ef4444; }
-    .table-wrap { background: #161b27; border: 1px solid #1e2740; border-radius: 8px; overflow: hidden; }
+    .stat .value.green { color: #22c55e; }
+    .stat .value.yellow { color: #eab308; }
+    .stat .value.red { color: #ef4444; }
+
+    /* ── Tables ─────────────────────────────────── */
+    .table-wrap { background: #161b27; border: 1px solid #1e2740; border-radius: 8px; overflow-x: auto; margin-bottom: 24px; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th { text-align: left; padding: 12px 16px; background: #1e2740; color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; }
     td { padding: 12px 16px; border-bottom: 1px solid #1e2740; }
     tr:last-child td { border-bottom: none; }
+    .mono { font-family: monospace; font-size: 12px; }
     .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
     .badge.success { background: rgba(34,197,94,0.15); color: #22c55e; }
     .badge.pending { background: rgba(234,179,8,0.15); color: #eab308; }
     .badge.failed { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+    /* ── Settings ───────────────────────────────── */
+    .settings-group { background: #161b27; border: 1px solid #1e2740; border-radius: 8px; padding: 24px; margin-bottom: 16px; }
+    .settings-group h3 { font-size: 14px; margin-bottom: 16px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+    .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #1e2740; }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-row .key { font-size: 13px; color: #94a3b8; }
+    .settings-row .val { font-size: 13px; font-weight: 600; }
+
     .hidden { display: none; }
-    .section { margin-bottom: 24px; }
-    .section h2 { font-size: 16px; margin-bottom: 12px; }
+
+    /* ── Setup wizard ───────────────────────────── */
+    .wizard-steps { display: flex; gap: 8px; margin-bottom: 24px; }
+    .wizard-step { flex: 1; height: 4px; background: #1e2740; border-radius: 2px; }
+    .wizard-step.done { background: #22c55e; }
+    .wizard-step.active { background: #818cf8; }
+
+    .step-content { display: none; }
+    .step-content.active { display: block; }
+
+    .code-block { background: #0f1117; border: 1px solid #2d3a55; border-radius: 8px; padding: 16px; margin: 12px 0; font-family: monospace; font-size: 13px; color: #e2e8f0; overflow-x: auto; white-space: pre; line-height: 1.6; }
+
+    .feature-list { list-style: none; margin: 16px 0; }
+    .feature-list li { padding: 8px 0; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+    .feature-list li::before { content: "✓"; color: #22c55e; font-weight: 700; }
   </style>
 </head>
 <body>
-  <div class="login" id="login">
-    <div class="login-box">
+
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- PAGE: Landing / Registration                      -->
+  <!-- ════════════════════════════════════════════════ -->
+  <div class="page center-page active" id="pageLanding">
+    <div class="card">
       <h1>1ai-payment</h1>
-      <p>Enter your merchant API key to access the dashboard.</p>
-      <input type="text" id="apiKeyInput" placeholder="1pay_..." autocomplete="off" />
-      <button onclick="login()">Sign In</button>
-      <p style="margin-top:16px;font-size:12px;color:#64748b;">Don't have a key? Create a merchant via <a href="/reference" style="color:#818cf8;">API</a>.</p>
+      <p class="subtitle">Accept payments across 10 gateways with a single API. Create your merchant account to get started.</p>
+
+      <div id="landingError" class="error-msg"></div>
+
+      <label for="regName">Business Name</label>
+      <input type="text" id="regName" placeholder="My Online Store" />
+
+      <label for="regPlan">Plan</label>
+      <select id="regPlan">
+        <option value="free">Free — 30 req/min, 2.5% fee</option>
+        <option value="pro">Pro — 120 req/min, 2% fee</option>
+        <option value="enterprise">Enterprise — 600 req/min, 1% fee</option>
+      </select>
+
+      <label for="regCallback">Default Callback URL <span style="color:#4a5568">(optional)</span></label>
+      <input type="url" id="regCallback" placeholder="https://my-app.com/payment/callback" />
+
+      <button class="btn btn-primary" onclick="register()" id="regBtn">Create Merchant Account</button>
+
+      <div class="link-row">
+        Already have an account? <a href="#" onclick="showPage('pageLogin'); return false;">Sign in</a>
+      </div>
     </div>
   </div>
 
-  <div class="dashboard" id="dashboard">
-    <div class="header">
-      <div>
-        <h1>1ai-payment</h1>
-        <span class="merchant-name" id="merchantName"></span>
-      </div>
-      <button onclick="logout()" style="padding:6px 12px;background:#1e2740;border:1px solid #2d3a55;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:12px;">Logout</button>
-    </div>
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- PAGE: API Key Reveal (after registration)         -->
+  <!-- ════════════════════════════════════════════════ -->
+  <div class="page center-page" id="pageKeyReveal">
+    <div class="card" style="width:520px">
+      <h2>🔑 Your API Key</h2>
+      <p class="subtitle">Save this key securely. It will <strong>not</strong> be shown again. You'll need it to authenticate API requests and access the dashboard.</p>
 
-    <div class="nav">
-      <button class="active" onclick="showTab('overview', this)">Overview</button>
-      <button onclick="showTab('transactions', this)">Transactions</button>
-      <button onclick="showTab('refunds', this)">Refunds</button>
-    </div>
+      <div class="api-key-box" id="apiKeyDisplay">
+        <span id="apiKeyValue"></span>
+        <button class="copy-btn" onclick="copyKey()">Copy</button>
+      </div>
 
-    <div id="overview" class="section">
-      <div class="stats">
-        <div class="stat"><div class="label">Total Transactions</div><div class="value" id="statTotal">-</div></div>
-        <div class="stat"><div class="label">Successful</div><div class="value success" id="statSuccess">-</div></div>
-        <div class="stat"><div class="label">Pending</div><div class="value pending" id="statPending">-</div></div>
-        <div class="stat"><div class="label">Failed</div><div class="value failed" id="statFailed">-</div></div>
+      <div class="warning-box">
+        ⚠️ <strong>Lost your key?</strong> You can rotate it from Settings, but the old key will stop working immediately.
+      </div>
+
+      <button class="btn btn-primary" onclick="goToSetup()">Continue to Setup →</button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- PAGE: Setup Wizard                                -->
+  <!-- ════════════════════════════════════════════════ -->
+  <div class="page center-page" id="pageSetup">
+    <div class="card" style="width:580px">
+      <h2>Setup Your Payment Integration</h2>
+      <p class="subtitle">3 quick steps to start accepting payments.</p>
+
+      <div class="wizard-steps">
+        <div class="wizard-step active" id="ws1"></div>
+        <div class="wizard-step" id="ws2"></div>
+        <div class="wizard-step" id="ws3"></div>
+      </div>
+
+      <!-- Step 1: Install SDK -->
+      <div class="step-content active" id="step1">
+        <h3 style="margin-bottom:12px">1. Install the SDK</h3>
+        <p style="font-size:14px;color:#94a3b8;margin-bottom:12px">Use our TypeScript SDK or call the API directly.</p>
+        <div class="code-block">npm install @1ai/payment</div>
+        <p style="font-size:13px;color:#64748b;margin-top:8px">Or use the REST API with any language.</p>
+        <button class="btn btn-primary btn-small" style="margin-top:16px" onclick="wizardNext(2)">Next →</button>
+      </div>
+
+      <!-- Step 2: Create payment -->
+      <div class="step-content" id="step2">
+        <h3 style="margin-bottom:12px">2. Create Your First Payment</h3>
+        <p style="font-size:14px;color:#94a3b8;margin-bottom:12px">Here's a minimal example:</p>
+        <div class="code-block" id="codeExample"></div>
+        <button class="btn btn-primary btn-small" style="margin-top:16px" onclick="wizardNext(3)">Next →</button>
+      </div>
+
+      <!-- Step 3: Done -->
+      <div class="step-content" id="step3">
+        <h3 style="margin-bottom:12px">3. You're Ready! 🎉</h3>
+        <ul class="feature-list">
+          <li>Payment creation with 10 gateways</li>
+          <li>Automatic webhook forwarding</li>
+          <li>Transaction history and refunds</li>
+          <li>Per-merchant rate limiting</li>
+        </ul>
+        <p style="font-size:14px;color:#94a3b8;margin:16px 0">Check the <a href="/reference" target="_blank">API Reference</a> for full documentation.</p>
+        <button class="btn btn-primary" onclick="goToDashboard()">Go to Dashboard →</button>
       </div>
     </div>
+  </div>
 
-    <div id="transactions" class="section hidden">
-      <h2>Recent Transactions</h2>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>ID</th><th>Gateway</th><th>Amount</th><th>Status</th><th>Method</th><th>Date</th></tr></thead>
-          <tbody id="txTable"></tbody>
-        </table>
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- PAGE: Login                                       -->
+  <!-- ════════════════════════════════════════════════ -->
+  <div class="page center-page" id="pageLogin">
+    <div class="card">
+      <h1>Welcome Back</h1>
+      <p class="subtitle">Sign in with your API key to access the merchant dashboard.</p>
+
+      <div id="loginError" class="error-msg"></div>
+
+      <label for="loginKey">API Key</label>
+      <input type="text" id="loginKey" placeholder="1pay_..." autocomplete="off" />
+
+      <button class="btn btn-primary" onclick="login()" id="loginBtn">Sign In</button>
+
+      <div class="link-row">
+        Don't have an account? <a href="#" onclick="showPage('pageLanding'); return false;">Create one</a>
       </div>
     </div>
+  </div>
 
-    <div id="refunds" class="section hidden">
-      <h2>Refunds</h2>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>ID</th><th>Order</th><th>Amount</th><th>Status</th><th>Reason</th><th>Date</th></tr></thead>
-          <tbody id="refundTable"></tbody>
-        </table>
-      </div>
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- PAGE: Dashboard                                   -->
+  <!-- ════════════════════════════════════════════════ -->
+  <div class="page" id="pageDashboard">
+    <div class="dash-layout">
+      <aside class="sidebar">
+        <div class="logo">1ai-payment</div>
+        <div class="plan-badge" id="dashPlan">free</div>
+        <nav>
+          <button class="active" onclick="dashTab('overview', this)">Overview</button>
+          <button onclick="dashTab('transactions', this)">Transactions</button>
+          <button onclick="dashTab('refunds', this)">Refunds</button>
+          <button onclick="dashTab('gateways', this)">Gateways</button>
+          <button onclick="dashTab('settings', this)">Settings</button>
+        </nav>
+        <div class="logout-btn">
+          <button class="btn btn-secondary btn-small" onclick="logout()">Sign Out</button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <!-- Overview -->
+        <div id="dOverview">
+          <h1>Overview</h1>
+          <div class="stats">
+            <div class="stat"><div class="label">Total Transactions</div><div class="value" id="sTotal">-</div></div>
+            <div class="stat"><div class="label">Successful</div><div class="value green" id="sSuccess">-</div></div>
+            <div class="stat"><div class="label">Pending</div><div class="value yellow" id="sPending">-</div></div>
+            <div class="stat"><div class="label">Failed</div><div class="value red" id="sFailed">-</div></div>
+          </div>
+          <h2 style="margin-bottom:12px">Recent Transactions</h2>
+          <div class="table-wrap">
+            <table><thead><tr><th>ID</th><th>Gateway</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody id="overviewTxTable"></tbody></table>
+          </div>
+        </div>
+
+        <!-- Transactions -->
+        <div id="dTransactions" class="hidden">
+          <h1>Transactions</h1>
+          <div class="table-wrap">
+            <table><thead><tr><th>ID</th><th>Gateway</th><th>Amount</th><th>Status</th><th>Method</th><th>Date</th></tr></thead><tbody id="txTable"></tbody></table>
+          </div>
+        </div>
+
+        <!-- Refunds -->
+        <div id="dRefunds" class="hidden">
+          <h1>Refunds</h1>
+          <div class="table-wrap">
+            <table><thead><tr><th>ID</th><th>Order</th><th>Amount</th><th>Status</th><th>Reason</th><th>Date</th></tr></thead><tbody id="refundTable"></tbody></table>
+          </div>
+        </div>
+
+        <!-- Gateways -->
+        <div id="dGateways" class="hidden">
+          <h1>Gateway Configuration</h1>
+          <p style="color:#94a3b8;font-size:14px;margin-bottom:16px">Configure your own gateway credentials or use platform-shared ones.</p>
+          <div class="table-wrap">
+            <table><thead><tr><th>Gateway</th><th>Environment</th><th>Status</th><th>Actions</th></tr></thead><tbody id="gwTable"></tbody></table>
+          </div>
+          <div class="warning-box" style="margin-top:16px">
+            ℹ️ To configure gateway credentials, use the <a href="/reference" target="_blank">API</a> — <code>PUT /api/merchants/:id/gateways/:gateway</code>
+          </div>
+        </div>
+
+        <!-- Settings -->
+        <div id="dSettings" class="hidden">
+          <h1>Settings</h1>
+          <div class="settings-group">
+            <h3>Account</h3>
+            <div class="settings-row"><span class="key">Merchant ID</span><span class="val mono" id="setMerchantId">-</span></div>
+            <div class="settings-row"><span class="key">Name</span><span class="val" id="setName">-</span></div>
+            <div class="settings-row"><span class="key">Plan</span><span class="val" id="setPlan">-</span></div>
+            <div class="settings-row"><span class="key">Callback URL</span><span class="val" id="setCallback">-</span></div>
+          </div>
+          <div class="settings-group">
+            <h3>API Key</h3>
+            <p style="font-size:13px;color:#94a3b8;margin-bottom:12px">Rotating your key will immediately invalidate the current one.</p>
+            <button class="btn btn-secondary btn-small" onclick="rotateKey()">Rotate API Key</button>
+            <div id="newKeyDisplay" class="hidden" style="margin-top:12px">
+              <div class="api-key-box"><span id="newKeyValue"></span><button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('newKeyValue').textContent)">Copy</button></div>
+              <div class="warning-box">⚠️ Save this key now — it won't be shown again.</div>
+            </div>
+          </div>
+          <div class="settings-group">
+            <h3>API Reference</h3>
+            <p style="font-size:13px;color:#94a3b8">Full API documentation with try-it-out:</p>
+            <a href="/reference" target="_blank" style="font-size:14px">Open Swagger UI →</a>
+          </div>
+        </div>
+      </main>
     </div>
   </div>
 
   <script>
-    const API = window.location.origin;
+    const API = location.origin;
     let token = localStorage.getItem('1pay_key') || '';
+    let merchantInfo = null;
 
+    // ── Helpers ──────────────────────────────────────
     function headers() { return { 'X-API-Key': token, 'Content-Type': 'application/json' }; }
 
-    async function api(path) {
-      const res = await fetch(API + path, { headers: headers() });
+    async function api(method, path, body) {
+      const res = await fetch(API + path, { method, headers: headers(), body: body ? JSON.stringify(body) : undefined });
+      const data = await res.json();
       if (res.status === 401) { logout(); return null; }
-      return res.json();
+      return data;
     }
 
-    function login() {
-      token = document.getElementById('apiKeyInput').value.trim();
-      if (!token) return;
+    function showPage(id) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function showError(el, msg) { el.textContent = msg; el.classList.add('show'); }
+    function hideError(el) { el.classList.remove('show'); }
+
+    // ── Registration ─────────────────────────────────
+    async function register() {
+      const name = document.getElementById('regName').value.trim();
+      const plan = document.getElementById('regPlan').value;
+      const callbackUrl = document.getElementById('regCallback').value.trim();
+      const err = document.getElementById('landingError');
+      hideError(err);
+
+      if (!name) { showError(err, 'Business name is required.'); return; }
+
+      const btn = document.getElementById('regBtn');
+      btn.disabled = true; btn.textContent = 'Creating...';
+
+      try {
+        const res = await fetch(API + '/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, plan, default_callback_url: callbackUrl || undefined }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          showError(err, errData.error?.message || 'Registration failed.');
+          return;
+        }
+
+        const data = await res.json();
+        if (!data.success) { showError(err, data.error?.message || 'Registration failed.'); return; }
+
+        // Store key and show reveal page
+        token = data.data.api_key;
+        localStorage.setItem('1pay_key', token);
+        merchantInfo = data.data.merchant;
+
+        document.getElementById('apiKeyValue').textContent = data.data.api_key;
+        showPage('pageKeyReveal');
+      } catch (e) {
+        showError(err, 'Network error. Please try again.');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Create Merchant Account';
+      }
+    }
+
+    function copyKey() {
+      const key = document.getElementById('apiKeyValue').textContent;
+      navigator.clipboard.writeText(key);
+      const btn = document.querySelector('#apiKeyDisplay .copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 2000);
+    }
+
+    function goToSetup() {
+      const key = token;
+      document.getElementById('codeExample').textContent =
+`import { OneAIPayment } from '@1ai/payment';
+
+const payment = new OneAIPayment({
+  apiKey: '${key.slice(0, 12)}...',
+  baseUrl: '${API}',
+});
+
+const order = await payment.create({
+  gateway: 'midtrans',
+  amount: 100000,
+  callback_url: 'https://my-app.com/callback',
+  metadata: { userId: '123' },
+});
+
+// Redirect user to order.payment_url`;
+      showPage('pageSetup');
+    }
+
+    function wizardNext(n) {
+      document.querySelectorAll('.step-content').forEach(s => s.classList.remove('active'));
+      document.getElementById('step' + n).classList.add('active');
+      for (let i = 1; i <= 3; i++) {
+        const el = document.getElementById('ws' + i);
+        el.classList.toggle('done', i < n);
+        el.classList.toggle('active', i === n);
+      }
+    }
+
+    function goToDashboard() { showPage('pageDashboard'); loadDashboard(); }
+
+    // ── Login ────────────────────────────────────────
+    async function login() {
+      const key = document.getElementById('loginKey').value.trim();
+      const err = document.getElementById('loginError');
+      hideError(err);
+      if (!key) { showError(err, 'Enter your API key.'); return; }
+
+      token = key;
+      const test = await api('GET', '/api/gateways');
+      if (!test || !test.success) { showError(err, 'Invalid API key.'); token = ''; return; }
+
       localStorage.setItem('1pay_key', token);
-      init();
+      showPage('pageDashboard');
+      loadDashboard();
     }
 
     function logout() {
       token = '';
       localStorage.removeItem('1pay_key');
-      document.getElementById('login').style.display = 'flex';
-      document.getElementById('dashboard').style.display = 'none';
+      merchantInfo = null;
+      showPage('pageLogin');
     }
 
-    function showTab(name, btn) {
-      document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
-      document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
-      document.getElementById(name).classList.remove('hidden');
+    // ── Dashboard ────────────────────────────────────
+    function dashTab(name, btn) {
+      ['dOverview', 'dTransactions', 'dRefunds', 'dGateways', 'dSettings'].forEach(id =>
+        document.getElementById(id).classList.toggle('hidden', id !== 'd' + name.charAt(0).toUpperCase() + name.slice(1))
+      );
+      document.querySelectorAll('.sidebar nav button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       if (name === 'transactions') loadTransactions();
       if (name === 'refunds') loadRefunds();
+      if (name === 'gateways') loadGateways();
+      if (name === 'settings') loadSettings();
     }
 
-    async function loadOverview() {
-      const all = await api('/api/transactions?limit=100');
+    async function loadDashboard() {
+      const all = await api('GET', '/api/transactions?limit=50');
       if (!all) return;
       const txs = all.data.transactions;
-      document.getElementById('statTotal').textContent = all.data.total;
-      document.getElementById('statSuccess').textContent = txs.filter(t => t.status === 'success').length;
-      document.getElementById('statPending').textContent = txs.filter(t => t.status === 'pending').length;
-      document.getElementById('statFailed').textContent = txs.filter(t => t.status === 'failed').length;
+      document.getElementById('sTotal').textContent = all.data.total;
+      document.getElementById('sSuccess').textContent = txs.filter(t => t.status === 'success').length;
+      document.getElementById('sPending').textContent = txs.filter(t => t.status === 'pending').length;
+      document.getElementById('sFailed').textContent = txs.filter(t => t.status === 'failed').length;
+      document.getElementById('overviewTxTable').innerHTML = txs.slice(0, 5).map(t =>
+        `<tr><td class="mono">${t.id}</td><td>${t.gateway}</td><td>${t.amount.toLocaleString()} ${t.currency}</td><td><span class="badge ${t.status}">${t.status}</span></td><td>${new Date(t.created_at).toLocaleDateString()}</td></tr>`
+      ).join('') || '<tr><td colspan="5" style="color:#64748b">No transactions yet</td></tr>';
     }
 
     async function loadTransactions() {
-      const data = await api('/api/transactions?limit=50');
+      const data = await api('GET', '/api/transactions?limit=50');
       if (!data) return;
-      const tbody = document.getElementById('txTable');
-      tbody.innerHTML = data.data.transactions.map(t => `<tr>
-        <td style="font-family:monospace;font-size:12px">${t.id}</td>
-        <td>${t.gateway}</td>
-        <td>${t.amount.toLocaleString()} ${t.currency}</td>
-        <td><span class="badge ${t.status}">${t.status}</span></td>
-        <td>${t.payment_method || '-'}</td>
-        <td>${new Date(t.created_at).toLocaleString()}</td>
-      </tr>`).join('');
+      document.getElementById('txTable').innerHTML = data.data.transactions.map(t =>
+        `<tr><td class="mono">${t.id}</td><td>${t.gateway}</td><td>${t.amount.toLocaleString()} ${t.currency}</td><td><span class="badge ${t.status}">${t.status}</span></td><td>${t.payment_method || '-'}</td><td>${new Date(t.created_at).toLocaleString()}</td></tr>`
+      ).join('') || '<tr><td colspan="6" style="color:#64748b">No transactions yet</td></tr>';
     }
 
     async function loadRefunds() {
-      const data = await api('/api/refunds?limit=50');
+      const data = await api('GET', '/api/refunds?limit=50');
       if (!data) return;
-      const tbody = document.getElementById('refundTable');
-      tbody.innerHTML = data.data.refunds.map(r => `<tr>
-        <td style="font-family:monospace;font-size:12px">${r.id}</td>
-        <td style="font-family:monospace;font-size:12px">${r.order_id}</td>
-        <td>${r.amount.toLocaleString()}</td>
-        <td><span class="badge ${r.status}">${r.status}</span></td>
-        <td>${r.reason || '-'}</td>
-        <td>${new Date(r.created_at).toLocaleString()}</td>
-      </tr>`).join('');
+      document.getElementById('refundTable').innerHTML = data.data.refunds.map(r =>
+        `<tr><td class="mono">${r.id}</td><td class="mono">${r.order_id}</td><td>${r.amount.toLocaleString()}</td><td><span class="badge ${r.status}">${r.status}</span></td><td>${r.reason || '-'}</td><td>${new Date(r.created_at).toLocaleString()}</td></tr>`
+      ).join('') || '<tr><td colspan="6" style="color:#64748b">No refunds yet</td></tr>';
     }
 
-    async function init() {
-      const me = await api('/api/gateways');
-      if (!me) return;
-      document.getElementById('login').style.display = 'none';
-      document.getElementById('dashboard').style.display = 'block';
-      document.getElementById('merchantName').textContent = 'Authenticated';
-      loadOverview();
+    async function loadGateways() {
+      const data = await api('GET', '/api/gateways');
+      if (!data) return;
+      const gwList = data.data;
+      document.getElementById('gwTable').innerHTML = gwList.map(g =>
+        `<tr><td>${g.gateway}</td><td>${g.currencies.join(', ')}</td><td><span class="badge ${g.enabled ? 'success' : 'pending'}">${g.enabled ? 'Available' : 'Configured'}</span></td><td><a href="/reference" target="_blank" style="font-size:12px">Configure →</a></td></tr>`
+      ).join('');
     }
 
-    if (token) init();
+    async function loadSettings() {
+      // Try to get merchant info from API
+      const merchants = await api('GET', '/api/merchants');
+      if (merchants && merchants.data && merchants.data.length > 0) {
+        const m = merchants.data[0]; // Default merchant
+        document.getElementById('setMerchantId').textContent = m.id;
+        document.getElementById('setName').textContent = m.name;
+        document.getElementById('setPlan').textContent = m.plan;
+        document.getElementById('setCallback').textContent = m.default_callback_url || 'Not set';
+        document.getElementById('dashPlan').textContent = m.plan;
+      }
+    }
+
+    async function rotateKey() {
+      if (!confirm('Rotate your API key? The current key will stop working immediately.')) return;
+      const merchants = await api('GET', '/api/merchants');
+      if (!merchants || !merchants.data || merchants.data.length === 0) return;
+      const id = merchants.data[0].id;
+      const result = await api('POST', `/api/merchants/${id}/api-key`);
+      if (!result || !result.success) return;
+      token = result.data.api_key;
+      localStorage.setItem('1pay_key', token);
+      document.getElementById('newKeyValue').textContent = result.data.api_key;
+      document.getElementById('newKeyDisplay').classList.remove('hidden');
+    }
+
+    // ── Auto-login ───────────────────────────────────
+    (async () => {
+      if (!token) { showPage('pageLanding'); return; }
+      const test = await api('GET', '/api/gateways');
+      if (test && test.success) { showPage('pageDashboard'); loadDashboard(); }
+      else { localStorage.removeItem('1pay_key'); token = ''; showPage('pageLanding'); }
+    })();
   </script>
 </body>
 </html>
