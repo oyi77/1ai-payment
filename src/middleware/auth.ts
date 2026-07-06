@@ -13,7 +13,7 @@ export async function authMiddleware(c: Context, next: Next) {
   const config = getConfig();
 
   if (!apiKey || apiKey !== config.API_KEY) {
-    return c.json({ error: 'Unauthorized' }, 401);
+    return c.json({ success: false as const, error: { code: 'UNAUTHORIZED', message: 'Invalid or missing API key' } }, 401);
   }
 
   await next();

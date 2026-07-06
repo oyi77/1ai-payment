@@ -4,33 +4,60 @@
  * Each gateway has its own endpoint:
  * - POST /webhook/midtrans
  * - POST /webhook/tripay
- * - POST /webhook/duitku
- * - POST /webhook/nowpayments
- * - POST /webhook/ipaymu
- * - POST /webhook/scalev
- * - POST /webhook/xendit
+ * - ... (10 gateways total)
  *
  * Flow: receive → verify signature → normalize → lookup order → forward to project
  * Returns 200 immediately. Forwarding happens asynchronously with retries.
+ *
+ * OpenAPI spec is auto-generated from route definitions.
  */
 
-import { Hono } from 'hono';
+import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { getGateway } from '../gateways';
 import { generateEventId } from '../utils/crypto';
 import { logger } from '../utils/logger';
 import { getDb } from '../config/database';
-import { updateOrderStatus, getOrderById } from '../services/order.service';
+import { updateOrderStatus, getOrderById, getOrderByGatewayRef } from '../services/order.service';
 import { forwardEvent } from '../services/forwarder.service';
-import { SignatureError } from '../utils/errors';
+import { webhookAckSchema, webhookErrorSchema, GATEWAY_NAMES, defaultHook } from '../schemas';
 import type { NormalizedPaymentEvent } from '../gateways/base';
 import type { Order } from '../services/order.service';
 
-export const webhookRoutes = new Hono();
+export const webhookRoutes = new OpenAPIHono({ defaultHook });
 
-const GATEWAYS = ['midtrans', 'tripay', 'duitku', 'nowpayments', 'ipaymu', 'scalev', 'xendit', 'telegram_stars', 'telegram_payments', 'paypal'] as const;
+const webhookAckJson = { 'application/json': { schema: webhookAckSchema } } as const;
+const errorJson = { 'application/json': { schema: webhookErrorSchema } } as const;
 
-for (const gatewayName of GATEWAYS) {
-  webhookRoutes.post(`/${gatewayName}`, async (c) => {
+for (const gatewayName of GATEWAY_NAMES) {
+  const route = createRoute({
+    method: 'post',
+    path: `/${gatewayName}` as string,
+    tags: ['Webhooks'],
+    summary: `Receive ${gatewayName} callback`,
+    description:
+      `Called by ${gatewayName}, not by API clients. ` +
+      'Verifies signature, normalizes event, updates order, forwards to project callback_url asynchronously.',
+    security: [],
+    request: {
+      body: {
+        content: {
+          'application/json': {
+            schema: z.record(z.string(), z.unknown()).openapi({
+              description: 'Gateway-specific payload. Schema varies per gateway.',
+            }),
+          },
+        },
+      },
+    },
+    responses: {
+      200: { description: 'Webhook accepted. Forwarding happens asynchronously.', content: webhookAckJson },
+      400: { description: 'Invalid JSON body or malformed event.', content: errorJson },
+      401: { description: 'Signature verification failed.', content: errorJson },
+      501: { description: 'Gateway not yet implemented.', content: errorJson },
+    },
+  });
+
+  webhookRoutes.openapi(route, async (c) => {
     const gateway = getGateway(gatewayName);
     if (!gateway) {
       return c.json({ error: `Gateway not implemented: ${gatewayName}` }, 501);
@@ -90,19 +117,16 @@ for (const gatewayName of GATEWAYS) {
 
     // For Scalev, the order_id extracted from notes field is our internal order_id
     if (gatewayName === 'scalev' && event.order_id) {
-      const { getOrderById } = await import('../services/order.service');
       order = await getOrderById(event.order_id);
     }
 
     // Try by gateway_reference (for gateways that provide it)
     if (!order && event.gateway_reference) {
-      const { getOrderByGatewayRef } = await import('../services/order.service');
       order = await getOrderByGatewayRef(event.gateway_reference);
     }
 
     // Try by order_id (for gateways that use our order_id directly)
     if (!order && event.order_id) {
-      const { getOrderById } = await import('../services/order.service');
       order = await getOrderById(event.order_id);
     }
 
@@ -123,7 +147,7 @@ for (const gatewayName of GATEWAYS) {
         });
       } catch { /* ignore */ }
 
-      return c.json({ ok: true });
+      return c.json({ ok: true as const }, 200);
     }
 
     // Re-normalize with metadata from order
@@ -152,6 +176,6 @@ for (const gatewayName of GATEWAYS) {
     });
 
     // Return 200 immediately (gateway expects fast response)
-    return c.json({ ok: true });
+    return c.json({ ok: true as const }, 200);
   });
 }

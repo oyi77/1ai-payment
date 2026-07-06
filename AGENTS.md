@@ -17,9 +17,10 @@ Full details: `~/.1ai/core/PROCESS.md` (auto-injected by hooks)
 
 ## This repo
 
-Payment gateway **aggregator** — unified API for creating payments across gateways and routing callbacks to owning projects.
+Payment gateway **aggregator** — unified API for creating payments across 10 gateways and routing callbacks to owning projects.
 Stack: TypeScript / Hono / LibSQL (SQLite)
 Domain: Payment creation, webhook aggregation, signature verification, order routing, callback forwarding
+Gateways: midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal
 
 Engineering rules are enforced by machine-level loaders when `setup-dev.sh` has been run:
 - Claude Code: SessionStart hook injects `~/.1ai/core/RULES.md` + enforcement table
@@ -97,24 +98,32 @@ Do NOT add the rules repo as a git submodule. Update rules centrally, then run/s
 
 ```
 src/
+├── schemas.ts       # Zod schemas (source of truth for validation + OpenAPI)
 ├── config/          # Environment, database
 ├── gateways/        # Gateway implementations (Provider pattern)
 │   ├── base.ts      # Abstract PaymentGateway interface + types
-│   ├── midtrans.ts  # Midtrans implementation
-│   ├── tripay.ts    # Tripay implementation
-│   ├── duitku.ts    # Duitku implementation
-│   └── nowpayments.ts # NOWPayments implementation
-├── middleware/       # Rate limiting, auth, logging
-├── routes/          # Hono route handlers
+│   ├── midtrans.ts  # Midtrans — SHA-512 signature
+│   ├── tripay.ts    # Tripay — HMAC-SHA256 signature
+│   ├── duitku.ts    # Duitku — MD5 signature
+│   ├── nowpayments.ts # NOWPayments — HMAC-SHA512 signature
+│   ├── ipaymu.ts    # iPaymu — SHA-256 signature
+│   ├── scalev.ts    # Scalev — HMAC-SHA256 signature
+│   ├── xendit.ts    # Xendit — X-Callback-Token header
+│   ├── telegram-stars/    # Telegram Stars (XTR)
+│   ├── telegram-payments/ # Telegram Payments (multi-currency)
+│   ├── paypal/      # PayPal — webhook signature
+│   └── index.ts     # Gateway registry (add gateway = implement + register)
+├── middleware/       # Rate limiting, auth
+├── routes/          # Hono route handlers (OpenAPIHono + createRoute)
 │   ├── webhook.ts   # /webhook/:gateway (callback receiver)
 │   ├── payment.ts   # /api/payments, /api/gateways
 │   └── health.ts    # /health
 ├── services/        # Business logic
 │   ├── order.service.ts      # Order CRUD + routing
-│   ├── forwarder.service.ts  # Forward events to projects
+│   ├── forwarder.service.ts  # Forward events to projects (async, 3-retry)
 │   └── gateway.service.ts    # Gateway registry + methods listing
 ├── utils/           # Crypto, logger, errors
-└── index.ts         # Entry point
+└── index.ts         # Entry point — OpenAPIHono + Swagger UI
 ```
 
 ## Commands
@@ -124,3 +133,15 @@ src/
 - Build: `bun run build`
 - Lint:  `bun run lint`
 - Type:  `bun run typecheck`
+
+## Adding a New Gateway
+
+1. Create `src/gateways/<name>/` — implement `PaymentGateway` interface from `base.ts`
+2. Register in `src/gateways/index.ts`
+3. Add gateway name to `GATEWAY_NAMES` in `src/schemas.ts`
+4. Add env vars to `src/config/env.ts` and `.env.example`
+
+## API Docs
+
+- Swagger UI: `GET /reference` (auto-generated from Zod schemas)
+- OpenAPI JSON: `GET /doc` (auto-generated, always in sync with code)

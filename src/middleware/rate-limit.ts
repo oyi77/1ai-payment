@@ -30,7 +30,7 @@ export function rateLimitMiddleware(options: RateLimitOptions) {
 
     if (entry.count > options.max) {
       c.header('Retry-After', String(Math.ceil((entry.resetAt - now) / 1000)));
-      return c.json({ error: 'Too many requests' }, 429);
+      return c.json({ success: false as const, error: { code: 'RATE_LIMITED', message: 'Too many requests' } }, 429);
     }
 
     await next();

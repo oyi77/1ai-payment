@@ -2,7 +2,7 @@
 
 Payment gateway **aggregator** microservice for the 1ai-ecosystem.
 
-**Purpose:** Unified API for creating payments across gateways (Midtrans, Tripay, Duitku, NOWPayments) and routing callbacks to the correct project.
+**Purpose:** Unified API for creating payments across 10 gateways and routing callbacks to the correct project.
 
 ## Problem
 
@@ -43,60 +43,90 @@ bun run build
 
 ## API
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/webhook/midtrans` | POST | Midtrans callback receiver |
-| `/webhook/tripay` | POST | Tripay callback receiver |
-| `/webhook/duitku` | POST | Duitku callback receiver |
-| `/webhook/nowpayments` | POST | NOWPayments callback receiver |
-| `/api/payments` | POST | Create payment (returns payment_url) |
-| `/api/payments/:id` | GET | Get payment status |
-| `/api/gateways` | GET | List available gateways |
-| `/api/gateways/:gateway/methods` | GET | List payment methods for a gateway |
-| `/health` | GET | Health check |
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/health` | GET | — | Service health + gateway config status |
+| `/api/payments` | POST | API key | Create payment (returns payment_url) |
+| `/api/payments/:id` | GET | API key | Get payment status |
+| `/api/gateways` | GET | API key | List available gateways |
+| `/api/gateways/:gateway/methods` | GET | API key | List payment methods for a gateway |
+| `/webhook/:gateway` | POST | Signature | Receive gateway callback |
 
-### Create Payment Example
+All `/api/*` endpoints require `X-API-Key` header.
+Webhook endpoints are authenticated via per-gateway HMAC signature verification.
+
+### Supported Gateways
+
+| Gateway | Key | Currencies | Signature |
+|---------|-----|------------|-----------|
+| Midtrans | `midtrans` | IDR | SHA-512 |
+| Tripay | `tripay` | IDR | HMAC-SHA256 |
+| Duitku | `duitku` | IDR | MD5 |
+| NOWPayments | `nowpayments` | USD, multi-crypto | HMAC-SHA512 |
+| iPaymu | `ipaymu` | IDR | SHA-256 |
+| Scalev | `scalev` | IDR | HMAC-SHA256 |
+| Xendit | `xendit` | IDR | X-Callback-Token |
+| Telegram Stars | `telegram_stars` | XTR | Telegram Bot API |
+| Telegram Payments | `telegram_payments` | Multi-currency | Telegram Bot API |
+| PayPal | `paypal` | USD, multi-currency | Webhook signature |
+
+### Create Payment
 
 ```bash
 curl -X POST http://localhost:3100/api/payments \
   -H "X-API-Key: your-api-key" \
   -H "Content-Type: application/json" \
-  -H "Idempotency-Key: unique-key-123" \
   -d '{
     "gateway": "midtrans",
     "amount": 100000,
     "currency": "IDR",
     "payment_method": "qris",
-    "callback_url": "https://your-app.com/callback",
-    "metadata": { "user_id": "123", "plan": "pro" }
+    "callback_url": "https://your-app.com/payment/callback",
+    "customer": { "name": "Budi Santoso", "email": "budi@example.com" },
+    "metadata": { "user_id": "usr_789", "plan": "pro" }
   }'
 ```
 
 Response:
+
 ```json
 {
   "success": true,
   "data": {
-    "id": "pay_xyz789",
+    "id": "pay_01j2k3l4m5n6",
     "gateway": "midtrans",
     "gateway_reference": "trx_abc123",
     "status": "pending",
     "amount": 100000,
     "currency": "IDR",
     "payment_method": "qris",
-    "payment_url": "https://sandbox.midtrans.com/pay/...",
-    "created_at": "2026-07-04T10:00:00.000Z"
+    "payment_url": "https://sandbox.midtrans.com/pay/abc123",
+    "metadata": { "user_id": "usr_789", "plan": "pro" },
+    "created_at": "2026-07-05T10:00:00.000Z",
+    "updated_at": "2026-07-05T10:00:01.000Z"
   }
 }
 ```
 
-## Architecture
+Redirect the end user to `data.payment_url` to complete payment.
 
-See [docs/01-architecture.md](docs/01-architecture.md) for detailed architecture.
+### Idempotency
+
+Pass `Idempotency-Key` header (or `idempotency_key` in body) to prevent duplicate orders on retries:
+
+```bash
+curl -X POST http://localhost:3100/api/payments \
+  -H "X-API-Key: your-api-key" \
+  -H "Idempotency-Key: order-usr789-1720180000" \
+  -H "Content-Type: application/json" \
+  -d '{ ... }'
+```
+
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Payment Gateways (Midtrans/Tripay/Duitku/etc)      │
+│  Payment Gateways (10 providers)                    │
 └─────────────────────────┬───────────────────────────┘
                           │ single callback per gateway
                           ▼
@@ -111,20 +141,31 @@ See [docs/01-architecture.md](docs/01-architecture.md) for detailed architecture
 │              Order Registry (LibSQL)                │
 │                          │                           │
 │                          ▼                           │
-│              Forwarder → Project Callback           │
+│         Forwarder (async, 3-retry) → callback_url   │
 └─────────────────────────┬───────────────────────────┘
-                          │ internal HTTP webhook
+                          │ normalized event (HTTP POST)
           ┌───────────────┼───────────────┐
           ▼               ▼               ▼
      1ai-content      1sub         1ai-affiliate
 ```
 
+See [docs/01-architecture.md](docs/01-architecture.md) for full architecture.
+
 ## Tech Stack
 
 - **Runtime:** Bun (TypeScript)
-- **Framework:** Hono (lightweight, edge-ready)
+- **Framework:** Hono + @hono/zod-openapi (auto-generated OpenAPI from Zod schemas)
 - **Database:** LibSQL/SQLite (local, no external DB needed)
 - **Deploy:** Same VPS as other 1ai services
+
+## API Reference
+
+OpenAPI spec is **auto-generated from Zod schemas** in `src/schemas.ts` and route definitions. No manual YAML to maintain.
+
+| Endpoint | Description |
+|----------|-------------|
+| `/reference` | Interactive Swagger UI (try-it-out, auth persistence) |
+| `/doc` | Auto-generated OpenAPI 3.1 JSON spec |
 
 ## Documentation
 
@@ -135,6 +176,13 @@ See [docs/01-architecture.md](docs/01-architecture.md) for detailed architecture
 | [docs/02-api-reference.md](docs/02-api-reference.md) | API contracts and schemas |
 | [docs/03-gateway-specs.md](docs/03-gateway-specs.md) | Per-gateway integration specs |
 | [docs/04-rollout-plan.md](docs/04-rollout-plan.md) | Migration and rollout plan |
+
+## Adding a New Gateway
+
+1. Create `src/gateways/<name>/` — implement `PaymentGateway` interface from `base.ts`
+2. Register in `src/gateways/index.ts`
+3. Add gateway name to `GATEWAY_NAMES` in `src/schemas.ts`
+4. Add env vars to `src/config/env.ts` and `.env.example`
 
 ## License
 
