@@ -1,0 +1,17 @@
+{
+  "name": "@1ai/payment",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for 1ai-payment gateway aggregator",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo 'TODO: add tests'"
+  },
+  "keywords": ["payment", "gateway", "aggregator", "sdk"],
+  "license": "UNLICENSED",
+  "private": true,
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

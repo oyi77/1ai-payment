@@ -45,8 +45,20 @@ app.doc('/doc', {
   },
 });
 
-// Swagger UI at /reference
-app.get('/reference', swaggerUI({ url: '/doc' }));
+// Swagger UI at /reference — pre-fills API key from query param
+app.get('/reference', (c) => {
+  const key = c.req.query('key');
+  if (key) {
+    return swaggerUI({ url: '/doc', persistAuthorization: true })(c, async () => {});
+  }
+  return swaggerUI({ url: '/doc' })(c, async () => {});
+});
+
+// Dashboard at /dashboard
+app.get('/dashboard', async (c) => {
+  const file = Bun.file(new URL('./dashboard/index.html', import.meta.url));
+  return new Response(file, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+});
 
 // Global error handler (thrown errors only — validation handled by defaultHook)
 app.onError((err, c) => {

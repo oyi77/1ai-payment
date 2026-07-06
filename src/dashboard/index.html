@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>1ai-payment Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+    .login { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .login-box { background: #161b27; border: 1px solid #1e2740; border-radius: 12px; padding: 40px; width: 400px; text-align: center; }
+    .login-box h1 { font-size: 24px; margin-bottom: 8px; }
+    .login-box p { color: #94a3b8; margin-bottom: 24px; font-size: 14px; }
+    .login-box input { width: 100%; padding: 12px 16px; background: #0f1117; border: 1px solid #2d3a55; border-radius: 8px; color: #e2e8f0; font-size: 14px; margin-bottom: 16px; }
+    .login-box input:focus { outline: none; border-color: #818cf8; }
+    .login-box button { width: 100%; padding: 12px; background: #6366f1; border: none; border-radius: 8px; color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .login-box button:hover { background: #4f46e5; }
+    .dashboard { display: none; max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .header h1 { font-size: 20px; }
+    .header .merchant-name { color: #94a3b8; font-size: 14px; }
+    .nav { display: flex; gap: 4px; margin-bottom: 24px; }
+    .nav button { padding: 8px 16px; background: transparent; border: 1px solid transparent; border-radius: 6px; color: #94a3b8; cursor: pointer; font-size: 13px; }
+    .nav button.active { background: #1e2740; border-color: #2d3a55; color: #e2e8f0; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat { background: #161b27; border: 1px solid #1e2740; border-radius: 8px; padding: 20px; }
+    .stat .label { font-size: 12px; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; }
+    .stat .value { font-size: 28px; font-weight: 700; }
+    .stat .value.success { color: #22c55e; }
+    .stat .value.pending { color: #eab308; }
+    .stat .value.failed { color: #ef4444; }
+    .table-wrap { background: #161b27; border: 1px solid #1e2740; border-radius: 8px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 12px 16px; background: #1e2740; color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; }
+    td { padding: 12px 16px; border-bottom: 1px solid #1e2740; }
+    tr:last-child td { border-bottom: none; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge.success { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .badge.pending { background: rgba(234,179,8,0.15); color: #eab308; }
+    .badge.failed { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .hidden { display: none; }
+    .section { margin-bottom: 24px; }
+    .section h2 { font-size: 16px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="login" id="login">
+    <div class="login-box">
+      <h1>1ai-payment</h1>
+      <p>Enter your merchant API key to access the dashboard.</p>
+      <input type="text" id="apiKeyInput" placeholder="1pay_..." autocomplete="off" />
+      <button onclick="login()">Sign In</button>
+      <p style="margin-top:16px;font-size:12px;color:#64748b;">Don't have a key? Create a merchant via <a href="/reference" style="color:#818cf8;">API</a>.</p>
+    </div>
+  </div>
+
+  <div class="dashboard" id="dashboard">
+    <div class="header">
+      <div>
+        <h1>1ai-payment</h1>
+        <span class="merchant-name" id="merchantName"></span>
+      </div>
+      <button onclick="logout()" style="padding:6px 12px;background:#1e2740;border:1px solid #2d3a55;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:12px;">Logout</button>
+    </div>
+
+    <div class="nav">
+      <button class="active" onclick="showTab('overview', this)">Overview</button>
+      <button onclick="showTab('transactions', this)">Transactions</button>
+      <button onclick="showTab('refunds', this)">Refunds</button>
+    </div>
+
+    <div id="overview" class="section">
+      <div class="stats">
+        <div class="stat"><div class="label">Total Transactions</div><div class="value" id="statTotal">-</div></div>
+        <div class="stat"><div class="label">Successful</div><div class="value success" id="statSuccess">-</div></div>
+        <div class="stat"><div class="label">Pending</div><div class="value pending" id="statPending">-</div></div>
+        <div class="stat"><div class="label">Failed</div><div class="value failed" id="statFailed">-</div></div>
+      </div>
+    </div>
+
+    <div id="transactions" class="section hidden">
+      <h2>Recent Transactions</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Gateway</th><th>Amount</th><th>Status</th><th>Method</th><th>Date</th></tr></thead>
+          <tbody id="txTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="refunds" class="section hidden">
+      <h2>Refunds</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Order</th><th>Amount</th><th>Status</th><th>Reason</th><th>Date</th></tr></thead>
+          <tbody id="refundTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    let token = localStorage.getItem('1pay_key') || '';
+
+    function headers() { return { 'X-API-Key': token, 'Content-Type': 'application/json' }; }
+
+    async function api(path) {
+      const res = await fetch(API + path, { headers: headers() });
+      if (res.status === 401) { logout(); return null; }
+      return res.json();
+    }
+
+    function login() {
+      token = document.getElementById('apiKeyInput').value.trim();
+      if (!token) return;
+      localStorage.setItem('1pay_key', token);
+      init();
+    }
+
+    function logout() {
+      token = '';
+      localStorage.removeItem('1pay_key');
+      document.getElementById('login').style.display = 'flex';
+      document.getElementById('dashboard').style.display = 'none';
+    }
+
+    function showTab(name, btn) {
+      document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+      document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+      document.getElementById(name).classList.remove('hidden');
+      btn.classList.add('active');
+      if (name === 'transactions') loadTransactions();
+      if (name === 'refunds') loadRefunds();
+    }
+
+    async function loadOverview() {
+      const all = await api('/api/transactions?limit=100');
+      if (!all) return;
+      const txs = all.data.transactions;
+      document.getElementById('statTotal').textContent = all.data.total;
+      document.getElementById('statSuccess').textContent = txs.filter(t => t.status === 'success').length;
+      document.getElementById('statPending').textContent = txs.filter(t => t.status === 'pending').length;
+      document.getElementById('statFailed').textContent = txs.filter(t => t.status === 'failed').length;
+    }
+
+    async function loadTransactions() {
+      const data = await api('/api/transactions?limit=50');
+      if (!data) return;
+      const tbody = document.getElementById('txTable');
+      tbody.innerHTML = data.data.transactions.map(t => `<tr>
+        <td style="font-family:monospace;font-size:12px">${t.id}</td>
+        <td>${t.gateway}</td>
+        <td>${t.amount.toLocaleString()} ${t.currency}</td>
+        <td><span class="badge ${t.status}">${t.status}</span></td>
+        <td>${t.payment_method || '-'}</td>
+        <td>${new Date(t.created_at).toLocaleString()}</td>
+      </tr>`).join('');
+    }
+
+    async function loadRefunds() {
+      const data = await api('/api/refunds?limit=50');
+      if (!data) return;
+      const tbody = document.getElementById('refundTable');
+      tbody.innerHTML = data.data.refunds.map(r => `<tr>
+        <td style="font-family:monospace;font-size:12px">${r.id}</td>
+        <td style="font-family:monospace;font-size:12px">${r.order_id}</td>
+        <td>${r.amount.toLocaleString()}</td>
+        <td><span class="badge ${r.status}">${r.status}</span></td>
+        <td>${r.reason || '-'}</td>
+        <td>${new Date(r.created_at).toLocaleString()}</td>
+      </tr>`).join('');
+    }
+
+    async function init() {
+      const me = await api('/api/gateways');
+      if (!me) return;
+      document.getElementById('login').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      document.getElementById('merchantName').textContent = 'Authenticated';
+      loadOverview();
+    }
+
+    if (token) init();
+  </script>
+</body>
+</html>
