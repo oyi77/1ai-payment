@@ -121,6 +121,47 @@ export const webhookAckSchema = z.object({
   ok: z.literal(true),
 }).openapi('WebhookAck');
 
+// ── Merchant schemas ───────────────────────────────────────────
+
+export const createMerchantBodySchema = z.object({
+  name: z.string().min(1).max(100).openapi({ example: 'My Store' }),
+  default_callback_url: z.string().url().optional().openapi({ example: 'https://my-store.com/callback' }),
+  plan: z.enum(['free', 'pro', 'enterprise']).default('free').openapi({ example: 'free' }),
+}).openapi('CreateMerchantBody');
+
+export const updateMerchantBodySchema = z.object({
+  name: z.string().min(1).max(100).optional().openapi({ example: 'My Store' }),
+  default_callback_url: z.string().url().optional().openapi({ example: 'https://my-store.com/callback' }),
+  active: z.boolean().optional().openapi({ example: true }),
+  plan: z.enum(['free', 'pro', 'enterprise']).optional().openapi({ example: 'pro' }),
+}).openapi('UpdateMerchantBody');
+
+export const merchantResponseSchema = z.object({
+  id: z.string().openapi({ example: 'merch_abc123' }),
+  name: z.string().openapi({ example: 'My Store' }),
+  default_callback_url: z.string().nullable().openapi({ example: 'https://my-store.com/callback' }),
+  active: z.boolean().openapi({ example: true }),
+  plan: z.string().openapi({ example: 'free' }),
+  created_at: z.string().openapi({ example: '2026-07-06T10:00:00.000Z' }),
+  updated_at: z.string().openapi({ example: '2026-07-06T10:00:00.000Z' }),
+}).openapi('Merchant');
+
+export const createMerchantResponseSchema = z.object({
+  success: z.literal(true),
+  data: z.object({
+    merchant: merchantResponseSchema,
+    api_key: z.string().openapi({ description: 'API key — shown ONCE, store it securely', example: '1pay_abc123...' }),
+  }),
+}).openapi('CreateMerchantResponse');
+
+export const rotateKeyResponseSchema = z.object({
+  success: z.literal(true),
+  data: z.object({
+    merchant_id: z.string().openapi({ example: 'merch_abc123' }),
+    api_key: z.string().openapi({ description: 'New API key — shown ONCE, store it securely', example: '1pay_xyz789...' }),
+  }),
+}).openapi('RotateKeyResponse');
+
 // ── Helpers ────────────────────────────────────────────────────
 
 export function orderToResponse(order: {

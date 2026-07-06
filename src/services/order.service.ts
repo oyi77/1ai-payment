@@ -32,6 +32,7 @@ export interface Order {
 
 export interface CreateOrderParams {
   project_id: string;
+  merchant_id?: string;
   project_order_id?: string;
   callback_url: string;
   gateway: string;
@@ -49,11 +50,12 @@ export async function createOrder(params: CreateOrderParams): Promise<Order> {
 
   try {
     await db.execute({
-      sql: `INSERT INTO orders (id, project_id, project_order_id, callback_url, gateway, amount, currency, payment_method, payment_url, metadata, idempotency_key)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO orders (id, project_id, merchant_id, project_order_id, callback_url, gateway, amount, currency, payment_method, payment_url, metadata, idempotency_key)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         id,
         params.project_id,
+        params.merchant_id ?? params.project_id,
         params.project_order_id ?? null,
         params.callback_url,
         params.gateway,
@@ -105,12 +107,15 @@ export async function getOrderByProjectOrder(projectId: string, projectOrderId: 
   return result.rows.length > 0 ? mapRow(result.rows[0] as Record<string, unknown>) : null;
 }
 
-export async function getOrderByIdempotencyKey(key: string): Promise<Order | null> {
+export async function getOrderByIdempotencyKey(key: string, merchantId?: string): Promise<Order | null> {
   const db = getDb();
-  const result = await db.execute({
-    sql: 'SELECT * FROM orders WHERE idempotency_key = ?',
-    args: [key],
-  });
+  let sql = 'SELECT * FROM orders WHERE idempotency_key = ?';
+  const args: Array<string | null> = [key];
+  if (merchantId) {
+    sql += ' AND merchant_id = ?';
+    args.push(merchantId);
+  }
+  const result = await db.execute({ sql, args });
   return result.rows.length > 0 ? mapRow(result.rows[0] as Record<string, unknown>) : null;
 }
 

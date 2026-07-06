@@ -32,7 +32,8 @@ import {
   defaultHook,
 } from '../schemas';
 
-export const paymentRoutes = new OpenAPIHono({ defaultHook });
+type MerchantEnv = { Variables: { merchantId?: string; merchantName?: string } };
+export const paymentRoutes = new OpenAPIHono<MerchantEnv>({ defaultHook });
 
 // Apply auth middleware to all payment routes
 paymentRoutes.use('/*', authMiddleware);
@@ -103,10 +104,11 @@ paymentRoutes.openapi(createPaymentRoute, async (c) => {
   const headerKey = c.req.valid('header')['idempotency-key'];
   const idempotencyKey = body.idempotency_key ?? headerKey;
 
-  // Check idempotency
+  // Check idempotency (scoped to merchant)
+  const merchantId = c.get('merchantId') ?? 'merch_default';
   if (idempotencyKey) {
     try {
-      const existing = await getOrderByIdempotencyKey(idempotencyKey);
+      const existing = await getOrderByIdempotencyKey(idempotencyKey, merchantId);
       if (existing) {
         return c.json({ success: true as const, data: orderToResponse(existing) }, 200);
       }
@@ -126,7 +128,8 @@ paymentRoutes.openapi(createPaymentRoute, async (c) => {
 
   // Create order in registry
   const orderParams: CreateOrderParams = {
-    project_id: '1ai-content', // Hardcoded for now; multi-tenant in future
+    project_id: merchantId,
+    merchant_id: merchantId,
     project_order_id: body.project_order_id,
     callback_url: body.callback_url,
     gateway: body.gateway,
@@ -136,7 +139,6 @@ paymentRoutes.openapi(createPaymentRoute, async (c) => {
     metadata: body.metadata as Record<string, unknown> | undefined,
     idempotency_key: idempotencyKey,
   };
-
   let order;
   try {
     order = await createOrder(orderParams);

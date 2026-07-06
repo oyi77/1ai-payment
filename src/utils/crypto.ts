@@ -33,3 +33,31 @@ export function generateOrderId(): string {
 export function generateEventId(): string {
   return nanoid(21);
 }
+
+/**
+ * SHA-256 hash (hex) — used for API key storage.
+ */
+export function sha256Hash(input: string): string {
+  return crypto.createHash('sha256').update(input).digest('hex');
+}
+
+/**
+ * Generate merchant ID.
+ */
+export function generateMerchantId(): string {
+  return 'merch_' + nanoid(16);
+}
+
+/**
+ * Generate API key (raw — store hash, return key once).
+ */
+export function generateApiKey(): string {
+  return '1pay_' + crypto.randomBytes(32).toString('hex');
+}
+
+/**
+ * Generate webhook secret.
+ */
+export function generateWebhookSecret(): string {
+  return 'whsec_' + crypto.randomBytes(32).toString('hex');
+}

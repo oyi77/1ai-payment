@@ -167,8 +167,19 @@ for (const gatewayName of GATEWAY_NAMES) {
     } catch { /* ignore */ }
 
     // Forward to project (async — don't block webhook response)
-    // webhook_secret is order.id for now; in multi-tenant future, use project's webhook_secret
-    forwardEvent(fullEvent, order, order.id).catch((err: unknown) => {
+    // Look up merchant's webhook_secret for signing
+    let webhookSecret = order.id; // fallback
+    try {
+      const merchantResult = await getDb().execute({
+        sql: 'SELECT webhook_secret FROM merchants WHERE id = ?',
+        args: [order.project_id],
+      });
+      if (merchantResult.rows.length > 0) {
+        webhookSecret = merchantResult.rows[0].webhook_secret as string;
+      }
+    } catch { /* ignore — use fallback */ }
+
+    forwardEvent(fullEvent, order, webhookSecret).catch((err: unknown) => {
       logger.error('Async forward failed', {
         order_id: order!.id,
         error: err instanceof Error ? err.message : String(err),
