@@ -176,6 +176,7 @@ OpenAPI spec is **auto-generated from Zod schemas** in `src/schemas.ts` and rout
 | [docs/02-api-reference.md](docs/02-api-reference.md) | API contracts and schemas |
 | [docs/03-gateway-specs.md](docs/03-gateway-specs.md) | Per-gateway integration specs |
 | [docs/04-rollout-plan.md](docs/04-rollout-plan.md) | Migration and rollout plan |
+| [docs/05-product-roadmap.md](docs/05-product-roadmap.md) | Product roadmap: internal tool → SaaS (atomic steps) |
 
 ## Adding a New Gateway
 
