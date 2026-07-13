@@ -26,6 +26,8 @@ const app = new OpenAPIHono({ defaultHook });
 
 // Middleware
 app.use('*', cors());
+// Stricter rate limit for registration (5 req per hour per IP)
+app.use('/api/register', rateLimitMiddleware({ windowMs: 3_600_000, max: 5 }));
 app.use('/api/*', rateLimitMiddleware({ windowMs: 60_000, max: 60 }));
 app.use('/webhook/*', rateLimitMiddleware({ windowMs: 60_000, max: 120 }));
 
