@@ -5,6 +5,7 @@
 import { createClient, type Client } from '@libsql/client';
 import { getConfig } from './env';
 import { logger } from '../utils/logger';
+import { runMigrations } from './migrations';
 import { sha256Hash, generateWebhookSecret } from '../utils/crypto';
 
 let db: Client | null = null;
@@ -50,6 +51,8 @@ export async function initDatabase(): Promise<void> {
       order_id TEXT,
       gateway_reference TEXT,
       status TEXT,
+      raw_payload TEXT,
+      headers TEXT,
       signature_valid INTEGER DEFAULT 0,
       forwarded INTEGER DEFAULT 0,
       forward_status INTEGER,
@@ -58,6 +61,9 @@ export async function initDatabase(): Promise<void> {
 
     CREATE INDEX IF NOT EXISTS idx_webhook_events_gateway ON webhook_events(gateway);
     CREATE INDEX IF NOT EXISTS idx_webhook_events_created ON webhook_events(created_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_webhook_events_dedup
+      ON webhook_events(order_id, gateway, status)
+      WHERE order_id IS NOT NULL;
 
     CREATE TABLE IF NOT EXISTS merchants (
       id TEXT PRIMARY KEY,
@@ -103,11 +109,33 @@ export async function initDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_refunds_order ON refunds(order_id);
     CREATE INDEX IF NOT EXISTS idx_refunds_merchant ON refunds(merchant_id);
   `);
+  // Dead letter queue for failed forward events
+  await db.executeMultiple(`
+    CREATE TABLE IF NOT EXISTS dead_letter_events (
+      id TEXT PRIMARY KEY,
+      order_id TEXT,
+      gateway TEXT NOT NULL,
+      event_data TEXT NOT NULL,
+      error TEXT,
+      attempts INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_dead_letter_order ON dead_letter_events(order_id);
+    CREATE INDEX IF NOT EXISTS idx_dead_letter_created ON dead_letter_events(created_at);
+  `);
 
   // Idempotent column additions (ALTER TABLE doesn't support IF NOT EXISTS)
   for (const col of ['merchant_id TEXT', 'fee INTEGER DEFAULT 0', 'net INTEGER DEFAULT 0']) {
     try {
       await db.execute(`ALTER TABLE orders ADD COLUMN ${col}`);
+    } catch { /* column already exists */ }
+  }
+
+  // Backfill webhook_events columns for existing databases
+  for (const col of ['raw_payload TEXT', 'headers TEXT']) {
+    try {
+      await db.execute(`ALTER TABLE webhook_events ADD COLUMN ${col}`);
     } catch { /* column already exists */ }
   }
 
@@ -130,5 +158,7 @@ export async function initDatabase(): Promise<void> {
     logger.info('Default merchant seeded from env API_KEY');
   }
 
+  // Run pending schema migrations
+  await runMigrations(db);
   logger.info('Database initialized');
 }

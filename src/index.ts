@@ -20,3 +20,21 @@ const server = Bun.serve({
 logger.info(`1ai-payment ready on http://localhost:${config.PORT}`);
 logger.info(`Swagger UI: http://localhost:${config.PORT}/reference`);
 logger.info(`OpenAPI spec: http://localhost:${config.PORT}/doc`);
+
+// Graceful shutdown — stop accepting, drain, exit
+function shutdown(signal: string) {
+  logger.info(`Received ${signal}, starting graceful shutdown...`);
+  server.stop();
+  const forceExit = setTimeout(() => {
+    logger.error('Graceful shutdown timed out, forcing exit');
+    process.exit(1);
+  }, 10_000).unref();
+  queueMicrotask(() => {
+    clearTimeout(forceExit);
+    logger.info('Graceful shutdown complete');
+    process.exit(0);
+  });
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

@@ -9,6 +9,9 @@ import { signPayload } from '../utils/crypto';
 import { markForwarded } from './order.service';
 import type { NormalizedPaymentEvent } from '../gateways/base';
 import type { Order } from './order.service';
+import { getDb } from '../config/database';
+import { generateEventId } from '../utils/crypto';
+import { forwardFailuresCounter } from '../middleware/metrics';
 
 interface ForwardResult {
   success: boolean;
@@ -88,12 +91,16 @@ export async function forwardEvent(
     attempts: MAX_RETRIES,
   });
 
+  forwardFailuresCounter.inc({ gateway: order.gateway || 'unknown' });
+
+  await writeDeadLetter(order, event, lastError?.message ?? 'Unknown error', MAX_RETRIES);
   await markForwarded(order.id, 0, MAX_RETRIES);
   return { success: false, statusCode: 0, attempts: MAX_RETRIES };
 }
-
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  const { promise, resolve } = Promise.withResolvers<void>();
+  setTimeout(resolve, ms);
+  return promise;
 }
 
 // Inline logger to avoid circular dependency
@@ -105,3 +112,38 @@ const logger = {
     console.log(`[Forwarder] ${msg}`, data ? JSON.stringify(data) : '');
   },
 };
+
+async function writeDeadLetter(
+  order: Order,
+  event: NormalizedPaymentEvent,
+  errorMessage: string,
+  attempts: number,
+): Promise<void> {
+  try {
+    const db = getDb();
+    const eventData = JSON.stringify({
+      event: { ...event },
+      order_id: order.id,
+      callback_url: order.callback_url,
+      payload: JSON.stringify({
+        gateway: event.gateway,
+        order_id: order.id,
+        status: event.status,
+        amount: event.amount,
+        currency: event.currency,
+      }),
+    });
+    await db.execute({
+      sql: `INSERT INTO dead_letter_events (id, order_id, gateway, event_data, error, attempts)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [generateEventId(), order.id, event.gateway, eventData, errorMessage, attempts],
+    });
+    logger.error('Wrote dead letter for failed forward', {
+      order_id: order.id,
+      gateway: event.gateway,
+      error: errorMessage,
+    });
+  } catch (dbErr: unknown) {
+    logger.error('Failed to write dead letter entry', { error: String(dbErr) });
+  }
+}

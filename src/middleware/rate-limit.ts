@@ -3,6 +3,8 @@
  *
  * Keys by merchant_id (from auth context), falls back to IP.
  * Plan tiers: free=30/min, pro=120/min, enterprise=600/min (API).
+ *
+ * EVICTION: stale entries are deleted via setTimeout after windowMs.
  */
 
 import type { Context, Next } from 'hono';
@@ -19,6 +21,12 @@ const PLAN_LIMITS: Record<string, number> = {
 };
 
 const counters = new Map<string, { count: number; resetAt: number }>();
+
+function scheduleEviction(key: string, delayMs: number): void {
+  setTimeout(() => {
+    counters.delete(key);
+  }, delayMs).unref();
+}
 
 export function rateLimitMiddleware(options: RateLimitOptions) {
   return async (c: Context, next: Next) => {
@@ -38,6 +46,7 @@ export function rateLimitMiddleware(options: RateLimitOptions) {
 
     if (!entry || now > entry.resetAt) {
       counters.set(key, { count: 1, resetAt: now + options.windowMs });
+      scheduleEviction(key, options.windowMs);
       await next();
       return;
     }

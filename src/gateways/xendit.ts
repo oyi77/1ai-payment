@@ -28,6 +28,7 @@ interface XenditInvoiceCallbackPayload {
   paid_amount: number;
   payment_method: string;
   paid_at: string;
+  currency?: string;
   invoice_url: string;
   x_callback_token: string;
 }
@@ -39,6 +40,7 @@ interface XenditVACallbackPayload {
   amount: number;
   paid_amount: number;
   bank_code: string;
+  currency?: string;
   paid_at: string;
   virtual_account_number: string;
   x_callback_token: string;
@@ -234,8 +236,8 @@ export class XenditGateway implements PaymentGateway {
       order_id: payload.external_id,
       gateway_reference: payload.id,
       status,
-      amount: isVA ? payload.amount : payload.amount,
-      currency: 'IDR',
+      amount: payload.amount,
+      currency: payload.currency || 'IDR',
       payment_method: isVA ? payload.bank_code : (payload.payment_method || 'unknown'),
       paid_at: status === 'success' ? payload.paid_at : null,
       metadata: metadata ?? null,

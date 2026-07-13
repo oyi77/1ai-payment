@@ -120,7 +120,15 @@ export function normalizeEvent(body: unknown, metadata?: Record<string, unknown>
 export function extractStatus(body: unknown): PaymentStatus {
   const event = body as PayPalWebhookEvent;
   const status = event.resource.status?.toLowerCase();
-  
+  const eventType = event.event_type;
+
+  // Event-type-specific override: refunded
+  if (eventType === 'PAYMENT.CAPTURE.REFUNDED') return 'refunded';
+
+  // CHECKOUT.ORDER.APPROVED with APPROVED status means order approved but not captured
+  if (eventType === 'CHECKOUT.ORDER.APPROVED' && status === 'approved') return 'pending';
+
+  // Resource status map for known event types
   const statusMap: Record<string, PaymentStatus> = {
     completed: 'success',
     approved: 'success',
@@ -128,13 +136,24 @@ export function extractStatus(body: unknown): PaymentStatus {
     pending: 'pending',
     created: 'pending',
     voided: 'cancelled',
-    refunded: 'failed',
+    refunded: 'refunded',
     denied: 'failed',
     failed: 'failed',
     expired: 'expired',
     cancelled: 'cancelled',
   };
-  
+
+  // For unknown event types, return pending as conservative default
+  const knownEventTypes = [
+    'PAYMENT.CAPTURE.COMPLETED',
+    'PAYMENT.CAPTURE.DENIED',
+    'PAYMENT.CAPTURE.REFUNDED',
+    'CHECKOUT.ORDER.APPROVED',
+    'CHECKOUT.ORDER.CANCELLED',
+  ];
+
+  if (eventType && !knownEventTypes.includes(eventType)) return 'pending';
+
   return statusMap[status] || 'pending';
 }
 

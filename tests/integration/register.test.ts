@@ -18,6 +18,7 @@ process.env.API_KEY = 'test-api-key-for-register';
 process.env.DATABASE_PATH = TEST_DB;
 process.env.NODE_ENV = 'test';
 process.env.ADMIN_API_KEY = 'test-admin-key';
+process.env.ENCRYPTION_KEY = 'f0bbe8000253a9997331287d3ebdadd3854720a049233b18a37dd401b61b4c6f';
 
 let app: import('hono').Hono;
 

@@ -24,6 +24,7 @@ import { getGateway, getAvailableGateways, getGatewayMethods } from '../services
 import { getDb } from '../config/database';
 import { DuplicateOrderError, GatewayError } from '../utils/errors';
 import { logger } from '../utils/logger';
+import { paymentsCreatedCounter, paymentCreationDuration, errorsCounter } from '../middleware/metrics';
 import {
   gatewayNameSchema,
   createPaymentBodySchema,
@@ -155,8 +156,8 @@ paymentRoutes.openapi(createPaymentRoute, async (c) => {
     }
     throw err;
   }
-
-  // Create payment via gateway
+  // Create payment via gateway (with latency tracking)
+  const endTimer = paymentCreationDuration.startTimer({ gateway: body.gateway });
   try {
     const result = await gw.createPayment({
       orderId: order.id,
@@ -166,6 +167,7 @@ paymentRoutes.openapi(createPaymentRoute, async (c) => {
       customerName: body.customer?.name,
       customerEmail: body.customer?.email,
     });
+    endTimer();
 
     // Update order with gateway reference and payment URL
     await updateOrderStatus(
@@ -187,8 +189,13 @@ paymentRoutes.openapi(createPaymentRoute, async (c) => {
       amount: body.amount,
     });
 
+    paymentsCreatedCounter.inc({ gateway: body.gateway, status: 'success' });
     return c.json({ success: true as const, data: orderToResponse(updatedOrder) }, 201);
   } catch (err: unknown) {
+    endTimer();
+    paymentsCreatedCounter.inc({ gateway: body.gateway, status: 'failed' });
+    errorsCounter.inc({ type: 'payment_creation' });
+
     // Mark order as failed if gateway errored
     await updateOrderStatus(order.id, 'failed');
 

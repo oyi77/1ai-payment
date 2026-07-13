@@ -5,7 +5,7 @@
  * Each gateway implements this interface. Adding a new gateway = implement + register.
  */
 
-export type PaymentStatus = 'success' | 'pending' | 'failed' | 'expired' | 'cancelled';
+export type PaymentStatus = 'success' | 'pending' | 'failed' | 'expired' | 'cancelled' | 'refunded';
 
 export interface NormalizedPaymentEvent {
   gateway: string;

@@ -16,6 +16,7 @@ import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { getGateway } from '../gateways';
 import { generateEventId } from '../utils/crypto';
 import { logger } from '../utils/logger';
+import { webhooksReceivedCounter } from '../middleware/metrics';
 import { getDb } from '../config/database';
 import { updateOrderStatus, getOrderById, getOrderByGatewayRef } from '../services/order.service';
 import { forwardEvent } from '../services/forwarder.service';
@@ -112,6 +113,8 @@ for (const gatewayName of GATEWAY_NAMES) {
       gateway_reference: event.gateway_reference,
     });
 
+    webhooksReceivedCounter.inc({ gateway: gatewayName, status: event.status });
+
     // Look up order — try by gateway_reference first, then order_id
     let order: Order | null = null;
 
@@ -136,37 +139,52 @@ for (const gatewayName of GATEWAY_NAMES) {
         order_id: event.order_id,
         gateway_reference: event.gateway_reference,
       });
-
-      // Still log the event but don't forward
       try {
         const db = getDb();
         await db.execute({
-          sql: `INSERT INTO webhook_events (id, gateway, order_id, gateway_reference, status, signature_valid)
-                VALUES (?, ?, ?, ?, ?, ?)`,
-          args: [generateEventId(), gatewayName, event.order_id, event.gateway_reference, event.status, 1],
+          sql: `INSERT INTO webhook_events (id, gateway, order_id, gateway_reference, status, raw_payload, headers, signature_valid)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+          args: [generateEventId(), gatewayName, event.order_id, event.gateway_reference, event.status, JSON.stringify(body), JSON.stringify(headers)],
         });
-      } catch { /* ignore */ }
-
+      } catch (dbErr: unknown) {
+        logger.error('Failed to log webhook for unknown order', { error: String(dbErr) });
+      }
       return c.json({ ok: true as const }, 200);
     }
 
     // Re-normalize with metadata from order
     const fullEvent = gateway.normalizeEvent(body, order.metadata);
 
-    // Update order status
-    await updateOrderStatus(order.id, fullEvent.status, fullEvent.gateway_reference);
-
-    // Log webhook event
+    // INSERT into webhook_events FIRST — UNIQUE constraint catches duplicates
+    const eventId = generateEventId();
     try {
       const db = getDb();
-      await db.execute({
-        sql: `INSERT INTO webhook_events (id, gateway, order_id, gateway_reference, status, signature_valid)
-              VALUES (?, ?, ?, ?, ?, ?)`,
-        args: [generateEventId(), gatewayName, order.id, fullEvent.gateway_reference, fullEvent.status, 1],
+        await db.execute({
+          sql: `INSERT INTO webhook_events (id, gateway, order_id, gateway_reference, status, raw_payload, headers, signature_valid)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+          args: [eventId, gatewayName, order.id, fullEvent.gateway_reference, fullEvent.status, JSON.stringify(body), JSON.stringify(headers)],
+        });
+    } catch (dbErr: unknown) {
+      // UNIQUE(order_id, gateway, status) violation = duplicate webhook
+      if (dbErr instanceof Error && dbErr.message.includes('UNIQUE constraint')) {
+        logger.info('Duplicate webhook, skipping', {
+          order_id: order.id,
+          status: fullEvent.status,
+          gateway: gatewayName,
+        });
+        return c.json({ ok: true as const }, 200);
+      }
+      // Unexpected DB error — still return 200 per webhook contract
+      logger.error('Failed to log webhook event, skipping forward', {
+        order_id: order.id,
+        error: dbErr instanceof Error ? dbErr.message : String(dbErr),
       });
-    } catch { /* ignore */ }
+      return c.json({ ok: true as const }, 200);
+    }
 
-    // Forward to project (async — don't block webhook response)
+    // New event — update order and forward
+    await updateOrderStatus(order.id, fullEvent.status, fullEvent.gateway_reference);
+
     // Look up merchant's webhook_secret for signing
     let webhookSecret = order.id; // fallback
     try {
@@ -177,7 +195,7 @@ for (const gatewayName of GATEWAY_NAMES) {
       if (merchantResult.rows.length > 0) {
         webhookSecret = merchantResult.rows[0].webhook_secret as string;
       }
-    } catch { /* ignore — use fallback */ }
+    } catch { /* use fallback */ }
 
     forwardEvent(fullEvent, order, webhookSecret).catch((err: unknown) => {
       logger.error('Async forward failed', {
@@ -186,7 +204,11 @@ for (const gatewayName of GATEWAY_NAMES) {
       });
     });
 
-    // Return 200 immediately (gateway expects fast response)
     return c.json({ ok: true as const }, 200);
   });
 }
+
+// Catch-all for unknown gateways
+webhookRoutes.all('*', (c) => {
+  return c.json({ error: 'Unknown gateway', ok: false as const }, 501);
+});

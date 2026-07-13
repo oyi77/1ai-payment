@@ -11,6 +11,7 @@ import { swaggerUI } from '@hono/swagger-ui';
 import { cors } from 'hono/cors';
 import { getConfig } from './config/env';
 import { rateLimitMiddleware } from './middleware/rate-limit';
+import { metricsHandler } from './middleware/metrics';
 import { webhookRoutes } from './routes/webhook';
 import { paymentRoutes } from './routes/payment';
 import { merchantRoutes } from './routes/merchant';
@@ -20,14 +21,19 @@ import { registerRoutes } from './routes/register';
 import { adminRoutes } from './routes/admin';
 import { defaultHook } from './schemas';
 const config = getConfig();
+export { config };
+
 const app = new OpenAPIHono({ defaultHook });
 
 // Middleware
-app.use('*', cors({ origin: config.CORS_ORIGIN }));
+app.use('*', cors({ origin: getConfig().CORS_ORIGIN }));
 // Stricter rate limit for registration (5 req per hour per IP)
 app.use('/api/register', rateLimitMiddleware({ windowMs: 3_600_000, max: 5 }));
 app.use('/api/*', rateLimitMiddleware({ windowMs: 60_000, max: 60 }));
 app.use('/webhook/*', rateLimitMiddleware({ windowMs: 60_000, max: 120 }));
+
+// Metrics — no auth, no rate limit
+app.get('/metrics', metricsHandler);
 
 // Public registration endpoint (no auth required)
 app.route('/api', registerRoutes);
@@ -61,4 +67,4 @@ app.get('/reference', (c) => {
   return swaggerUI({ url: '/doc' })(c, async () => {});
 });
 
-export { app, config };
+export { app };

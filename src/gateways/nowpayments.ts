@@ -165,7 +165,7 @@ export class NowPaymentsGateway implements PaymentGateway {
       sending: 'pending',
       partially_paid: 'pending',
       failed: 'failed',
-      refunded: 'failed',
+      refunded: 'refunded',
       expired: 'expired',
     };
     return map[payload.payment_status] || 'pending';

@@ -14,6 +14,7 @@ const TEST_DB = join(tmpdir(), `1pay-refund-test-${Date.now()}.db`);
 process.env.DATABASE_PATH = TEST_DB;
 process.env.NODE_ENV = 'test';
 process.env.ADMIN_API_KEY = 'test-admin-key';
+process.env.ENCRYPTION_KEY = 'f0bbe8000253a9997331287d3ebdadd3854720a049233b18a37dd401b61b4c6f';
 
 const TEST_API_KEY = '1pay_test_refund_api_key_1234567890abcdef';
 

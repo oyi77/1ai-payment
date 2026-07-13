@@ -69,8 +69,16 @@ export interface Config {
 
 let cachedConfig: Config | null = null;
 
+/**
+ * Reset the cached config. Used in tests to ensure env changes are picked up.
+ */
+export function resetConfigCache(): void {
+  cachedConfig = null;
+}
+
 export function getConfig(): Config {
-  if (cachedConfig) return cachedConfig;
+  // In test mode, always re-read from env to pick up beforeAll changes
+  if (cachedConfig && cachedConfig.NODE_ENV !== 'test') return cachedConfig;
 
   const required = (key: string): string => {
     const val = process.env[key];
@@ -89,54 +97,43 @@ export function getConfig(): Config {
     ENCRYPTION_KEY: required('ENCRYPTION_KEY'),
     CORS_ORIGIN: optional('CORS_ORIGIN', '*'),
     ADMIN_API_KEY: required('ADMIN_API_KEY'),
-
     MIDTRANS_SERVER_KEY: optional('MIDTRANS_SERVER_KEY'),
     MIDTRANS_CLIENT_KEY: optional('MIDTRANS_CLIENT_KEY'),
     MIDTRANS_ENVIRONMENT: (optional('MIDTRANS_ENVIRONMENT', 'sandbox') as Config['MIDTRANS_ENVIRONMENT']),
-
     TRIPAY_API_KEY: optional('TRIPAY_API_KEY'),
     TRIPAY_PRIVATE_KEY: optional('TRIPAY_PRIVATE_KEY'),
     TRIPAY_MERCHANT_CODE: optional('TRIPAY_MERCHANT_CODE'),
     TRIPAY_ENVIRONMENT: (optional('TRIPAY_ENVIRONMENT', 'sandbox') as Config['TRIPAY_ENVIRONMENT']),
-
     DUITKU_API_KEY: optional('DUITKU_API_KEY'),
     DUITKU_MERCHANT_CODE: optional('DUITKU_MERCHANT_CODE'),
     DUITKU_ENVIRONMENT: (optional('DUITKU_ENVIRONMENT', 'sandbox') as Config['DUITKU_ENVIRONMENT']),
-
     NOWPAYMENTS_API_KEY: optional('NOWPAYMENTS_API_KEY'),
     NOWPAYMENTS_IPN_SECRET: optional('NOWPAYMENTS_IPN_SECRET'),
     NOWPAYMENTS_ENVIRONMENT: (optional('NOWPAYMENTS_ENVIRONMENT', 'sandbox') as Config['NOWPAYMENTS_ENVIRONMENT']),
-
     IPAYMU_API_KEY: optional('IPAYMU_API_KEY'),
     IPAYMU_VA_KEY: optional('IPAYMU_VA_KEY'),
     IPAYMU_ENVIRONMENT: (optional('IPAYMU_ENVIRONMENT', 'sandbox') as Config['IPAYMU_ENVIRONMENT']),
-
     SCALEV_STOREFRONT_API_KEY: optional('SCALEV_STOREFRONT_API_KEY'),
     SCALEV_STORE_ID: optional('SCALEV_STORE_ID'),
     SCALEV_VARIANT_ID: optional('SCALEV_VARIANT_ID'),
     SCALEV_WEBHOOK_SECRET: optional('SCALEV_WEBHOOK_SECRET'),
     SCALEV_ENVIRONMENT: (optional('SCALEV_ENVIRONMENT', 'sandbox') as Config['SCALEV_ENVIRONMENT']),
-
     XENDIT_API_KEY: optional('XENDIT_API_KEY'),
     XENDIT_CALLBACK_TOKEN: optional('XENDIT_CALLBACK_TOKEN'),
     XENDIT_ENVIRONMENT: (optional('XENDIT_ENVIRONMENT', 'sandbox') as Config['XENDIT_ENVIRONMENT']),
-
     TELEGRAM_BOT_TOKEN: optional('TELEGRAM_BOT_TOKEN'),
     TELEGRAM_WEBHOOK_SECRET: optional('TELEGRAM_WEBHOOK_SECRET'),
-
     TELEGRAM_PAYMENT_PROVIDER_TOKEN: optional('TELEGRAM_PAYMENT_PROVIDER_TOKEN'),
-
     PAYPAL_CLIENT_ID: optional('PAYPAL_CLIENT_ID'),
     PAYPAL_CLIENT_SECRET: optional('PAYPAL_CLIENT_SECRET'),
     PAYPAL_WEBHOOK_ID: optional('PAYPAL_WEBHOOK_ID'),
     PAYPAL_WEBHOOK_SECRET: optional('PAYPAL_WEBHOOK_SECRET'),
     PAYPAL_ENVIRONMENT: (optional('PAYPAL_ENVIRONMENT', 'sandbox') as Config['PAYPAL_ENVIRONMENT']),
-
     LOG_LEVEL: (optional('LOG_LEVEL', 'info') as Config['LOG_LEVEL']),
   };
+
   return cachedConfig;
 }
-
 export function getGatewayConfig(gateway: string) {
   const config = getConfig();
   switch (gateway) {
@@ -172,7 +169,6 @@ export function getGatewayConfig(gateway: string) {
       };
     case 'scalev':
       return {
-        apiKey: config.SCALEV_STOREFRONT_API_KEY,
         storefrontApiKey: config.SCALEV_STOREFRONT_API_KEY,
         storeId: config.SCALEV_STORE_ID,
         variantId: config.SCALEV_VARIANT_ID,

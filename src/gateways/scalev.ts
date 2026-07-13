@@ -233,7 +233,8 @@ export class ScalevGateway implements PaymentGateway {
     const status = String(payload.status || '').toLowerCase();
     if (status === 'paid' || status === 'completed') return 'success';
     if (status === 'pending' || status === 'processing') return 'pending';
-    if (status === 'failed' || status === 'cancelled') return 'failed';
+    if (status === 'failed') return 'failed';
+    if (status === 'cancelled') return 'cancelled';
     if (status === 'expired') return 'expired';
     return 'pending';
   }
