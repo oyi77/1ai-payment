@@ -17,7 +17,9 @@ import { merchantRoutes } from './routes/merchant';
 import { refundRoutes } from './routes/refund';
 import { healthRoutes } from './routes/health';
 import { registerRoutes } from './routes/register';
+import { adminRoutes } from './routes/admin';
 import { defaultHook } from './schemas';
+const config = getConfig();
 const app = new OpenAPIHono({ defaultHook });
 
 // Middleware
@@ -28,7 +30,7 @@ app.use('/api/*', rateLimitMiddleware({ windowMs: 60_000, max: 60 }));
 app.use('/webhook/*', rateLimitMiddleware({ windowMs: 60_000, max: 120 }));
 
 // Public registration endpoint (no auth required)
-app.route('/', registerRoutes);
+app.route('/api', registerRoutes);
 
 // API routes (auth required)
 app.route('/', healthRoutes);
@@ -36,6 +38,9 @@ app.route('/webhook', webhookRoutes);
 app.route('/api', paymentRoutes);
 app.route('/api', merchantRoutes);
 app.route('/api', refundRoutes);
+
+// Admin routes — protected by adminAuthMiddleware via adminRoutes
+app.route('/api', adminRoutes);
 
 // Auto-generated OpenAPI JSON spec at /doc
 app.doc('/doc', {

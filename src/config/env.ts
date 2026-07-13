@@ -9,6 +9,7 @@ export interface Config {
   API_KEY: string;
   ENCRYPTION_KEY: string;
   CORS_ORIGIN: string;
+  ADMIN_API_KEY: string;
 
   // Midtrans
   MIDTRANS_SERVER_KEY: string;
@@ -87,6 +88,7 @@ export function getConfig(): Config {
     API_KEY: required('API_KEY'),
     ENCRYPTION_KEY: required('ENCRYPTION_KEY'),
     CORS_ORIGIN: optional('CORS_ORIGIN', '*'),
+    ADMIN_API_KEY: required('ADMIN_API_KEY'),
 
     MIDTRANS_SERVER_KEY: optional('MIDTRANS_SERVER_KEY'),
     MIDTRANS_CLIENT_KEY: optional('MIDTRANS_CLIENT_KEY'),
