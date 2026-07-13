@@ -27,7 +27,7 @@ export const registerRoutes = new OpenAPIHono({ defaultHook });
 
 const registerRoute = createRoute({
   method: 'post',
-  path: '/api/register',
+  path: '/register',
   tags: ['Registration'],
   summary: 'Register a new merchant',
   description:

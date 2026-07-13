@@ -29,7 +29,7 @@ beforeAll(async () => {
   await initDatabase();
 
   app = new Hono();
-  app.route('/', registerRoutes);
+  app.route('/api', registerRoutes);
 });
 
 afterAll(() => {

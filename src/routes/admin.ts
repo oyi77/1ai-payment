@@ -16,7 +16,7 @@ export const adminRoutes = new OpenAPIHono();
 // Apply admin auth to all admin routes
 adminRoutes.use('*', adminAuthMiddleware());
 
-adminRoutes.get('/api/admin/merchants', async (c) => {
+adminRoutes.get('/admin/merchants', async (c) => {
   const db = getDb();
 
   try {

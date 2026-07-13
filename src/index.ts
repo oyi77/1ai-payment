@@ -12,14 +12,15 @@ import { cors } from 'hono/cors';
 import { swaggerUI } from '@hono/swagger-ui';
 import { logger } from './utils/logger';
 import { getConfig } from './config/env';
-import { getDb, initDatabase } from './config/database';
+import { initDatabase } from './config/database';
 import { webhookRoutes } from './routes/webhook';
 import { paymentRoutes } from './routes/payment';
 import { merchantRoutes } from './routes/merchant';
 import { refundRoutes } from './routes/refund';
 import { healthRoutes } from './routes/health';
+import { registerRoutes } from './routes/register';
+import { adminRoutes } from './routes/admin';
 import { rateLimitMiddleware } from './middleware/rate-limit';
-import { adminAuthMiddleware } from './middleware/admin-auth';
 import { defaultHook } from './schemas';
 
 const config = getConfig();
@@ -30,82 +31,11 @@ app.use('*', cors());
 app.use('/api/*', rateLimitMiddleware({ windowMs: 60_000, max: 60 }));
 app.use('/webhook/*', rateLimitMiddleware({ windowMs: 60_000, max: 120 }));
 
-// Public registration endpoint (no auth required)
-app.post('/api/register', async (c) => {
-  let body: Record<string, unknown>;
-  try {
-    body = await c.req.json();
-  } catch {
-    return c.json({ success: false as const, error: { code: 'INVALID_BODY', message: 'Invalid JSON' } }, 400);
-  }
+// Public registration endpoint (no auth required) — routed via registerRoutes
+app.route('/api', registerRoutes);
 
-  const name = body.name as string | undefined;
-  const plan = (body.plan as string) ?? 'free';
-  const callbackUrl = body.default_callback_url as string | undefined;
-
-  if (!name || typeof name !== 'string' || name.length < 1) {
-    return c.json({ success: false as const, error: { code: 'INVALID_BODY', message: 'Business name is required' } }, 400);
-  }
-  if (!['free', 'pro', 'enterprise'].includes(plan)) {
-    return c.json({ success: false as const, error: { code: 'INVALID_BODY', message: 'Invalid plan' } }, 400);
-  }
-
-  const { getDb } = await import('./config/database');
-  const { generateMerchantId, generateApiKey, generateWebhookSecret, sha256Hash } = await import('./utils/crypto');
-  const db = getDb();
-
-  const id = generateMerchantId();
-  const apiKey = generateApiKey();
-  const apiKeyHash = sha256Hash(apiKey);
-  const webhookSecret = generateWebhookSecret();
-
-  try {
-    await db.execute({
-      sql: `INSERT INTO merchants (id, name, api_key_hash, webhook_secret, default_callback_url, active, plan)
-            VALUES (?, ?, ?, ?, ?, 1, ?)`,
-      args: [id, name, apiKeyHash, webhookSecret, callbackUrl ?? null, plan],
-    });
-
-    logger.info('Merchant registered', { id, name, plan });
-
-    return c.json({
-      success: true as const,
-      data: {
-        merchant: { id, name, default_callback_url: callbackUrl ?? null, active: true, plan, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        api_key: apiKey,
-      },
-    }, 201);
-  } catch (err: unknown) {
-    if (err instanceof Error && err.message.includes('UNIQUE constraint')) {
-      return c.json({ success: false as const, error: { code: 'DUPLICATE', message: 'Merchant already exists' } }, 409);
-    }
-    throw err;
-  }
-});
-
-// Admin routes (registered before API sub-routers to avoid middleware collision)
-app.get('/api/admin/merchants', adminAuthMiddleware(), async (c) => {
-  try {
-    const db = getDb();
-    const result = await db.execute(
-      'SELECT id, name, default_callback_url, active, plan, created_at, updated_at FROM merchants ORDER BY created_at DESC'
-    );
-    const merchants = result.rows.map((row) => ({
-      id: row.id as string,
-      name: row.name as string,
-      default_callback_url: row.default_callback_url as string | null,
-      active: Boolean(row.active),
-      plan: row.plan as string,
-      created_at: row.created_at as string,
-      updated_at: row.updated_at as string,
-    }));
-    return c.json({ success: true, data: { merchants } });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    logger.error('Failed to list merchants', { error: msg });
-    return c.json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to list merchants' } }, 500);
-  }
-});
+// Admin routes — protected by adminAuthMiddleware via adminRoutes
+app.route('/api', adminRoutes);
 // API routes (auth required)
 app.route('/', healthRoutes);
 app.route('/webhook', webhookRoutes);
