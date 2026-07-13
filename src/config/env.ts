@@ -62,6 +62,17 @@ export interface Config {
   PAYPAL_WEBHOOK_ID: string;
   PAYPAL_WEBHOOK_SECRET: string;
   PAYPAL_ENVIRONMENT: 'sandbox' | 'production';
+  // x402 (Micropayments)
+  X402_RPC_URL: string;
+  X402_NETWORK: string;
+  X402_USDC_ADDRESS: string;
+  X402_WALLET_ADDRESS: string;
+
+  // ERC-8183 (Agentic Commerce Escrow)
+  ERC8183_NETWORK: string;
+  ERC8183_TOKEN_ADDRESS: string;
+  ERC8183_WALLET_ADDRESS: string;
+
 
   // Logging
   LOG_LEVEL: 'debug' | 'info' | 'warn' | 'error';
@@ -129,6 +140,13 @@ export function getConfig(): Config {
     PAYPAL_WEBHOOK_ID: optional('PAYPAL_WEBHOOK_ID'),
     PAYPAL_WEBHOOK_SECRET: optional('PAYPAL_WEBHOOK_SECRET'),
     PAYPAL_ENVIRONMENT: (optional('PAYPAL_ENVIRONMENT', 'sandbox') as Config['PAYPAL_ENVIRONMENT']),
+    X402_RPC_URL: optional('X402_RPC_URL'),
+    X402_NETWORK: optional('X402_NETWORK', 'eip155:8453'),
+    X402_USDC_ADDRESS: optional('X402_USDC_ADDRESS'),
+    X402_WALLET_ADDRESS: optional('X402_WALLET_ADDRESS'),
+    ERC8183_NETWORK: optional('ERC8183_NETWORK', 'eip155:8453'),
+    ERC8183_TOKEN_ADDRESS: optional('ERC8183_TOKEN_ADDRESS'),
+    ERC8183_WALLET_ADDRESS: optional('ERC8183_WALLET_ADDRESS'),
     LOG_LEVEL: (optional('LOG_LEVEL', 'info') as Config['LOG_LEVEL']),
   };
 

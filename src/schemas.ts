@@ -17,6 +17,7 @@ extendZodWithOpenApi(z);
 export const GATEWAY_NAMES = [
   'midtrans', 'tripay', 'duitku', 'nowpayments', 'ipaymu',
   'scalev', 'xendit', 'telegram_stars', 'telegram_payments', 'paypal',
+  'x402', 'erc8183',
 ] as const;
 
 export const gatewayNameSchema = z.enum(GATEWAY_NAMES).openapi({

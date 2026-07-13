@@ -19,6 +19,8 @@ import { XenditGateway } from './xendit';
 import { TelegramStarsGateway } from './telegram-stars';
 import { TelegramPaymentsGateway } from './telegram-payments';
 import { PayPalGateway } from './paypal';
+import { X402Gateway } from './x402';
+import { ERC8183Gateway } from './erc8183';
 
 export type { PaymentGateway, NormalizedPaymentEvent, PaymentStatus, CreatePaymentParams, CreatePaymentResult, PaymentMethod } from './base';
 
@@ -33,6 +35,8 @@ const registry: Record<string, PaymentGateway> = {
   telegram_stars: new TelegramStarsGateway(),
   telegram_payments: new TelegramPaymentsGateway(),
   paypal: new PayPalGateway(),
+  x402: new X402Gateway(),
+  erc8183: new ERC8183Gateway(),
 };
 
 export function getGateway(name: string): PaymentGateway | undefined {
