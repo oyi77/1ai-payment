@@ -8,6 +8,7 @@ export interface Config {
   DATABASE_PATH: string;
   API_KEY: string;
   ENCRYPTION_KEY: string;
+  CORS_ORIGIN: string;
 
   // Midtrans
   MIDTRANS_SERVER_KEY: string;
@@ -85,6 +86,7 @@ export function getConfig(): Config {
     DATABASE_PATH: optional('DATABASE_PATH', './data/payment.db'),
     API_KEY: required('API_KEY'),
     ENCRYPTION_KEY: required('ENCRYPTION_KEY'),
+    CORS_ORIGIN: optional('CORS_ORIGIN', '*'),
 
     MIDTRANS_SERVER_KEY: optional('MIDTRANS_SERVER_KEY'),
     MIDTRANS_CLIENT_KEY: optional('MIDTRANS_CLIENT_KEY'),

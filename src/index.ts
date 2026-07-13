@@ -13,74 +13,25 @@ import { swaggerUI } from '@hono/swagger-ui';
 import { logger } from './utils/logger';
 import { getConfig } from './config/env';
 import { initDatabase } from './config/database';
+import { rateLimitMiddleware } from './middleware/rate-limit';
 import { webhookRoutes } from './routes/webhook';
 import { paymentRoutes } from './routes/payment';
 import { merchantRoutes } from './routes/merchant';
 import { refundRoutes } from './routes/refund';
 import { healthRoutes } from './routes/health';
-import { rateLimitMiddleware } from './middleware/rate-limit';
+import { registerRoutes } from './routes/register';
 import { defaultHook } from './schemas';
 
 const config = getConfig();
 const app = new OpenAPIHono({ defaultHook });
 
 // Middleware
-app.use('*', cors());
+app.use('*', cors({ origin: config.CORS_ORIGIN }));
 app.use('/api/*', rateLimitMiddleware({ windowMs: 60_000, max: 60 }));
 app.use('/webhook/*', rateLimitMiddleware({ windowMs: 60_000, max: 120 }));
 
 // Public registration endpoint (no auth required)
-app.post('/api/register', async (c) => {
-  let body: Record<string, unknown>;
-  try {
-    body = await c.req.json();
-  } catch {
-    return c.json({ success: false as const, error: { code: 'INVALID_BODY', message: 'Invalid JSON' } }, 400);
-  }
-
-  const name = body.name as string | undefined;
-  const plan = (body.plan as string) ?? 'free';
-  const callbackUrl = body.default_callback_url as string | undefined;
-
-  if (!name || typeof name !== 'string' || name.length < 1) {
-    return c.json({ success: false as const, error: { code: 'INVALID_BODY', message: 'Business name is required' } }, 400);
-  }
-  if (!['free', 'pro', 'enterprise'].includes(plan)) {
-    return c.json({ success: false as const, error: { code: 'INVALID_BODY', message: 'Invalid plan' } }, 400);
-  }
-
-  const { getDb } = await import('./config/database');
-  const { generateMerchantId, generateApiKey, generateWebhookSecret, sha256Hash } = await import('./utils/crypto');
-  const db = getDb();
-
-  const id = generateMerchantId();
-  const apiKey = generateApiKey();
-  const apiKeyHash = sha256Hash(apiKey);
-  const webhookSecret = generateWebhookSecret();
-
-  try {
-    await db.execute({
-      sql: `INSERT INTO merchants (id, name, api_key_hash, webhook_secret, default_callback_url, active, plan)
-            VALUES (?, ?, ?, ?, ?, 1, ?)`,
-      args: [id, name, apiKeyHash, webhookSecret, callbackUrl ?? null, plan],
-    });
-
-    logger.info('Merchant registered', { id, name, plan });
-
-    return c.json({
-      success: true as const,
-      data: {
-        merchant: { id, name, default_callback_url: callbackUrl ?? null, active: true, plan, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        api_key: apiKey,
-      },
-    }, 201);
-  } catch (err: unknown) {
-    if (err instanceof Error && err.message.includes('UNIQUE constraint')) {
-      return c.json({ success: false as const, error: { code: 'DUPLICATE', message: 'Merchant already exists' } }, 409);
-    }
-    throw err;
-  }
-});
+app.route('/', registerRoutes);
 
 // API routes (auth required)
 app.route('/', healthRoutes);
