@@ -35,6 +35,10 @@ app.use('/webhook/*', rateLimitMiddleware({ windowMs: 60_000, max: 120 }));
 // Metrics — no auth, no rate limit
 app.get('/metrics', metricsHandler);
 
+// Static files — landing page at /, merchant portal at /dashboard
+app.get('/', (c) => c.html(Bun.file('./src/landing/index.html').text()));
+app.get('/dashboard', (c) => c.html(Bun.file('./src/dashboard/index.html').text()));
+app.get('/dashboard/', (c) => c.html(Bun.file('./src/dashboard/index.html').text()));
 // Public registration endpoint (no auth required)
 app.route('/api', registerRoutes);
 

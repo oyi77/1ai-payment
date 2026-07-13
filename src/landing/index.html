@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>1ai-payment — Multi-Gateway Payment Aggregator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; line-height: 1.6; }
+    a { color: #818cf8; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Nav ───────────────────────────────── */
+    nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 40px; border-bottom: 1px solid #1e2740; }
+    nav .logo { font-size: 20px; font-weight: 700; color: #e2e8f0; }
+    nav .logo span { color: #818cf8; }
+    nav .nav-links { display: flex; gap: 24px; align-items: center; }
+    nav .nav-links a { font-size: 14px; color: #94a3b8; }
+    nav .nav-links a:hover { color: #e2e8f0; }
+    .nav-cta { padding: 8px 20px; background: #6366f1; color: white !important; border-radius: 8px; font-weight: 600; font-size: 14px; }
+    .nav-cta:hover { background: #4f46e5; text-decoration: none !important; }
+
+    /* ── Hero ───────────────────────────────── */
+    .hero { text-align: center; padding: 100px 40px 80px; max-width: 800px; margin: 0 auto; }
+    .hero h1 { font-size: 48px; font-weight: 800; line-height: 1.15; margin-bottom: 20px; }
+    .hero h1 span { color: #818cf8; }
+    .hero p { font-size: 18px; color: #94a3b8; max-width: 600px; margin: 0 auto 32px; }
+    .hero-btns { display: flex; gap: 16px; justify-content: center; }
+    .btn { display: inline-block; padding: 14px 32px; border-radius: 8px; font-size: 15px; font-weight: 600; transition: 0.15s; }
+    .btn-primary { background: #6366f1; color: white; }
+    .btn-primary:hover { background: #4f46e5; text-decoration: none !important; }
+    .btn-secondary { background: #1e2740; color: #e2e8f0; border: 1px solid #2d3a55; }
+    .btn-secondary:hover { background: #2d3a55; text-decoration: none !important; }
+
+    /* ── Features ──────────────────────────── */
+    .section { padding: 60px 40px; max-width: 1100px; margin: 0 auto; }
+    .section h2 { font-size: 28px; font-weight: 700; text-align: center; margin-bottom: 48px; }
+    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+    .feature { background: #161b27; border: 1px solid #1e2740; border-radius: 12px; padding: 32px; }
+    .feature .icon { font-size: 28px; margin-bottom: 12px; }
+    .feature h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .feature p { font-size: 14px; color: #94a3b8; }
+
+    /* ── Gateways ──────────────────────────── */
+    .gateway-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+    .gateway-card { background: #161b27; border: 1px solid #1e2740; border-radius: 8px; padding: 20px; text-align: center; }
+    .gateway-card .gw-name { font-size: 14px; font-weight: 600; }
+    .gateway-card .gw-desc { font-size: 12px; color: #64748b; margin-top: 4px; }
+
+    /* ── Stats ─────────────────────────────── */
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 24px; text-align: center; margin-top: 40px; }
+    .stat .num { font-size: 32px; font-weight: 800; color: #818cf8; }
+    .stat .label { font-size: 14px; color: #94a3b8; margin-top: 4px; }
+
+    /* ── CTA ───────────────────────────────── */
+    .cta { background: #161b27; border: 1px solid #1e2740; border-radius: 16px; padding: 60px 40px; text-align: center; }
+    .cta h2 { font-size: 28px; font-weight: 700; margin-bottom: 12px; }
+    .cta p { color: #94a3b8; margin-bottom: 24px; font-size: 16px; }
+
+    /* ── Footer ────────────────────────────── */
+    footer { text-align: center; padding: 32px; color: #4a5568; font-size: 13px; border-top: 1px solid #1e2740; }
+    footer a { color: #64748b; }
+
+    @media (max-width: 640px) {
+      nav { padding: 12px 16px; flex-direction: column; gap: 12px; }
+      .hero { padding: 60px 16px 40px; }
+      .hero h1 { font-size: 32px; }
+      .section { padding: 40px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Nav ──────────────────────────────── -->
+  <nav>
+    <div class="logo">1ai<span>payment</span></div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#gateways">Gateways</a>
+      <a href="#docs">API</a>
+      <a href="/reference">Docs</a>
+      <a href="/dashboard" class="nav-cta">Merchant Portal</a>
+    </div>
+  </nav>
+
+  <!-- ── Hero ──────────────────────────────── -->
+  <section class="hero">
+    <h1>Accept payments across <span>11 gateways</span> with one API</h1>
+    <p>Unified payment API for Indonesia and global markets. One integration, every payment method — Midtrans, Tripay, Duitku, Xendit, PayPal, Telegram, and more.</p>
+    <div class="hero-btns">
+      <a href="/dashboard" class="btn btn-primary">Create Merchant Account</a>
+      <a href="/reference" class="btn btn-secondary">API Reference</a>
+    </div>
+  </section>
+
+  <!-- ── Stats ─────────────────────────────── -->
+  <section class="section">
+    <div class="stats">
+      <div class="stat"><div class="num">11</div><div class="label">Payment Gateways</div></div>
+      <div class="stat"><div class="num">1</div><div class="label">API Integration</div></div>
+      <div class="stat"><div class="num">IDR</div><div class="label">Local + Global</div></div>
+      <div class="stat"><div class="num">60/s</div><div class="label">Rate Limit</div></div>
+    </div>
+  </section>
+
+  <!-- ── Features ──────────────────────────── -->
+  <section class="section" id="features">
+    <h2>Why 1ai-payment?</h2>
+    <div class="features">
+      <div class="feature">
+        <div class="icon">🔌</div>
+        <h3>Single API</h3>
+        <p>One integration powers 11 gateways. switch providers without changing code — just change the gateway parameter.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">🔄</div>
+        <h3>Async Webhook Routing</h3>
+        <p>All gateways normalize to a uniform callback format. Forward events to your project with automatic retry and dead letter queue.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">🔑</div>
+        <h3>Merchant-Scoped Auth</h3>
+        <p>Each merchant gets an API key. Rate limits, refunds, and transaction history isolated per merchant.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">📊</div>
+        <h3>Merchant Dashboard</h3>
+        <p>Track transactions, manage refunds, configure gateways, and rotate API keys — all from a web portal.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">📕</div>
+        <h3>OpenAPI Docs</h3>
+        <p>Full Swagger UI auto-generated from code. Try every endpoint directly from the browser.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">🔒</div>
+        <h3>Signature Verification</h3>
+        <p>Every gateway webhook is verified with timing-safe comparison. Idempotency enforced at the database level.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Gateways ──────────────────────────── -->
+  <section class="section" id="gateways">
+    <h2>Supported Gateways</h2>
+    <div class="gateway-grid">
+      <div class="gateway-card"><div class="gw-name">Midtrans</div><div class="gw-desc">Indonesia — CC, QR, Bank Transfer</div></div>
+      <div class="gateway-card"><div class="gw-name">Tripay</div><div class="gw-desc">Indonesia — QR, VA, Convenience Store</div></div>
+      <div class="gateway-card"><div class="gw-name">Duitku</div><div class="gw-desc">Indonesia — QR, VA, E-Wallet</div></div>
+      <div class="gateway-card"><div class="gw-name">Xendit</div><div class="gw-desc">Philippines/Indonesia — VA, Cards, E-Wallet</div></div>
+      <div class="gateway-card"><div class="gw-name">iPaymu</div><div class="gw-desc">Indonesia — QR, VA, E-Wallet</div></div>
+      <div class="gateway-card"><div class="gw-name">Scalev</div><div class="gw-desc">Indonesia/Global — E-Wallet, VA</div></div>
+      <div class="gateway-card"><div class="gw-name">NOWPayments</div><div class="gw-desc">Global — Crypto payments</div></div>
+      <div class="gateway-card"><div class="gw-name">PayPal</div><div class="gw-desc">Global — PayPal Checkout</div></div>
+      <div class="gateway-card"><div class="gw-name">Telegram Stars</div><div class="gw-desc">Global — Telegram XTR</div></div>
+      <div class="gateway-card"><div class="gw-name">Telegram Payments</div><div class="gw-desc">Global — Telegram multi-currency</div></div>
+      <div class="gateway-card"><div class="gw-name">Custom Webhook</div><div class="gw-desc">Any — generic callback endpoint</div></div>
+    </div>
+  </section>
+
+  <!-- ── How it works ──────────────────────── -->
+  <section class="section" id="docs">
+    <h2>How It Works</h2>
+    <div class="features">
+      <div class="feature">
+        <div class="icon">1</div>
+        <h3>Register</h3>
+        <p>Create a merchant account via the portal. Receive your API key instantly — no approval needed.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">2</div>
+        <h3>Create Payment</h3>
+        <p><code style="background:#1e2740;padding:2px 6px;border-radius:4px;font-size:13px">POST /api/payments</code> with gateway, amount, currency. Get a payment URL back.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">3</div>
+        <h3>Receive Callback</h3>
+        <p>Your callback URL receives normalized webhook events. Refunds, retries, and dead letters handled automatically.</p>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:40px">
+      <a href="/reference" class="btn btn-secondary">Read the API Docs →</a>
+    </div>
+  </section>
+
+  <!-- ── CTA ───────────────────────────────── -->
+  <section class="section">
+    <div class="cta">
+      <h2>Start accepting payments in minutes</h2>
+      <p>No paperwork. No approval. Just one API key.</p>
+      <a href="/dashboard" class="btn btn-primary" style="padding:16px 40px;font-size:16px">Create Merchant Account</a>
+    </div>
+  </section>
+
+  <!-- ── Footer ────────────────────────────── -->
+  <footer>
+    <p>1ai-payment — <a href="https://berkahkarya.org">BerkahKarya</a> | <a href="/reference">API Docs</a> | <a href="/dashboard">Dashboard</a></p>
+  </footer>
+
+</body>
+</html>
