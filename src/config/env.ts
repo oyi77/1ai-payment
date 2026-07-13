@@ -7,6 +7,7 @@ export interface Config {
   NODE_ENV: 'development' | 'production' | 'test';
   DATABASE_PATH: string;
   API_KEY: string;
+  ENCRYPTION_KEY: string;
 
   // Midtrans
   MIDTRANS_SERVER_KEY: string;
@@ -83,6 +84,7 @@ export function getConfig(): Config {
     NODE_ENV: (optional('NODE_ENV', 'development') as Config['NODE_ENV']),
     DATABASE_PATH: optional('DATABASE_PATH', './data/payment.db'),
     API_KEY: required('API_KEY'),
+    ENCRYPTION_KEY: required('ENCRYPTION_KEY'),
 
     MIDTRANS_SERVER_KEY: optional('MIDTRANS_SERVER_KEY'),
     MIDTRANS_CLIENT_KEY: optional('MIDTRANS_CLIENT_KEY'),

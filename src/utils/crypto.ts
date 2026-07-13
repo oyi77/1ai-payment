@@ -70,9 +70,11 @@ const ENC_IV_LENGTH = 16;
 const ENC_TAG_LENGTH = 16;
 
 function getEncryptionKey(): Buffer {
-  const config = getConfig();
-  const secret = config.API_KEY || 'default-dev-key-change-in-production';
-  return crypto.createHash('sha256').update(secret).digest();
+  const key = getConfig().ENCRYPTION_KEY;
+  if (key.length !== 64 || !/^[0-9a-f]{64}$/i.test(key)) {
+    throw new Error('ENCRYPTION_KEY must be a 64-char hex string (32 bytes)');
+  }
+  return Buffer.from(key, 'hex');
 }
 
 export function encrypt(plaintext: string): string {
