@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
-<title>1ai-payment — Payment infrastructure for Indonesia & global commerce</title>
+<title>1ai-payment — Payment infrastructure for Indonesia &amp; global commerce</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -32,16 +32,64 @@ tailwind.config = {
 };
 </script>
 <style>
+/* ── Reset ── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;scroll-padding-top:80px}
 body{background:#080b1a;color:#e8edf5;line-height:1.6;overflow-x:hidden}
 ::selection{background:#818cf8;color:#fff}
+
+/* ── Language toggle ── */
+/* Visibility handled by JS toggling .hidden class */
 
 /* ── Background layers ── */
 .bg-glow{position:fixed;top:-50%;left:-25%;width:150%;height:150%;pointer-events:none;z-index:0;
   background:radial-gradient(ellipse 50% 45% at 50% 40%,rgba(99,102,241,.12) 0%,rgba(79,70,229,.04) 50%,transparent 70%)}
 .bg-grain{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.03;
   background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* ── Hero animated background ── */
+@keyframes meshFlow {
+  0% { background-position: 0% 50% }
+  50% { background-position: 100% 50% }
+  100% { background-position: 0% 50% }
+}
+.hero-bg {
+  position:absolute; inset:0;
+  background: radial-gradient(ellipse 60% 50% at 30% 30%, rgba(99,102,241,.12) 0%, transparent 50%),
+              radial-gradient(ellipse 40% 40% at 70% 60%, rgba(129,140,248,.08) 0%, transparent 50%),
+              radial-gradient(ellipse 50% 40% at 50% 80%, rgba(165,180,252,.05) 0%, transparent 50%);
+  background-size: 200% 200%;
+  animation: meshFlow 8s ease infinite;
+}
+
+/* ── Scroll reveal animation ── */
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(24px) }
+  to { opacity:1; transform:translateY(0) }
+}
+.reveal { opacity:0; transform:translateY(24px); transition:all .6s ease-out }
+.reveal.visible { opacity:1; transform:translateY(0) }
+
+/* ── Glassmorphism ── */
+.glass { background:rgba(15,21,41,.6); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(30,39,69,.6); }
+
+/* ── Card hover ── */
+.card-hover { transition:all .25s ease; }
+.card-hover:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,.3); border-color:rgba(129,140,248,.3); }
+
+/* ── Nav scroll shadow ── */
+nav.scrolled { border-bottom-color:rgba(129,140,248,.15); }
+
+/* ── CTA glow ── */
+.btn-glow { position:relative; overflow:hidden; }
+.btn-glow::after { content:''; position:absolute; inset:-2px; background:linear-gradient(135deg,#818cf8,#6366f1,#a5b4fc); opacity:0; border-radius:inherit; z-index:-1; transition:opacity .3s; filter:blur(12px); }
+.btn-glow:hover::after { opacity:.5; }
+
+/* ── Language toggle pill ── */
+.lang-toggle { display:inline-flex; background:#0f1529; border:1px solid #1e2745; border-radius:20px; padding:3px; cursor:pointer; }
+.lang-toggle span { padding:4px 12px; border-radius:16px; font-size:12px; font-weight:600; transition:all .15s; }
+.lang-toggle span.active { background:#818cf8; color:#fff; }
+.lang-toggle span:not(.active) { color:#7c89b5; }
 
 /* ── Nav ── */
 nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
@@ -50,13 +98,23 @@ nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(20px);-webkit-backdro
 nav .logo{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:700}
 nav .logo svg{width:28px;height:28px}
 .nav-menu{display:flex;gap:4px;align-items:center}
-.nav-menu a{padding:8px 16px;font-size:14px;color:#7c89b5;border-radius:8px;transition:all .15s}
+.nav-menu a{padding:8px 16px;font-size:14px;color:#7c89b5;border-radius:8px;transition:all .15s;text-decoration:none}
 .nav-menu a:hover{color:#e8edf5;background:#0f1529}
 .nav-toggle{display:none;background:none;border:none;color:#7c89b5;font-size:24px;cursor:pointer;padding:8px}
+
+/* ── Mobile menu ── */
 @media(max-width:768px){
-  .nav-menu{display:none;flex-direction:column;position:absolute;top:64px;left:0;right:0;background:rgba(8,11,26,.98);border-bottom:1px solid #1e2745;padding:12px;gap:4px}
+  .nav-menu{display:none;flex-direction:column;position:absolute;top:64px;left:0;right:0;background:rgba(8,11,26,.98);backdrop-filter:blur(20px);border-bottom:1px solid #1e2745;padding:12px;gap:4px}
   .nav-menu.open{display:flex}
   .nav-toggle{display:block}
+  .desktop-only{display:none!important}
+}
+
+/* ── Mobile sticky CTA bar ── */
+@media(max-width:768px){
+  .mobile-cta-bar{position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(8,11,26,.95);backdrop-filter:blur(12px);border-top:1px solid #1e2745;padding:12px 16px;display:flex;gap:8px}
+  .mobile-cta-bar a{flex:1;text-align:center;padding:12px;border-radius:10px;font-size:14px;font-weight:600}
+  body{padding-bottom:72px}
 }
 
 /* ── API preview panel ── */
@@ -93,8 +151,12 @@ nav .logo svg{width:28px;height:28px}
 .comp-table th{text-align:left;padding:14px 16px;background:#0f1529;color:#7c89b5;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #1e2745}
 .comp-table td{padding:14px 16px;border-bottom:1px solid #1e2745;vertical-align:top}
 .comp-table tr:last-child td{border-bottom:none}
+.comp-table tbody tr:nth-child(even) { background:rgba(15,21,41,.4); }
 .comp-table .check{color:#34d399;font-weight:700}
 .comp-table .x{color:#7c89b5;opacity:.4}
+
+/* ── Section spacing ── */
+section { scroll-margin-top:80px; }
 
 /* ── Misc ── */
 .code-block{background:#080b1a;border:1px solid #1e2745;border-radius:10px;padding:16px;font-family:'JetBrains Mono',monospace;font-size:13px;overflow-x:auto;line-height:1.6;color:#c8d0e0}
@@ -107,248 +169,465 @@ nav .logo svg{width:28px;height:28px}
 <div class="bg-grain"></div>
 
 <!-- ═══════════════ 1. NAV ═══════════════ -->
-<nav>
+<nav id="navbar">
   <a href="/" class="logo" style="color:#e8edf5;text-decoration:none">
     <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="url(#lg)"/><text x="16" y="22" text-anchor="middle" fill="#fff" font-weight="800" font-size="16" font-family="system-ui">1i</text><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#818cf8"/><stop offset="100%" stop-color="#6366f1"/></linearGradient></defs></svg>
     1ai<span style="color:#818cf8">payment</span>
   </a>
   <button class="nav-toggle" onclick="document.getElementById('navMenu').classList.toggle('open')" aria-label="Toggle menu">☰</button>
   <div class="nav-menu" id="navMenu">
-    <a href="#why">Why</a>
-    <a href="#gateways">Gateways</a>
-    <a href="#preview">API</a>
-    <a href="#comparison">Compare</a>
-    <a href="#faq">FAQ</a>
-    <a href="/dashboard">Dashboard</a>
-    <a href="/reference" class="btn-primary" style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border-radius:8px;font-weight:600;font-size:14px;color:#fff!important">API Docs →</a>
+    <a href="#why"><span class="lang-id">Kenapa</span><span class="lang-en hidden">Why</span></a>
+    <a href="#gateways"><span class="lang-id">Gateway</span><span class="lang-en hidden">Gateways</span></a>
+    <a href="#preview"><span class="lang-id">API</span><span class="lang-en hidden">API</span></a>
+    <a href="#comparison"><span class="lang-id">Bandingkan</span><span class="lang-en hidden">Compare</span></a>
+    <a href="#faq"><span class="lang-id">FAQ</span><span class="lang-en hidden">FAQ</span></a>
+    <a href="/dashboard"><span class="lang-id">Dashboard</span><span class="lang-en hidden">Dashboard</span></a>
+    <a href="/reference" class="desktop-only" style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border-radius:8px;font-weight:600;font-size:14px;color:#fff!important;background:#818cf8;text-decoration:none">API Docs →</a>
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 4px">
+      <div class="lang-toggle" id="langToggle">
+        <span data-lang="id" class="active" onclick="setLang('id')">ID</span>
+        <span data-lang="en" onclick="setLang('en')">EN</span>
+      </div>
+    </div>
   </div>
 </nav>
 
-<!-- ═══════════════ 1. HERO ═══════════════ -->
-<section style="position:relative;z-index:1;text-align:center;padding:120px 24px 80px;overflow:hidden">
-  <p style="font-size:13px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:16px">Payment infrastructure for Indonesia &amp; global commerce</p>
-  <h1 style="font-size:clamp(34px,5.5vw,60px);font-weight:800;line-height:1.1;letter-spacing:-1px;margin:0 auto 20px;max-width:800px">
-    One API.<br />
-    <span style="background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Eleven gateways.</span><br />
-    Every payment method your merchants already use.
-  </h1>
-  <p style="font-size:clamp(15px,1.8vw,19px);color:#7c89b5;max-width:600px;margin:0 auto 36px;line-height:1.7">
-    Midtrans, Tripay, Duitku, Xendit, PayPal, Telegram, and more — normalized into one integration. Add a gateway by changing a parameter, not shipping a new integration.
-  </p>
-  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-    <a href="/dashboard" style="display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:12px;font-size:15px;font-weight:600;background:#818cf8;color:#fff;transition:all .2s">Create Merchant Account →</a>
-    <a href="#audience" style="display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:12px;font-size:15px;font-weight:600;background:#0f1529;color:#e8edf5;border:1px solid #1e2745;transition:all .2s">Talk to us for B2B/agency plans</a>
-    <a href="/reference" style="display:inline-flex;align-items:center;gap:6px;padding:14px 24px;font-size:14px;color:#7c89b5;transition:color .15s">Read the API docs ↗</a>
+<!-- ═══════════════ 2. HERO ═══════════════ -->
+<section style="position:relative;z-index:1;padding:140px 24px 80px;overflow:hidden;text-align:center">
+  <div class="hero-bg"></div>
+  <div style="position:relative;z-index:2">
+    <p style="font-size:13px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:16px" class="reveal">
+      <span class="lang-id">Infrastruktur pembayaran untuk Indonesia &amp; global</span>
+      <span class="lang-en hidden">Payment infrastructure for Indonesia &amp; global commerce</span>
+    </p>
+    <h1 style="font-size:clamp(34px,5.5vw,64px);font-weight:800;line-height:1.1;letter-spacing:-1px;margin:0 auto 20px;max-width:800px" class="reveal">
+      <span class="lang-id">Satu API.<br /><span style="background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">12+ gateway.</span><br />Semua metode pembayaran yang pelangganmu sudah pakai.</span>
+      <span class="lang-en hidden">One API.<br /><span style="background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">12+ gateways.</span><br />Every payment method your merchants already use.</span>
+    </h1>
+    <p style="font-size:clamp(15px,1.8vw,19px);color:#7c89b5;max-width:640px;margin:0 auto 36px;line-height:1.7" class="reveal">
+      <span class="lang-id">Midtrans, Tripay, Duitku, Xendit, PayPal, Telegram, dan lainnya — dinormalisasi dalam satu integrasi. Ganti gateway cukup ganti parameter, bukan integrasi baru.</span>
+      <span class="lang-en hidden">Midtrans, Tripay, Duitku, Xendit, PayPal, Telegram, and more — normalized into one integration. Add a gateway by changing a parameter, not shipping a new integration.</span>
+    </p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap" class="reveal">
+      <a href="/dashboard" class="btn-glow" style="display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:12px;font-size:15px;font-weight:600;background:#818cf8;color:#fff;transition:all .2s;text-decoration:none">
+        <span class="lang-id">Buat Merchant Account →</span>
+        <span class="lang-en hidden">Create Merchant Account →</span>
+      </a>
+      <a href="mailto:pay@berkahkarya.org" style="display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:12px;font-size:15px;font-weight:600;background:#0f1529;color:#e8edf5;border:1px solid #1e2745;transition:all .2s;text-decoration:none">
+        <span class="lang-id">Hubungi Kami</span>
+        <span class="lang-en hidden">Contact Sales</span>
+      </a>
+    </div>
+
+    <!-- Trust badges -->
+    <div style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-top:36px" class="reveal">
+      <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#7c89b5">
+        <span style="font-size:16px">🔐</span>
+        <span class="lang-id">PCI SAQ A scope</span>
+        <span class="lang-en hidden">PCI SAQ A scope</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#7c89b5">
+        <span style="font-size:16px">✓</span>
+        <span class="lang-id">Verifikasi timing-safe</span>
+        <span class="lang-en hidden">Timing-safe verification</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#7c89b5">
+        <span style="font-size:16px">🔄</span>
+        <span class="lang-id">3x retry + DLQ</span>
+        <span class="lang-en hidden">3x retry + DLQ</span>
+      </div>
+    </div>
   </div>
 </section>
 
-<!-- ═══════════════ 2. TRUST BAR ═══════════════ -->
+<!-- ═══════════════ 3. TRUST BAR ═══════════════ -->
 <div style="position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 24px">
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
-    <div style="background:#0f1529;border:1px solid #1e2745;border-radius:12px;padding:28px 20px;text-align:center">
+    <div class="glass card-hover" style="border-radius:12px;padding:28px 20px;text-align:center" class="reveal">
       <div style="font-size:36px;font-weight:800;background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">12</div>
-      <div style="font-size:12px;color:#7c89b5;margin-top:4px;font-weight:500;letter-spacing:.03em">GATEWAYS</div>
-      <div style="font-size:12px;color:#4a5a7a;margin-top:6px;max-width:180px;margin-left:auto;margin-right:auto;line-height:1.4">Indonesia-local &amp; global — one contract to maintain</div>
+      <div style="font-size:12px;color:#7c89b5;margin-top:4px;font-weight:500;letter-spacing:.03em">
+        <span class="lang-id">GATEWAY</span>
+        <span class="lang-en hidden">GATEWAYS</span>
+      </div>
+      <div style="font-size:12px;color:#4a5a7a;margin-top:6px;line-height:1.4">
+        <span class="lang-id">Indonesia lokal &amp; global — satu kontrak</span>
+        <span class="lang-en hidden">Indonesia-local &amp; global — one contract to maintain</span>
+      </div>
     </div>
-    <div style="background:#0f1529;border:1px solid #1e2745;border-radius:12px;padding:28px 20px;text-align:center">
+    <div class="glass card-hover" style="border-radius:12px;padding:28px 20px;text-align:center" class="reveal">
       <div style="font-size:36px;font-weight:800;background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">1</div>
-      <div style="font-size:12px;color:#7c89b5;margin-top:4px;font-weight:500;letter-spacing:.03em">INTEGRATION</div>
-      <div style="font-size:12px;color:#4a5a7a;margin-top:6px;max-width:180px;margin-left:auto;margin-right:auto;line-height:1.4">Ship new payment methods without new code</div>
+      <div style="font-size:12px;color:#7c89b5;margin-top:4px;font-weight:500;letter-spacing:.03em">
+        <span class="lang-id">INTEGRASI</span>
+        <span class="lang-en hidden">INTEGRATION</span>
+      </div>
+      <div style="font-size:12px;color:#4a5a7a;margin-top:6px;line-height:1.4">
+        <span class="lang-id">Metode pembayaran baru tanpa kode baru</span>
+        <span class="lang-en hidden">Ship new payment methods without new code</span>
+      </div>
     </div>
-    <div style="background:#0f1529;border:1px solid #1e2745;border-radius:12px;padding:28px 20px;text-align:center">
+    <div class="glass card-hover" style="border-radius:12px;padding:28px 20px;text-align:center" class="reveal">
       <div style="font-size:36px;font-weight:800;background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">IDR+</div>
-      <div style="font-size:12px;color:#7c89b5;margin-top:4px;font-weight:500;letter-spacing:.03em">GLOBAL CURRENCIES</div>
-      <div style="font-size:12px;color:#4a5a7a;margin-top:6px;max-width:180px;margin-left:auto;margin-right:auto;line-height:1.4">Built for Indonesian rails first, not retrofitted</div>
+      <div style="font-size:12px;color:#7c89b5;margin-top:4px;font-weight:500;letter-spacing:.03em">
+        <span class="lang-id">MATA UANG</span>
+        <span class="lang-en hidden">CURRENCIES</span>
+      </div>
+      <div style="font-size:12px;color:#4a5a7a;margin-top:6px;line-height:1.4">
+        <span class="lang-id">Dibuat untuk Indonesia dulu, bukan retrofit</span>
+        <span class="lang-en hidden">Built for Indonesian rails first, not retrofitted</span>
+      </div>
     </div>
-    <div style="background:#0f1529;border:1px solid #1e2745;border-radius:12px;padding:28px 20px;text-align:center">
+    <div class="glass card-hover" style="border-radius:12px;padding:28px 20px;text-align:center" class="reveal">
       <div style="font-size:36px;font-weight:800;background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">60</div>
-      <div style="font-size:12px;color:#7c89b5;margin-top:4px;font-weight:500;letter-spacing:.03em">REQ/MIN</div>
-      <div style="font-size:12px;color:#4a5a7a;margin-top:6px;max-width:180px;margin-left:auto;margin-right:auto;line-height:1.4">Per-merchant rate limit — no neighbor can throttle you</div>
+      <div style="font-size:12px;color:#7c89b5;margin-top:4px;font-weight:500;letter-spacing:.03em">
+        <span class="lang-id">REQ/MENIT</span>
+        <span class="lang-en hidden">REQ/MIN</span>
+      </div>
+      <div style="font-size:12px;color:#4a5a7a;margin-top:6px;line-height:1.4">
+        <span class="lang-id">Rate limit per merchant — tidak ada tetangga yang bikin lambat</span>
+        <span class="lang-en hidden">Per-merchant rate limit — no neighbor can throttle you</span>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════ 3. SEGMENTED VALUE PROP ═══════════════ -->
+<!-- ═══════════════ 4. AUDIENCE ═══════════════ -->
 <section id="audience" style="position:relative;z-index:1;padding:100px 24px">
   <div style="max-width:1100px;margin:0 auto">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px">Built for however you sell</p>
+    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">
+      <span class="lang-id">Dibuat untuk cara Anda menjual</span>
+      <span class="lang-en hidden">Built for however you sell</span>
+    </p>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-top:36px">
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:16px;padding:36px 28px;transition:all .25s;position:relative;overflow:hidden">
+      <div class="glass card-hover" style="border-radius:16px;padding:36px 28px;position:relative;overflow:hidden">
         <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#818cf8,transparent);opacity:.5"></div>
         <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:18px">&lt;/&gt;</div>
-        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#818cf8;margin-bottom:8px">For Developers</div>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">Get an API key in seconds, no approval queue. Ship a working payment flow before your coffee's cold, and swap gateways later without touching checkout code.</p>
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#818cf8;margin-bottom:8px">
+          <span class="lang-id">Developer</span>
+          <span class="lang-en hidden">Developers</span>
+        </div>
+        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
+          <span class="lang-id">Dapatkan API key dalam detik, tanpa antrean approval. Ship payment flow yang berfungsi sebelum kopimu dingin, dan ganti gateway tanpa menyentuh kode checkout.</span>
+          <span class="lang-en hidden">Get an API key in seconds, no approval queue. Ship a working payment flow before your coffee's cold, and swap gateways later without touching checkout code.</span>
+        </p>
       </div>
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:16px;padding:36px 28px;transition:all .25s;position:relative;overflow:hidden">
+      <div class="glass card-hover" style="border-radius:16px;padding:36px 28px;position:relative;overflow:hidden">
         <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#34d399,transparent);opacity:.5"></div>
         <div style="width:40px;height:40px;border-radius:10px;background:rgba(52,211,153,.12);display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:18px">🏪</div>
-        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#34d399;margin-bottom:8px">For Growing Merchants</div>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">Stop maintaining five different gateway integrations as you expand payment methods. One dashboard, one set of webhooks, one place to see every transaction — regardless of which gateway processed it.</p>
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#34d399;margin-bottom:8px">
+          <span class="lang-id">Merchant</span>
+          <span class="lang-en hidden">Merchants</span>
+        </div>
+        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
+          <span class="lang-id">Berhenti memelihara lima integrasi gateway. Satu dashboard, satu set webhook, satu tempat untuk melihat semua transaksi — gateway apa pun yang memprosesnya.</span>
+          <span class="lang-en hidden">Stop maintaining five different gateway integrations. One dashboard, one set of webhooks, one place to see every transaction — regardless of which gateway processed it.</span>
+        </p>
       </div>
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:16px;padding:36px 28px;transition:all .25s;position:relative;overflow:hidden">
+      <div class="glass card-hover" style="border-radius:16px;padding:36px 28px;position:relative;overflow:hidden">
         <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#fbbf24,transparent);opacity:.5"></div>
         <div style="width:40px;height:40px;border-radius:10px;background:rgba(251,191,36,.12);display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:18px">🏢</div>
-        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#fbbf24;margin-bottom:8px">For Agencies &amp; Platforms</div>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">Deploy payment infrastructure across every client without rebuilding it each time. Merchant-scoped API keys and isolated rate limits mean one client's traffic never touches another's.</p>
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#fbbf24;margin-bottom:8px">
+          <span class="lang-id">Agency</span>
+          <span class="lang-en hidden">Agencies</span>
+        </div>
+        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
+          <span class="lang-id">Deploy infrastruktur pembayaran di setiap klien tanpa membangun ulang. API key per merchant dan rate limit terisolasi — lalu lintas satu klien tidak pernah menyentuh data klien lain.</span>
+          <span class="lang-en hidden">Deploy payment infrastructure across every client without rebuilding it each time. Merchant-scoped API keys and isolated rate limits mean one client's traffic never touches another's.</span>
+        </p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════ 4. WHY 1AI-PAYMENT ═══════════════ -->
+<!-- ═══════════════ 5. WHY ═══════════════ -->
 <section id="why" style="position:relative;z-index:1;padding:80px 24px;background:rgba(15,21,41,.5);border-top:1px solid #1e2745;border-bottom:1px solid #1e2745">
   <div style="max-width:1100px;margin:0 auto">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px">Why 1ai-payment</p>
-    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:8px;letter-spacing:-.3px">One contract. Every payment method.</h2>
-    <p style="color:#7c89b5;font-size:16px;max-width:540px;margin-bottom:48px">Stop maintaining 11 different SDKs. Change one parameter to switch providers — your checkout code never changes.</p>
+    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">Why 1ai-payment</p>
+    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:8px;letter-spacing:-.3px" class="reveal">
+      <span class="lang-id">Satu kontrak. Semua metode pembayaran.</span>
+      <span class="lang-en hidden">One contract. Every payment method.</span>
+    </h2>
+    <p style="color:#7c89b5;font-size:16px;max-width:540px;margin-bottom:48px" class="reveal">
+      <span class="lang-id">Berhenti memelihara 11 SDK berbeda. Ganti satu parameter untuk mengganti provider — kode checkout-mu tidak pernah berubah.</span>
+      <span class="lang-en hidden">Stop maintaining 11 different SDKs. Change one parameter to switch providers — your checkout code never changes.</span>
+    </p>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
-      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px">
+      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px;transition:all .25s ease;position:relative" class="card-hover"
+           onmouseenter="this.style.borderColor='rgba(129,140,248,.4)'" onmouseleave="this.style.borderColor='#1e2745'">
         <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:18px">🔌</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">Single API</h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">Stop maintaining 11 different SDKs. Change one parameter to switch providers — your checkout code never changes.</p>
+        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
+          <span class="lang-id">API Tunggal</span>
+          <span class="lang-en hidden">Single API</span>
+        </h3>
+        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
+          <span class="lang-id">Berhenti memelihara 11 SDK berbeda. Ganti satu parameter untuk mengganti provider — kode checkout-mu tidak pernah berubah.</span>
+          <span class="lang-en hidden">Stop maintaining 11 different SDKs. Change one parameter to switch providers — your checkout code never changes.</span>
+        </p>
       </div>
-      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px">
+      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px;transition:all .25s ease;position:relative" class="card-hover"
+           onmouseenter="this.style.borderColor='rgba(129,140,248,.4)'" onmouseleave="this.style.borderColor='#1e2745'">
         <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:18px">📡</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">Async webhook routing</h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">Every gateway's callback format, normalized into one. Retries and a dead-letter queue mean you stop building retry logic yourself.</p>
+        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
+          <span class="lang-id">Webhook Routing</span>
+          <span class="lang-en hidden">Webhook Routing</span>
+        </h3>
+        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
+          <span class="lang-id">Format callback setiap gateway, dinormalisasi jadi satu. Retry dan dead-letter queue berarti kamu berhenti membuat logika retry sendiri.</span>
+          <span class="lang-en hidden">Every gateway's callback format, normalized into one. Retries and a dead-letter queue mean you stop building retry logic yourself.</span>
+        </p>
       </div>
-      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px">
+      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px;transition:all .25s ease;position:relative" class="card-hover"
+           onmouseenter="this.style.borderColor='rgba(129,140,248,.4)'" onmouseleave="this.style.borderColor='#1e2745'">
         <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:18px">🔐</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">Merchant-scoped auth</h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">Every merchant's rate limits, refunds, and transaction history are isolated. One compromised key never exposes another merchant's data.</p>
+        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
+          <span class="lang-id">Auth Merchant</span>
+          <span class="lang-en hidden">Merchant Auth</span>
+        </h3>
+        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
+          <span class="lang-id">Rate limit, refund, dan riwayat transaksi setiap merchant terisolasi. Satu key yang bocor tidak pernah mengekspos data merchant lain.</span>
+          <span class="lang-en hidden">Every merchant's rate limits, refunds, and transaction history are isolated. One compromised key never exposes another merchant's data.</span>
+        </p>
       </div>
-      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px">
+      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px;transition:all .25s ease;position:relative" class="card-hover"
+           onmouseenter="this.style.borderColor='rgba(129,140,248,.4)'" onmouseleave="this.style.borderColor='#1e2745'">
         <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:18px">📊</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">Merchant dashboard</h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">See every transaction, manage refunds, rotate keys — without opening a database console.</p>
+        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
+          <span class="lang-id">Dashboard</span>
+          <span class="lang-en hidden">Dashboard</span>
+        </h3>
+        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
+          <span class="lang-id">Lihat semua transaksi, kelola refund, rotasi key — tanpa membuka console database.</span>
+          <span class="lang-en hidden">See every transaction, manage refunds, rotate keys — without opening a database console.</span>
+        </p>
       </div>
-      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px">
+      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px;transition:all .25s ease;position:relative" class="card-hover"
+           onmouseenter="this.style.borderColor='rgba(129,140,248,.4)'" onmouseleave="this.style.borderColor='#1e2745'">
         <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:18px">📖</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">OpenAPI docs</h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">Every endpoint is testable from the browser. No Postman collection to hunt down.</p>
+        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
+          <span class="lang-id">Dokumentasi OpenAPI</span>
+          <span class="lang-en hidden">OpenAPI Docs</span>
+        </h3>
+        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
+          <span class="lang-id">Setiap endpoint bisa di-test dari browser. Tidak perlu hunting Postman collection.</span>
+          <span class="lang-en hidden">Every endpoint is testable from the browser. No Postman collection to hunt down.</span>
+        </p>
       </div>
-      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px">
+      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px;transition:all .25s ease;position:relative" class="card-hover"
+           onmouseenter="this.style.borderColor='rgba(129,140,248,.4)'" onmouseleave="this.style.borderColor='#1e2745'">
         <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:18px">✓</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">Signature verification</h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">Every webhook is verified with timing-safe comparison, and idempotency is enforced at the database level — so a retried webhook never double-charges a customer.</p>
+        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
+          <span class="lang-id">Verifikasi Signature</span>
+          <span class="lang-en hidden">Signature Verification</span>
+        </h3>
+        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
+          <span class="lang-id">Setiap webhook diverifikasi dengan timing-safe comparison, dan idempotensi ditegakkan di level database — webhook yang di-retry tidak akan pernah double-charge pelanggan.</span>
+          <span class="lang-en hidden">Every webhook is verified with timing-safe comparison, and idempotency is enforced at the database level — so a retried webhook never double-charges a customer.</span>
+        </p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════ 5. SUPPORTED GATEWAYS ═══════════════ -->
+<!-- ═══════════════ 6. GATEWAYS ═══════════════ -->
 <section id="gateways" style="position:relative;z-index:1;padding:80px 24px">
   <div style="max-width:1100px;margin:0 auto">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px">Supported Gateways</p>
-    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:8px;letter-spacing:-.3px">12 gateways and growing</h2>
-    <p style="color:#7c89b5;font-size:16px;margin-bottom:48px;max-width:520px">From Indonesian local champions to global leaders, crypto-native to Telegram-native.</p>
+    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">
+      <span class="lang-id">Gateway Didukung</span>
+      <span class="lang-en hidden">Supported Gateways</span>
+    </p>
+    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:8px;letter-spacing:-.3px" class="reveal">
+      <span class="lang-id">12 gateway dan terus bertambah</span>
+      <span class="lang-en hidden">12 gateways and growing</span>
+    </h2>
+    <p style="color:#7c89b5;font-size:16px;margin-bottom:48px;max-width:520px" class="reveal">
+      <span class="lang-id">Dari juara lokal Indonesia hingga pemimpin global, crypto-native hingga Telegram-native.</span>
+      <span class="lang-en hidden">From Indonesian local champions to global leaders, crypto-native to Telegram-native.</span>
+    </p>
 
-    <p style="font-size:13px;font-weight:600;color:#818cf8;margin-bottom:16px;letter-spacing:.05em;text-transform:uppercase">Indonesia</p>
+    <p style="font-size:13px;font-weight:600;color:#818cf8;margin-bottom:16px;letter-spacing:.05em;text-transform:uppercase">
+      <span class="lang-id">Indonesia</span>
+      <span class="lang-en hidden">Indonesia</span>
+    </p>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:40px">
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:10px;padding:16px;text-align:center"><div style="font-size:24px;margin-bottom:4px">🇮🇩</div><div style="font-size:14px;font-weight:600">Midtrans</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">CC, QR, Bank Transfer</div></div>
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:10px;padding:16px;text-align:center"><div style="font-size:24px;margin-bottom:4px">🇮🇩</div><div style="font-size:14px;font-weight:600">Tripay</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">QR, VA, Convenience Store</div></div>
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:10px;padding:16px;text-align:center"><div style="font-size:24px;margin-bottom:4px">🇮🇩</div><div style="font-size:14px;font-weight:600">Duitku</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">QR, VA, E-Wallet</div></div>
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:10px;padding:16px;text-align:center"><div style="font-size:24px;margin-bottom:4px">🇮🇩</div><div style="font-size:14px;font-weight:600">iPaymu</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">QR, VA, E-Wallet</div></div>
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:10px;padding:16px;text-align:center"><div style="font-size:24px;margin-bottom:4px">🇮🇩</div><div style="font-size:14px;font-weight:600">Scalev</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">E-Wallet, VA</div></div>
+      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:24px;margin-bottom:4px">🇮🇩</div><div style="font-size:14px;font-weight:600">Midtrans</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">CC, QR, Bank Transfer</div></div>
+      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:24px;margin-bottom:4px">🇮🇩</div><div style="font-size:14px;font-weight:600">Tripay</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">QR, VA, Convenience Store</div></div>
+      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:24px;margin-bottom:4px">🇮🇩</div><div style="font-size:14px;font-weight:600">Duitku</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">QR, VA, E-Wallet</div></div>
+      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:24px;margin-bottom:4px">🇮🇩</div><div style="font-size:14px;font-weight:600">iPaymu</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">QR, VA, E-Wallet</div></div>
+      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:24px;margin-bottom:4px">🇮🇩</div><div style="font-size:14px;font-weight:600">Scalev</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">E-Wallet, VA</div></div>
     </div>
 
     <p style="font-size:13px;font-weight:600;color:#34d399;margin-bottom:16px;letter-spacing:.05em;text-transform:uppercase">Global &amp; Crypto</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:40px">
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:10px;padding:16px;text-align:center"><div style="font-size:24px;margin-bottom:4px">🌐</div><div style="font-size:14px;font-weight:600">Xendit</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">PH/ID, VA, Cards, E-Wallet</div></div>
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:10px;padding:16px;text-align:center"><div style="font-size:24px;margin-bottom:4px">🌐</div><div style="font-size:14px;font-weight:600">NOWPayments</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Crypto (20+ assets)</div></div>
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:10px;padding:16px;text-align:center"><div style="font-size:24px;margin-bottom:4px">🌐</div><div style="font-size:14px;font-weight:600">PayPal</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Global checkout</div></div>
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:10px;padding:16px;text-align:center"><div style="font-size:24px;margin-bottom:4px">⛓️</div><div style="font-size:14px;font-weight:600">x402 USDC</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Base, Solana, Tempo</div></div>
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:10px;padding:16px;text-align:center"><div style="font-size:24px;margin-bottom:4px">⛓️</div><div style="font-size:14px;font-weight:600">ERC-8183</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Agentic escrow</div></div>
+      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:24px;margin-bottom:4px">🌐</div><div style="font-size:14px;font-weight:600">Xendit</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">PH/ID, VA, Cards, E-Wallet</div></div>
+      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:24px;margin-bottom:4px">🌐</div><div style="font-size:14px;font-weight:600">NOWPayments</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Crypto (20+ assets)</div></div>
+      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:24px;margin-bottom:4px">🌐</div><div style="font-size:14px;font-weight:600">PayPal</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Global checkout</div></div>
+      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:24px;margin-bottom:4px">⛓️</div><div style="font-size:14px;font-weight:600">x402 USDC</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Base, Solana, Tempo</div></div>
+      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:24px;margin-bottom:4px">⛓️</div><div style="font-size:14px;font-weight:600">ERC-8183</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Agentic escrow</div></div>
     </div>
 
     <p style="font-size:13px;font-weight:600;color:#fbbf24;margin-bottom:16px;letter-spacing:.05em;text-transform:uppercase">Telegram-native</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:32px">
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:10px;padding:16px;text-align:center"><div style="font-size:24px;margin-bottom:4px">✈️</div><div style="font-size:14px;font-weight:600">Telegram Stars</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">XTR microtransactions</div></div>
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:10px;padding:16px;text-align:center"><div style="font-size:24px;margin-bottom:4px">✈️</div><div style="font-size:14px;font-weight:600">Telegram Pay</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Multi-currency</div></div>
+      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:24px;margin-bottom:4px">✈️</div><div style="font-size:14px;font-weight:600">Telegram Stars</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">XTR microtransactions</div></div>
+      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:24px;margin-bottom:4px">✈️</div><div style="font-size:14px;font-weight:600">Telegram Pay</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Multi-currency</div></div>
     </div>
 
     <div style="background:#0f1529;border:1px solid #1e2745;border-radius:10px;padding:16px;display:inline-block">
-      <span style="font-size:13px;color:#7c89b5">Need something else? </span>
-      <span style="font-size:13px;font-weight:500;color:#818cf8">Bring your own with a generic callback endpoint →</span>
+      <span style="font-size:13px;color:#7c89b5" class="lang-id">Butuh yang lain? </span>
+      <span style="font-size:13px;color:#7c89b5" class="lang-en hidden">Need something else? </span>
+      <span style="font-size:13px;font-weight:500;color:#818cf8">
+        <span class="lang-id">Bawa sendiri dengan generic callback endpoint →</span>
+        <span class="lang-en hidden">Bring your own with a generic callback endpoint →</span>
+      </span>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════ 6. HOW IT WORKS ═══════════════ -->
+<!-- ═══════════════ 7. HOW IT WORKS ═══════════════ -->
 <section id="how" style="position:relative;z-index:1;padding:80px 24px;background:rgba(15,21,41,.5);border-top:1px solid #1e2745;border-bottom:1px solid #1e2745">
   <div style="max-width:1100px;margin:0 auto">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px">How it works</p>
-    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:8px;letter-spacing:-.3px">Payments in 3 steps</h2>
-    <p style="color:#7c89b5;font-size:16px;margin-bottom:48px">No SDKs, no complex onboarding. Just HTTP requests to a unified API.</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:32px;counter-reset:step">
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:16px;padding:32px;position:relative">
-        <div style="position:absolute;top:20px;right:24px;font-size:40px;font-weight:800;color:#1e2745;line-height:1;counter-increment:step;content:counter(step)">01</div>
+    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">
+      <span class="lang-id">Cara Kerja</span>
+      <span class="lang-en hidden">How It Works</span>
+    </p>
+    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:8px;letter-spacing:-.3px" class="reveal">
+      <span class="lang-id">Pembayaran dalam 3 langkah</span>
+      <span class="lang-en hidden">Payments in 3 steps</span>
+    </h2>
+    <p style="color:#7c89b5;font-size:16px;margin-bottom:48px" class="reveal">
+      <span class="lang-id">Tidak perlu SDK, tidak perlu onboarding rumit. Cukup HTTP request ke satu API terpadu.</span>
+      <span class="lang-en hidden">No SDKs, no complex onboarding. Just HTTP requests to a unified API.</span>
+    </p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:32px">
+      <div class="glass card-hover" style="border-radius:16px;padding:32px;position:relative" class="reveal">
+        <div style="position:absolute;top:20px;right:24px;font-size:52px;font-weight:800;background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1">01</div>
         <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:18px">💳</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">Create Payment</h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7"><code style="background:#1e2745;padding:2px 6px;border-radius:4px;font-size:12px">POST /api/payments</code> with amount, currency, gateway. Returns a payment URL in milliseconds.</p>
+        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
+          <span class="lang-id">Buat Pembayaran</span>
+          <span class="lang-en hidden">Create Payment</span>
+        </h3>
+        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
+          <span class="lang-id"><code style="background:#1e2745;padding:2px 6px;border-radius:4px;font-size:12px">POST /api/payments</code> dengan amount, currency, gateway. Mengembalikan payment URL dalam milidetik.</span>
+          <span class="lang-en hidden"><code style="background:#1e2745;padding:2px 6px;border-radius:4px;font-size:12px">POST /api/payments</code> with amount, currency, gateway. Returns a payment URL in milliseconds.</span>
+        </p>
       </div>
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:16px;padding:32px;position:relative">
-        <div style="position:absolute;top:20px;right:24px;font-size:40px;font-weight:800;color:#1e2745;line-height:1">02</div>
+      <div class="glass card-hover" style="border-radius:16px;padding:32px;position:relative" class="reveal">
+        <div style="position:absolute;top:20px;right:24px;font-size:52px;font-weight:800;background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1">02</div>
         <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:18px">🎯</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">Customer Pays</h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">Redirect your customer to the gateway URL. They complete payment on their preferred method.</p>
+        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
+          <span class="lang-id">Pelanggan Bayar</span>
+          <span class="lang-en hidden">Customer Pays</span>
+        </h3>
+        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
+          <span class="lang-id">Arahkan pelanggan ke gateway URL. Mereka menyelesaikan pembayaran dengan metode pilihan mereka.</span>
+          <span class="lang-en hidden">Redirect your customer to the gateway URL. They complete payment on their preferred method.</span>
+        </p>
       </div>
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:16px;padding:32px;position:relative">
-        <div style="position:absolute;top:20px;right:24px;font-size:40px;font-weight:800;color:#1e2745;line-height:1">03</div>
+      <div class="glass card-hover" style="border-radius:16px;padding:32px;position:relative" class="reveal">
+        <div style="position:absolute;top:20px;right:24px;font-size:52px;font-weight:800;background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1">03</div>
         <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:18px">📬</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">We Forward It</h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">Gateway callback hits our webhook. We verify signature, normalize, and forward to your callback URL with retries.</p>
+        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
+          <span class="lang-id">Kami Teruskan</span>
+          <span class="lang-en hidden">We Forward It</span>
+        </h3>
+        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
+          <span class="lang-id">Callback gateway masuk ke webhook kami. Kami verifikasi signature, normalisasi, dan teruskan ke callback URL Anda dengan retry otomatis.</span>
+          <span class="lang-en hidden">Gateway callback hits our webhook. We verify signature, normalize, and forward to your callback URL with retries.</span>
+        </p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════ 7. RELIABILITY & SECURITY ═══════════════ -->
+<!-- ═══════════════ 8. RELIABILITY & SECURITY ═══════════════ -->
 <section id="reliability" style="position:relative;z-index:1;padding:80px 24px">
   <div style="max-width:1100px;margin:0 auto">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px">Reliability &amp; Security</p>
-    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:8px;letter-spacing:-.3px">Built to be boring in production</h2>
-    <p style="color:#7c89b5;font-size:16px;margin-bottom:48px;max-width:540px">The interesting part of payments infrastructure should happen once, in our code — not every time something goes wrong at 2am in yours.</p>
+    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">
+      <span class="lang-id">Keandalan &amp; Keamanan</span>
+      <span class="lang-en hidden">Reliability &amp; Security</span>
+    </p>
+    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:8px;letter-spacing:-.3px" class="reveal">
+      <span class="lang-id">Dibuat untuk stabil di production</span>
+      <span class="lang-en hidden">Built to be boring in production</span>
+    </h2>
+    <p style="color:#7c89b5;font-size:16px;margin-bottom:48px;max-width:540px" class="reveal">
+      <span class="lang-id">Bagian menarik dari infrastruktur pembayaran harus terjadi sekali, di kode kami — bukan setiap kali ada yang salah jam 2 pagi di kode Anda.</span>
+      <span class="lang-en hidden">The interesting part of payments infrastructure should happen once, in our code — not every time something goes wrong at 2am in yours.</span>
+    </p>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:16px;padding:28px">
+      <div class="glass card-hover" style="border-radius:16px;padding:28px">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
           <div style="width:36px;height:36px;border-radius:8px;background:rgba(52,211,153,.12);display:flex;align-items:center;justify-content:center;font-size:16px;color:#34d399">↻</div>
-          <div style="font-size:15px;font-weight:600">Automatic retries + DLQ</div>
+          <div style="font-size:15px;font-weight:600">
+            <span class="lang-id">Retry Otomatis + DLQ</span>
+            <span class="lang-en hidden">Automatic Retries + DLQ</span>
+          </div>
         </div>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">Webhooks retry automatically and land in a dead-letter queue if they still fail. Nothing silently disappears.</p>
+        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
+          <span class="lang-id">Webhook di-retry otomatis dan masuk ke dead-letter queue jika masih gagal. Tidak ada yang hilang tanpa jejak.</span>
+          <span class="lang-en hidden">Webhooks retry automatically and land in a dead-letter queue if they still fail. Nothing silently disappears.</span>
+        </p>
       </div>
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:16px;padding:28px">
+      <div class="glass card-hover" style="border-radius:16px;padding:28px">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
           <div style="width:36px;height:36px;border-radius:8px;background:rgba(52,211,153,.12);display:flex;align-items:center;justify-content:center;font-size:16px;color:#34d399">🔑</div>
-          <div style="font-size:15px;font-weight:600">Timing-safe verification</div>
+          <div style="font-size:15px;font-weight:600">
+            <span class="lang-id">Verifikasi Timing-Safe</span>
+            <span class="lang-en hidden">Timing-safe Verification</span>
+          </div>
         </div>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">Every signature is verified with timing-safe comparison; idempotency enforced at the database level, not just checked in application code.</p>
+        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
+          <span class="lang-id">Setiap signature diverifikasi dengan timing-safe comparison; idempotensi ditegakkan di level database, bukan hanya di cek application code.</span>
+          <span class="lang-en hidden">Every signature is verified with timing-safe comparison; idempotency enforced at the database level, not just checked in application code.</span>
+        </p>
       </div>
-      <div style="background:#0f1529;border:1px solid #1e2745;border-radius:16px;padding:28px">
+      <div class="glass card-hover" style="border-radius:16px;padding:28px">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
           <div style="width:36px;height:36px;border-radius:8px;background:rgba(52,211,153,.12);display:flex;align-items:center;justify-content:center;font-size:16px;color:#34d399">🔒</div>
-          <div style="font-size:15px;font-weight:600">Merchant-scoped isolation</div>
+          <div style="font-size:15px;font-weight:600">
+            <span class="lang-id">Isolasi Merchant</span>
+            <span class="lang-en hidden">Merchant Isolation</span>
+          </div>
         </div>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">API keys are merchant-scoped: a leaked key exposes one merchant's data, never the platform's.</p>
+        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
+          <span class="lang-id">API key bersifat merchant-scoped: key yang bocor hanya mengekspos data satu merchant, bukan data platform.</span>
+          <span class="lang-en hidden">API keys are merchant-scoped: a leaked key exposes one merchant's data, never the platform's.</span>
+        </p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════ 8. LIVE API PREVIEW ═══════════════ -->
+<!-- ═══════════════ 9. API PREVIEW ═══════════════ -->
 <section id="preview" style="position:relative;z-index:1;padding:80px 24px;background:rgba(15,21,41,.5);border-top:1px solid #1e2745;border-bottom:1px solid #1e2745">
   <div style="max-width:1100px;margin:0 auto">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px">API Preview</p>
-    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:8px;letter-spacing:-.3px">See it before you sign up</h2>
-    <p style="color:#7c89b5;font-size:16px;margin-bottom:32px">Every gateway takes the same shape. Pick one below.</p>
+    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">
+      <span class="lang-id">Pratinjau API</span>
+      <span class="lang-en hidden">API Preview</span>
+    </p>
+    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:8px;letter-spacing:-.3px" class="reveal">
+      <span class="lang-id">Lihat sebelum daftar</span>
+      <span class="lang-en hidden">See it before you sign up</span>
+    </h2>
+    <p style="color:#7c89b5;font-size:16px;margin-bottom:32px" class="reveal">
+      <span class="lang-id">Setiap gateway punya bentuk yang sama. Pilih salah satu di bawah.</span>
+      <span class="lang-en hidden">Every gateway takes the same shape. Pick one below.</span>
+    </p>
 
-    <div class="preview-panel">
+    <div class="preview-panel reveal">
       <div class="tabs">
-        <button class="active" data-tab="request" onclick="switchPreviewTab('request',this)">Request</button>
-        <button data-tab="response" onclick="switchPreviewTab('response',this)">Response</button>
+        <button class="active" data-tab="request" onclick="switchPreviewTab('request',this)">
+          <span class="lang-id">Request</span>
+          <span class="lang-en hidden">Request</span>
+        </button>
+        <button data-tab="response" onclick="switchPreviewTab('response',this)">
+          <span class="lang-id">Response</span>
+          <span class="lang-en hidden">Response</span>
+        </button>
       </div>
       <div style="padding:20px">
-        <label style="font-size:12px;color:#7c89b5;font-weight:500;margin-bottom:6px;display:block">Gateway</label>
+        <label style="font-size:12px;color:#7c89b5;font-weight:500;margin-bottom:6px;display:block">
+          <span class="lang-id">Gateway</span>
+          <span class="lang-en hidden">Gateway</span>
+        </label>
         <select class="preview-select" id="gwSelect" onchange="updatePreview()">
           <option value="midtrans">midtrans — CC, QR, Bank Transfer</option>
           <option value="xendit">xendit — Philippines/Indonesia, Cards</option>
@@ -363,7 +642,238 @@ nav .logo svg{width:28px;height:28px}
   </div>
 </section>
 
+<!-- ═══════════════ 10. COMPARISON ═══════════════ -->
+<section id="comparison" style="position:relative;z-index:1;padding:80px 24px">
+  <div style="max-width:1100px;margin:0 auto">
+    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">
+      <span class="lang-id">Perbandingan</span>
+      <span class="lang-en hidden">Comparison</span>
+    </p>
+    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:8px;letter-spacing:-.3px" class="reveal">
+      <span class="lang-id">Integrasi langsung vs. 1ai-payment</span>
+      <span class="lang-en hidden">Direct integration vs. 1ai-payment</span>
+    </h2>
+    <p style="color:#7c89b5;font-size:16px;margin-bottom:36px;max-width:480px" class="reveal">
+      <span class="lang-id">Apa yang berhenti Anda bangun setelah beralih.</span>
+      <span class="lang-en hidden">What you stop building when you switch.</span>
+    </p>
+    <div style="background:#0f1529;border:1px solid #1e2745;border-radius:16px;overflow:hidden" class="reveal">
+      <table class="comp-table">
+        <thead><tr><th style="width:40%"></th><th style="width:30%;color:#7c89b5">Direct integration per gateway</th><th style="width:30%;color:#34d399">1ai-payment</th></tr></thead>
+        <tbody>
+          <tr><td style="font-weight:500">Time to add a new gateway</td><td>Days to weeks per gateway</td><td class="check">Change a parameter</td></tr>
+          <tr><td style="font-weight:500">Webhook handling</td><td>Build retry/DLQ logic yourself</td><td class="check">Included, normalized</td></tr>
+          <tr><td style="font-weight:500">Signature verification</td><td>Implement per gateway's spec</td><td class="check">Handled uniformly</td></tr>
+          <tr><td style="font-weight:500">Ongoing maintenance</td><td>One integration per gateway</td><td class="check">One integration, total</td></tr>
+          <tr><td style="font-weight:500">Multi-merchant isolation</td><td>Build it yourself</td><td class="check">Built in</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ 11. SOCIAL PROOF ═══════════════ -->
+<section id="traction" style="position:relative;z-index:1;padding:80px 24px;background:rgba(15,21,41,.5);border-top:1px solid #1e2745;border-bottom:1px solid #1e2745">
+  <div style="max-width:1100px;margin:0 auto;text-align:center">
+    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">
+      <span class="lang-id">Dibangun oleh tim yang sama yang menjalankan</span>
+      <span class="lang-en hidden">Built by the same team that runs</span>
+    </p>
+    <div style="display:flex;justify-content:center;gap:40px;flex-wrap:wrap;margin:32px 0;align-items:center" class="reveal">
+      <div style="text-align:center">
+        <div style="font-size:14px;font-weight:600">BerkahKarya Ecosystem</div>
+        <div style="font-size:12px;color:#7c89b5;margin-top:2px">Hermes Bot · AdForge · 1ai-tools</div>
+      </div>
+      <div style="width:1px;height:40px;background:#1e2745"></div>
+      <div style="text-align:center">
+        <div style="font-size:14px;font-weight:600">1ai-tools</div>
+        <div style="font-size:12px;color:#7c89b5;margin-top:2px">Agentic payment orchestration</div>
+      </div>
+      <div style="width:1px;height:40px;background:#1e2745"></div>
+      <div style="text-align:center">
+        <div style="font-size:14px;font-weight:600">10+ Gateways</div>
+        <div style="font-size:12px;color:#7c89b5;margin-top:2px">In production, aggregated</div>
+      </div>
+    </div>
+    <p style="font-size:14px;color:#7c89b5;max-width:540px;margin:24px auto 0;line-height:1.7" class="reveal">
+      <span class="lang-id">"Kami membangun ini karena kami memelihara lima integrasi gateway di produk kami sendiri — sekarang kami memelihara satu."</span>
+      <span class="lang-en hidden">"We built this because we were maintaining five gateway integrations across our own products — now we maintain one."</span>
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════ 12. PRICING ═══════════════ -->
+<section id="pricing" style="position:relative;z-index:1;padding:60px 24px">
+  <div style="max-width:1100px;margin:0 auto;text-align:center">
+    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">
+      <span class="lang-id">Harga</span>
+      <span class="lang-en hidden">Pricing</span>
+    </p>
+    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:12px;letter-spacing:-.3px" class="reveal">
+      <span class="lang-id">Mulai Gratis, bayar sesuai pemakaian</span>
+      <span class="lang-en hidden">Start Free, pay as you grow</span>
+    </h2>
+    <p style="color:#7c89b5;font-size:16px;max-width:480px;margin:0 auto 24px" class="reveal">
+      <span class="lang-id">Tidak ada biaya setup. Free tier dengan 30 req/menit dan biaya transaksi standar. Tersedia volume dan agency pricing. Hubungi kami untuk paket enterprise.</span>
+      <span class="lang-en hidden">No setup fee. Free tier with 30 req/min and standard transaction fees. Volume and agency pricing available. Talk to us for enterprise plans.</span>
+    </p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap" class="reveal">
+      <a href="/dashboard" class="btn-glow" style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:12px;font-size:14px;font-weight:600;background:#818cf8;color:#fff;transition:all .2s;text-decoration:none">
+        <span class="lang-id">Buat Merchant Account →</span>
+        <span class="lang-en hidden">Create Merchant Account →</span>
+      </a>
+      <a href="mailto:pay@berkahkarya.org" style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:12px;font-size:14px;font-weight:600;background:#0f1529;color:#e8edf5;border:1px solid #1e2745;transition:all .2s;text-decoration:none">
+        <span class="lang-id">Hubungi Sales</span>
+        <span class="lang-en hidden">Contact Sales</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ 13. FAQ ═══════════════ -->
+<section id="faq" style="position:relative;z-index:1;padding:80px 24px;border-top:1px solid #1e2745">
+  <div style="max-width:800px;margin:0 auto">
+    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">FAQ</p>
+    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:36px;letter-spacing:-.3px" class="reveal">
+      <span class="lang-id">Pertanyaan yang mungkin Anda punya</span>
+      <span class="lang-en hidden">Questions you'll have</span>
+    </h2>
+
+    <div class="faq-item reveal">
+      <details>
+        <summary><span class="lang-id">Apa yang terjadi jika gateway mati?</span><span class="lang-en hidden">What happens if a gateway goes down?</span></summary>
+        <div class="faq-answer">
+          <span class="lang-id">Kami tidak terikat pada satu gateway — integrasi Anda gateway-agnostic. Jika satu provider mengalami masalah, ubah parameter <code>gateway</code> di payment request Anda dan transaksi dialihkan ke backup. Kode checkout Anda tidak pernah berubah. Kami juga sedang mengerjakan automatic fallback chain untuk rilis mendatang.</span>
+          <span class="lang-en hidden">We don't terminate at a single gateway — your integration is gateway-agnostic. If one provider has an outage, change the <code>gateway</code> parameter in your payment request and transactions route through a backup. Your checkout code never changes. We're also working on automatic fallback chains for future releases.</span>
+        </div>
+      </details>
+    </div>
+    <div class="faq-item reveal">
+      <details>
+        <summary><span class="lang-id">Di mana data transaksi disimpan, dan siapa yang bisa mengaksesnya?</span><span class="lang-en hidden">Where is transaction data stored, and who can access it?</span></summary>
+        <div class="faq-answer">
+          <span class="lang-id">Data transaksi disimpan di database LibSQL pada infrastruktur kami, terbatas per merchant. Kami mencatat data event yang sudah dinormalisasi (order_id, status, amount) bukan payload gateway mentah. API key setiap merchant hanya memberikan akses ke data mereka sendiri. Kami tidak pernah menyimpan API key atau secret gateway dalam bentuk plaintext.</span>
+          <span class="lang-en hidden">Transaction data is stored in a LibSQL database on our infrastructure, scoped per merchant. We log normalized event data (order_id, status, amount) not raw gateway payloads. Each merchant's API key provides access only to their own data. We never store gateway API keys or secrets in plaintext.</span>
+        </div>
+      </details>
+    </div>
+    <div class="faq-item reveal">
+      <details>
+        <summary><span class="lang-id">Apakah ini relevan dengan PCI, dan apa yang masuk/keluar dari scope?</span><span class="lang-en hidden">Is this PCI-relevant, and what's in/out of scope?</span></summary>
+        <div class="faq-answer">
+          <span class="lang-id">1ai-payment tidak menyimpan, memproses, atau mentransmisikan nomor kartu (PAN). Data pembayaran langsung dari pelanggan ke gateway — kami hanya menerima payment URL dan status callback. Platform kami hanya menangani lapisan agregasi. PCI SAQ A scope untuk sebagian besar merchant, tapi konsultasikan dengan QSA Anda untuk implementasi spesifik.</span>
+          <span class="lang-en hidden">1ai-payment does not store, process, or transmit card numbers (PANs). Payment data goes directly from the customer to the gateway — we only receive payment URLs and status callbacks. Our platform handles the aggregation layer only. PCI SAQ A scope for most merchants, but consult your QSA for your specific implementation.</span>
+        </div>
+      </details>
+    </div>
+    <div class="faq-item reveal">
+      <details>
+        <summary><span class="lang-id">Bisakah saya white-label atau menjual kembali ini untuk klien?</span><span class="lang-en hidden">Can I white-label or resell this for clients?</span></summary>
+        <div class="faq-answer">
+          <span class="lang-id">Ya — itulah mengapa model API key merchant-scoped dibuat. Deploy infrastruktur pembayaran per klien dengan rate limit, riwayat transaksi, dan endpoint webhook yang terisolasi. Hubungi kami untuk agency pricing dan paket bertingkat.</span>
+          <span class="lang-en hidden">Yes — that's what the merchant-scoped API key model is built for. Deploy payment infrastructure per client with isolated rate limits, transaction history, and webhook endpoints. Contact us for agency pricing and tiered plans.</span>
+        </div>
+      </details>
+    </div>
+    <div class="faq-item reveal">
+      <details>
+        <summary><span class="lang-id">Berapa biaya sebenarnya di skala besar?</span><span class="lang-en hidden">What's the actual cost at scale?</span></summary>
+        <div class="faq-answer">
+          <span class="lang-id">Free tier: 30 req/menit, biaya per-transaksi standar (2,5% + biaya gateway). Pro: 120 req/menit, fee 2%. Enterprise: rate limit kustom, 1% atau flat-rate, dukungan khusus. Lapisan agregasi tidak menambah markup gateway di luar fee kami. Hubungi kami untuk proyeksi volume dan perbandingan biaya vs. integrasi langsung.</span>
+          <span class="lang-en hidden">Free tier: 30 req/min, standard per-transaction fees (2.5% + gateway costs). Pro: 120 req/min, 2% fee. Enterprise: custom rate limit, 1% or flat-rate, dedicated support. The aggregation layer doesn't add gateway markup beyond our fee. Contact us for volume projections and a cost comparison vs. direct integrations.</span>
+        </div>
+      </details>
+    </div>
+    <div class="faq-item reveal">
+      <details>
+        <summary><span class="lang-id">Siapa yang mengoperasikan ini — apakah ada dukungan jika terjadi masalah di production?</span><span class="lang-en hidden">Who operates this — is there support if something breaks in production?</span></summary>
+        <div class="faq-answer">
+          <span class="lang-id">Dioperasikan oleh tim BerkahKarya (CV Graha Insan Mandiri Berkah). Kami memelihara infrastruktur, menangani perubahan API gateway, dan menyediakan dukungan melalui dashboard serta saluran langsung untuk merchant Pro/Enterprise. Layanan yang dikelola systemd mencakup auto-restart, journald logging, dan health check.</span>
+          <span class="lang-en hidden">Operated by the BerkahKarya team (CV Graha Insan Mandiri Berkah). We maintain the infrastructure, handle gateway API changes, and provide support via the dashboard and direct channels for Pro/Enterprise merchants. The systemd-managed service includes auto-restart, journald logging, and health checks.</span>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ 14. FINAL CTA ═══════════════ -->
+<section style="position:relative;z-index:1;padding:80px 24px">
+  <div style="max-width:1100px;margin:0 auto">
+    <div style="background:linear-gradient(135deg,#161d35,#0f1529);border:1px solid #1e2745;border-radius:20px;padding:60px 40px;text-align:center;position:relative;overflow:hidden">
+      <div class="hero-bg" style="opacity:.3;animation-duration:12s"></div>
+      <div style="position:relative;z-index:2">
+        <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:12px;letter-spacing:-.3px" class="reveal">
+          <span class="lang-id">Mulai terima pembayaran dalam hitungan menit — atau bicara dulu dengan kami</span>
+          <span class="lang-en hidden">Start accepting payments in minutes — or talk to us first</span>
+        </h2>
+        <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:28px">
+          <div>
+            <a href="/dashboard" class="btn-glow" style="display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:12px;font-size:15px;font-weight:600;background:#818cf8;color:#fff;transition:all .2s;text-decoration:none">
+              <span class="lang-id">Buat Merchant Account →</span>
+              <span class="lang-en hidden">Create Merchant Account →</span>
+            </a>
+            <p style="font-size:12px;color:#7c89b5;margin-top:6px">
+              <span class="lang-id">Tidak perlu dokumen. Tidak perlu approval. Cukup satu API key.</span>
+              <span class="lang-en hidden">No paperwork. No approval. Just one API key.</span>
+            </p>
+          </div>
+          <div>
+            <a href="mailto:pay@berkahkarya.org" style="display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:12px;font-size:15px;font-weight:600;background:#0f1529;color:#e8edf5;border:1px solid #1e2745;transition:all .2s;text-decoration:none">
+              <span class="lang-id">Hubungi Kami</span>
+              <span class="lang-en hidden">Talk to us</span>
+            </a>
+            <p style="font-size:12px;color:#7c89b5;margin-top:6px">
+              <span class="lang-id">Agency, platform, volume tinggi? Mari bicara harga.</span>
+              <span class="lang-en hidden">Agency, platform, high-volume? Let's talk pricing.</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ MOBILE CTA BAR ═══════════════ -->
+<div class="mobile-cta-bar">
+  <a href="/dashboard" style="background:#818cf8;color:#fff;text-decoration:none">
+    <span class="lang-id">Buat Akun</span>
+    <span class="lang-en hidden">Create Account</span>
+  </a>
+  <a href="mailto:pay@berkahkarya.org" style="background:#0f1529;color:#e8edf5;border:1px solid #1e2745;text-decoration:none">
+    <span class="lang-id">Hubungi</span>
+    <span class="lang-en hidden">Contact</span>
+  </a>
+</div>
+
+<!-- ═══════════════ 15. FOOTER ═══════════════ -->
+<footer style="border-top:1px solid #1e2745;padding:32px 24px;text-align:center;font-size:13px;color:#7c89b5">
+  <div style="max-width:1100px;margin:0 auto">
+    <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-bottom:12px">
+      <a href="/" style="color:#7c89b5;text-decoration:none">1ai-payment</a>
+      <span style="color:#1e2745">·</span>
+      <a href="/reference" style="color:#7c89b5;text-decoration:none">
+        <span class="lang-id">Referensi API</span>
+        <span class="lang-en hidden">API Reference</span>
+      </a>
+      <span style="color:#1e2745">·</span>
+      <a href="/dashboard" style="color:#7c89b5;text-decoration:none">
+        <span class="lang-id">Dashboard</span>
+        <span class="lang-en hidden">Dashboard</span>
+      </a>
+      <span style="color:#1e2745">·</span>
+      <a href="https://berkahkarya.org" style="color:#7c89b5;text-decoration:none" target="_blank">BerkahKarya</a>
+      <span style="color:#1e2745">·</span>
+      <a href="mailto:pay@berkahkarya.org" style="color:#7c89b5;text-decoration:none">
+        <span class="lang-id">Kontak</span>
+        <span class="lang-en hidden">Contact</span>
+      </a>
+    </div>
+    <p style="font-size:12px;opacity:.6">CV Graha Insan Mandiri Berkah · Open source · MIT license</p>
+  </div>
+</footer>
+
 <script>
+// ── API Examples ──
 const API_EXAMPLES = {
   midtrans: {
     request: `POST /api/payments HTTP/1.1
@@ -506,155 +1016,65 @@ function switchPreviewTab(tab, btn) {
   document.getElementById('preview' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
 }
 
-// Init
-updatePreview();
-</script>
+// ── Language Toggle ──
+function setLang(lang) {
+  localStorage.setItem('lang', lang);
+  document.documentElement.setAttribute('lang', lang);
+  document.querySelectorAll('.lang-id').forEach(function(el) {
+    el.classList.toggle('hidden', lang === 'en');
+  });
+  document.querySelectorAll('.lang-en').forEach(function(el) {
+    el.classList.toggle('hidden', lang === 'id');
+  });
+  // Update toggle pill
+  document.querySelectorAll('.lang-toggle span').forEach(function(el) {
+    el.classList.toggle('active', el.getAttribute('data-lang') === lang);
+  });
+  // Re-trigger scroll reveal
+  document.querySelectorAll('.reveal.visible').forEach(function(el) {
+    el.classList.remove('visible');
+    void el.offsetWidth;
+    el.classList.add('visible');
+  });
+}
 
-<!-- ═══════════════ 9. COMPARISON ═══════════════ -->
-<section id="comparison" style="position:relative;z-index:1;padding:80px 24px">
-  <div style="max-width:1100px;margin:0 auto">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px">Comparison</p>
-    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:8px;letter-spacing:-.3px">Direct integration vs. 1ai-payment</h2>
-    <p style="color:#7c89b5;font-size:16px;margin-bottom:36px;max-width:480px">What you stop building when you switch.</p>
-    <div style="background:#0f1529;border:1px solid #1e2745;border-radius:16px;overflow:hidden">
-      <table class="comp-table">
-        <thead><tr><th style="width:40%"></th><th style="width:30%;color:#7c89b5">Direct integration per gateway</th><th style="width:30%;color:#34d399">1ai-payment</th></tr></thead>
-        <tbody>
-          <tr><td style="font-weight:500">Time to add a new gateway</td><td>Days to weeks per gateway</td><td class="check">Change a parameter</td></tr>
-          <tr><td style="font-weight:500">Webhook handling</td><td>Build retry/DLQ logic yourself</td><td class="check">Included, normalized</td></tr>
-          <tr><td style="font-weight:500">Signature verification</td><td>Implement per gateway's spec</td><td class="check">Handled uniformly</td></tr>
-          <tr><td style="font-weight:500">Ongoing maintenance</td><td>One integration per gateway</td><td class="check">One integration, total</td></tr>
-          <tr><td style="font-weight:500">Multi-merchant isolation</td><td>Build it yourself</td><td class="check">Built in</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
+// ── Nav scroll shadow ──
+window.addEventListener('scroll', function() {
+  var nav = document.getElementById('navbar');
+  if (window.scrollY > 20) {
+    nav.classList.add('scrolled');
+  } else {
+    nav.classList.remove('scrolled');
+  }
+});
 
-<!-- ═══════════════ 10. TRACTION / SOCIAL PROOF ═══════════════ -->
-<section id="traction" style="position:relative;z-index:1;padding:80px 24px;background:rgba(15,21,41,.5);border-top:1px solid #1e2745;border-bottom:1px solid #1e2745">
-  <div style="max-width:1100px;margin:0 auto;text-align:center">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px">Built by the same team that runs</p>
-    <div style="display:flex;justify-content:center;gap:40px;flex-wrap:wrap;margin:32px 0;align-items:center">
-      <div style="text-align:center">
-        <div style="font-size:14px;font-weight:600">BerkahKarya Ecosystem</div>
-        <div style="font-size:12px;color:#7c89b5;margin-top:2px">Hermes Bot · AdForge · 1ai-tools</div>
-      </div>
-      <div style="width:1px;height:40px;background:#1e2745"></div>
-      <div style="text-align:center">
-        <div style="font-size:14px;font-weight:600">1ai-tools</div>
-        <div style="font-size:12px;color:#7c89b5;margin-top:2px">Agentic payment orchestration</div>
-      </div>
-      <div style="width:1px;height:40px;background:#1e2745"></div>
-      <div style="text-align:center">
-        <div style="font-size:14px;font-weight:600">10+ Gateways</div>
-        <div style="font-size:12px;color:#7c89b5;margin-top:2px">In production, aggregated</div>
-      </div>
-    </div>
-    <p style="font-size:14px;color:#7c89b5;max-width:540px;margin:24px auto 0;line-height:1.7">"We built this because we were maintaining five gateway integrations across our own products — now we maintain one."</p>
-  </div>
-</section>
+// ── Scroll Reveal ──
+function observeReveals() {
+  var observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(function(el) {
+    observer.observe(el);
+  });
+}
 
-<!-- ═══════════════ 11. PRICING ═══════════════ -->
-<section id="pricing" style="position:relative;z-index:1;padding:60px 24px">
-  <div style="max-width:1100px;margin:0 auto;text-align:center">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px">Pricing</p>
-    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:12px;letter-spacing:-.3px">Start free, pay as you grow</h2>
-    <p style="color:#7c89b5;font-size:16px;max-width:480px;margin:0 auto 24px">No setup fee. Free tier with 30 req/min and standard transaction fees. Volume and agency pricing available. Talk to us for enterprise plans.</p>
-    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-      <a href="/dashboard" style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:12px;font-size:14px;font-weight:600;background:#818cf8;color:#fff;transition:all .2s">Create Merchant Account →</a>
-      <a href="mailto:pay@berkahkarya.org" style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:12px;font-size:14px;font-weight:600;background:#0f1529;color:#e8edf5;border:1px solid #1e2745;transition:all .2s">Contact Sales</a>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════ 12. FAQ ═══════════════ -->
-<section id="faq" style="position:relative;z-index:1;padding:80px 24px;border-top:1px solid #1e2745">
-  <div style="max-width:800px;margin:0 auto">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px">FAQ</p>
-    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:36px;letter-spacing:-.3px">Questions you'll have</h2>
-
-    <div class="faq-item">
-      <details>
-        <summary>What happens if a gateway goes down?</summary>
-        <div class="faq-answer">We don't terminate at a single gateway — your integration is gateway-agnostic. If one provider has an outage, change the <code>gateway</code> parameter in your payment request and transactions route through a backup. Your checkout code never changes. We're also working on automatic fallback chains for future releases.</div>
-      </details>
-    </div>
-    <div class="faq-item">
-      <details>
-        <summary>Where is transaction data stored, and who can access it?</summary>
-        <div class="faq-answer">Transaction data is stored in a LibSQL database on our infrastructure, scoped per merchant. We log normalized event data (order_id, status, amount) not raw gateway payloads. Each merchant's API key provides access only to their own data. We never store gateway API keys or secrets in plaintext.</div>
-      </details>
-    </div>
-    <div class="faq-item">
-      <details>
-        <summary>Is this PCI-relevant, and what's in/out of scope?</summary>
-        <div class="faq-answer">1ai-payment does not store, process, or transmit card numbers (PANs). Payment data goes directly from the customer to the gateway — we only receive payment URLs and status callbacks. Our platform handles the aggregation layer only. PCI SAQ A scope for most merchants, but consult your QSA for your specific implementation.</div>
-      </details>
-    </div>
-    <div class="faq-item">
-      <details>
-        <summary>Can I white-label or resell this for clients?</summary>
-        <div class="faq-answer">Yes — that's what the agency/merchant-scoped API key model is built for. Deploy payment infrastructure per client with isolated rate limits, transaction history, and webhook endpoints. Contact us for agency pricing and tiered plans.</div>
-      </details>
-    </div>
-    <div class="faq-item">
-      <details>
-        <summary>What's the actual cost at scale?</summary>
-        <div class="faq-answer">Free tier: 30 req/min, standard per-transaction fees (2.5% + gateway costs). Pro: 120 req/min, 2% fee. Enterprise: custom rate limit, 1% or flat-rate, dedicated support. The aggregation layer doesn't add gateway markup beyond our fee. Contact us for volume projections and a cost comparison vs. direct integrations.</div>
-      </details>
-    </div>
-    <div class="faq-item">
-      <details>
-        <summary>Who operates this — is there support if something breaks in production?</summary>
-        <div class="faq-answer">Operated by the BerkahKarya team (CV Graha Insan Mandiri Berkah). We maintain the infrastructure, handle gateway API changes, and provide support via the dashboard and direct channels for Pro/Enterprise merchants. The systemd-managed service includes auto-restart, journald logging, and health checks.</div>
-      </details>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════ 13. FINAL CTA ═══════════════ -->
-<section style="position:relative;z-index:1;padding:80px 24px">
-  <div style="max-width:1100px;margin:0 auto">
-    <div style="background:linear-gradient(135deg,#161d35,#0f1529);border:1px solid #1e2745;border-radius:20px;padding:60px 40px;text-align:center">
-      <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:12px;letter-spacing:-.3px">Start accepting payments in minutes — or talk to us first</h2>
-      <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:28px">
-        <div>
-          <a href="/dashboard" style="display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:12px;font-size:15px;font-weight:600;background:#818cf8;color:#fff;transition:all .2s">Create Merchant Account →</a>
-          <p style="font-size:12px;color:#7c89b5;margin-top:6px">No paperwork. No approval. Just one API key.</p>
-        </div>
-        <div>
-          <a href="mailto:pay@berkahkarya.org" style="display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:12px;font-size:15px;font-weight:600;background:#0f1529;color:#e8edf5;border:1px solid #1e2745;transition:all .2s">Talk to us</a>
-          <p style="font-size:12px;color:#7c89b5;margin-top:6px">Agency, platform, high-volume? Let's talk pricing.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════ 14. FOOTER ═══════════════ -->
-<footer style="border-top:1px solid #1e2745;padding:32px 24px;text-align:center;font-size:13px;color:#7c89b5">
-  <div style="max-width:1100px;margin:0 auto">
-    <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-bottom:12px">
-      <a href="/" style="color:#7c89b5">1ai-payment</a>
-      <span style="color:#1e2745">·</span>
-      <a href="/reference" style="color:#7c89b5">API Reference</a>
-      <span style="color:#1e2745">·</span>
-      <a href="/dashboard" style="color:#7c89b5">Dashboard</a>
-      <span style="color:#1e2745">·</span>
-      <a href="https://berkahkarya.org" style="color:#7c89b5" target="_blank">BerkahKarya</a>
-      <span style="color:#1e2745">·</span>
-      <a href="mailto:pay@berkahkarya.org" style="color:#7c89b5">Contact</a>
-    </div>
-    <p style="font-size:12px;opacity:.6">CV Graha Insan Mandiri Berkah · Open source · MIT license</p>
-  </div>
-</footer>
-
-<script>
-// Close mobile nav on link click
+// ── Mobile nav close on link click ──
 document.getElementById('navMenu').querySelectorAll('a').forEach(function(a) {
   a.addEventListener('click', function() { document.getElementById('navMenu').classList.remove('open'); });
 });
+
+// ── Init ──
+(function init() {
+  var lang = localStorage.getItem('lang') || 'id';
+  setLang(lang);
+  observeReveals();
+  updatePreview();
+})();
 </script>
 
 </body>
