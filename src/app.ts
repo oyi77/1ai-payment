@@ -36,13 +36,22 @@ app.use('/webhook/*', rateLimitMiddleware({ windowMs: 60_000, max: 120 }));
 app.get('/metrics', metricsHandler);
 
 // Static files — landing page at /, merchant portal at /dashboard
-app.get('/', (c) => c.html(Bun.file('./src/landing/index.html').text()));
-app.get('/favicon.svg', (c) => {
-  return new Response(Bun.file('./src/landing/favicon.svg'));
+app.get('/', async (c) => {
+  c.header('Cache-Control', 'no-cache, must-revalidate');
+  return c.html(await Bun.file('./src/landing/index.html').text());
 });
-app.get('/dashboard', (c) => c.html(Bun.file('./src/dashboard/index.html').text()));
-app.get('/dashboard/', (c) => c.html(Bun.file('./src/dashboard/index.html').text()));
-// Public registration endpoint (no auth required)
+app.get('/favicon.svg', (c) => {
+  c.header('Cache-Control', 'no-cache, must-revalidate');
+  return new Response(Bun.file('./src/landing/favicon.svg'), { headers: { 'Content-Type': 'image/svg+xml' } });
+});
+app.get('/dashboard', async (c) => {
+  c.header('Cache-Control', 'no-cache, must-revalidate');
+  return c.html(await Bun.file('./src/dashboard/index.html').text());
+});
+app.get('/dashboard/', async (c) => {
+  c.header('Cache-Control', 'no-cache, must-revalidate');
+  return c.html(await Bun.file('./src/dashboard/index.html').text());
+});
 app.route('/api', registerRoutes);
 
 // API routes (auth required)
