@@ -72,10 +72,14 @@ export interface Config {
   ERC8183_NETWORK: string;
   ERC8183_TOKEN_ADDRESS: string;
   ERC8183_WALLET_ADDRESS: string;
-
-
+  
   // Logging
   LOG_LEVEL: 'debug' | 'info' | 'warn' | 'error';
+  
+  // Nexus — 1ai-product delivery (Telegram invite)
+  NEXUS_TELEGRAM_CHANNEL_ID: string;
+  NEXUS_TELEGRAM_BOT_TOKEN: string;
+  NEXUS_VARIANT_MAP: string; // JSON: variant_name → tier config
 }
 
 let cachedConfig: Config | null = null;
@@ -148,6 +152,9 @@ export function getConfig(): Config {
     ERC8183_TOKEN_ADDRESS: optional('ERC8183_TOKEN_ADDRESS'),
     ERC8183_WALLET_ADDRESS: optional('ERC8183_WALLET_ADDRESS'),
     LOG_LEVEL: (optional('LOG_LEVEL', 'info') as Config['LOG_LEVEL']),
+    NEXUS_TELEGRAM_CHANNEL_ID: optional('NEXUS_TELEGRAM_CHANNEL_ID'),
+    NEXUS_TELEGRAM_BOT_TOKEN: optional('NEXUS_TELEGRAM_BOT_TOKEN'),
+    NEXUS_VARIANT_MAP: optional('NEXUS_VARIANT_MAP', '{}'),
   };
 
   return cachedConfig;

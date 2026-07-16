@@ -15,6 +15,13 @@ import { sha256Hash } from '../utils/crypto';
 
 export async function authMiddleware(c: Context, next: Next) {
   const apiKey = c.req.header('X-API-Key');
+  const adminKey = c.req.header('X-Admin-Key');
+
+  // Skip merchant auth if admin key is present — admin routes have their own auth.
+  if (!apiKey && adminKey) {
+    await next();
+    return;
+  }
 
   if (!apiKey) {
     return c.json({ success: false as const, error: { code: 'UNAUTHORIZED', message: 'Invalid or missing API key' } }, 401);

@@ -23,6 +23,7 @@ import { forwardEvent } from '../services/forwarder.service';
 import { webhookAckSchema, webhookErrorSchema, GATEWAY_NAMES, defaultHook } from '../schemas';
 import type { NormalizedPaymentEvent } from '../gateways/base';
 import type { Order } from '../services/order.service';
+import { handleNexusPayment } from '../services/nexus-fulfillment';
 
 export const webhookRoutes = new OpenAPIHono({ defaultHook });
 
@@ -148,6 +149,21 @@ for (const gatewayName of GATEWAY_NAMES) {
         });
       } catch (dbErr: unknown) {
         logger.error('Failed to log webhook for unknown order', { error: String(dbErr) });
+      }
+
+      // B2: Try nexus fulfillment for direct Scalev checkout (no order in DB)
+      if (gatewayName === 'scalev') {
+        const result = await handleNexusPayment(
+          gatewayName,
+          body as Record<string, unknown>,
+          String((body as Record<string, unknown>).customer_email ?? ''),
+          String((body as Record<string, unknown>).customer_name ?? ''),
+        );
+        if (result.success) {
+          logger.info('Nexus: fulfillment complete for direct checkout', {
+            subId: result.subscriptionId,
+          });
+        }
       }
       return c.json({ ok: true as const }, 200);
     }

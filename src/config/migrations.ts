@@ -33,6 +33,44 @@ const MIGRATIONS: Migration[] = [
       //   await db.execute("ALTER TABLE orders ADD COLUMN new_col TEXT");
     },
   },
+  {
+    version: '002',
+    name: 'Nexus tables for 1ai-product delivery',
+    run: async (db: Client) => {
+      await db.executeMultiple(`
+        CREATE TABLE IF NOT EXISTS nexus_customers (
+          id TEXT PRIMARY KEY,
+          email TEXT,
+          name TEXT,
+          telegram_username TEXT,
+          whatsapp TEXT,
+          metadata TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS nexus_subscriptions (
+          id TEXT PRIMARY KEY,
+          customer_id TEXT NOT NULL REFERENCES nexus_customers(id),
+          tier TEXT NOT NULL,
+          variant TEXT NOT NULL,
+          scalev_order_id TEXT,
+          status TEXT DEFAULT 'active',
+          telegram_invite_link TEXT,
+          telegram_chat_id TEXT,
+          expires_at TEXT,
+          reminder_sent_at TEXT,
+          metadata TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_nexus_subs_customer ON nexus_subscriptions(customer_id);
+        CREATE INDEX IF NOT EXISTS idx_nexus_subs_status ON nexus_subscriptions(status);
+        CREATE INDEX IF NOT EXISTS idx_nexus_subs_scalev ON nexus_subscriptions(scalev_order_id);
+      `);
+    },
+  },
 ];
 
 export async function runMigrations(db: Client): Promise<void> {

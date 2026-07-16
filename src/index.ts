@@ -8,7 +8,10 @@
 import { app, config } from './app';
 import { initDatabase } from './config/database';
 import { logger } from './utils/logger';
+import { startNexusCron, stopNexusCron } from './services/nexus-cron';
 await initDatabase();
+
+startNexusCron();
 
 logger.info(`Starting 1ai-payment on port ${config.PORT}...`);
 
@@ -24,6 +27,7 @@ logger.info(`OpenAPI spec: http://localhost:${config.PORT}/doc`);
 // Graceful shutdown — stop accepting, drain, exit
 function shutdown(signal: string) {
   logger.info(`Received ${signal}, starting graceful shutdown...`);
+  stopNexusCron();
   server.stop();
   const forceExit = setTimeout(() => {
     logger.error('Graceful shutdown timed out, forcing exit');
