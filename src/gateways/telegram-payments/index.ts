@@ -16,45 +16,50 @@
  */
 
 import type {
-  PaymentGateway,
-  NormalizedPaymentEvent,
-  PaymentStatus,
-  CreatePaymentParams,
-  CreatePaymentResult,
-  PaymentMethod,
-} from '../base';
+	CreatePaymentParams,
+	CreatePaymentResult,
+	NormalizedPaymentEvent,
+	PaymentGateway,
+	PaymentMethod,
+	PaymentStatus,
+} from "../base";
 
-import { createInvoice, getPaymentMethods } from './payment';
-import { verifySignature, normalizeEvent, extractStatus } from './webhook';
+import { createInvoice, getPaymentMethods } from "./payment";
+import { extractStatus, normalizeEvent, verifySignature } from "./webhook";
 
 export class TelegramPaymentsGateway implements PaymentGateway {
-  readonly name = 'telegram_payments';
+	readonly name = "telegram_payments";
 
-  /**
-   * Create a Telegram Payments invoice link
-   */
-  async createPayment(params: CreatePaymentParams): Promise<CreatePaymentResult> {
-    return createInvoice(params);
-  }
+	/**
+	 * Create a Telegram Payments invoice link
+	 */
+	async createPayment(
+		params: CreatePaymentParams,
+	): Promise<CreatePaymentResult> {
+		return createInvoice(params);
+	}
 
-  /**
-   * Get available payment methods
-   */
-  getPaymentMethods(): PaymentMethod[] {
-    return getPaymentMethods();
-  }
+	/**
+	 * Get available payment methods
+	 */
+	getPaymentMethods(): PaymentMethod[] {
+		return getPaymentMethods();
+	}
 
-  /**
-   * Verify Telegram webhook signature
-   */
-  verifySignature(body: unknown, headers: Record<string, string>): boolean {
-    return verifySignature(body, headers);
-  }
+	/**
+	 * Verify Telegram webhook signature
+	 */
+	verifySignature(body: unknown, headers: Record<string, string>): boolean {
+		return verifySignature(body, headers);
+	}
 
-  /**
-   * Normalize Telegram update to standard payment event
-   */
-  normalizeEvent(body: unknown, metadata?: Record<string, unknown> | null): NormalizedPaymentEvent {
-    return normalizeEvent(body, metadata);
-  }
+	/**
+	 * Normalize Telegram update to standard payment event
+	 */
+	normalizeEvent(
+		body: unknown,
+		metadata?: Record<string, unknown> | null,
+	): NormalizedPaymentEvent {
+		return normalizeEvent(body, metadata);
+	}
 }

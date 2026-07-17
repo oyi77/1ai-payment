@@ -5,10 +5,10 @@
  * Tests import `app` directly and call app.fetch() without starting a server.
  */
 
-import { app, config } from './app';
-import { initDatabase } from './config/database';
-import { logger } from './utils/logger';
-import { startNexusCron, stopNexusCron } from './services/nexus-cron';
+import { app, config } from "./app";
+import { initDatabase } from "./config/database";
+import { startNexusCron, stopNexusCron } from "./services/nexus-cron";
+import { logger } from "./utils/logger";
 await initDatabase();
 
 startNexusCron();
@@ -16,8 +16,8 @@ startNexusCron();
 logger.info(`Starting 1ai-payment on port ${config.PORT}...`);
 
 const server = Bun.serve({
-  port: config.PORT,
-  fetch: app.fetch,
+	port: config.PORT,
+	fetch: app.fetch,
 });
 
 logger.info(`1ai-payment ready on http://localhost:${config.PORT}`);
@@ -26,19 +26,19 @@ logger.info(`OpenAPI spec: http://localhost:${config.PORT}/doc`);
 
 // Graceful shutdown — stop accepting, drain, exit
 function shutdown(signal: string) {
-  logger.info(`Received ${signal}, starting graceful shutdown...`);
-  stopNexusCron();
-  server.stop();
-  const forceExit = setTimeout(() => {
-    logger.error('Graceful shutdown timed out, forcing exit');
-    process.exit(1);
-  }, 10_000).unref();
-  queueMicrotask(() => {
-    clearTimeout(forceExit);
-    logger.info('Graceful shutdown complete');
-    process.exit(0);
-  });
+	logger.info(`Received ${signal}, starting graceful shutdown...`);
+	stopNexusCron();
+	server.stop();
+	const forceExit = setTimeout(() => {
+		logger.error("Graceful shutdown timed out, forcing exit");
+		process.exit(1);
+	}, 10_000).unref();
+	queueMicrotask(() => {
+		clearTimeout(forceExit);
+		logger.info("Graceful shutdown complete");
+		process.exit(0);
+	});
 }
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

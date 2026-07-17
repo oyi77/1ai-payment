@@ -13,50 +13,59 @@
  */
 
 import type {
-  PaymentGateway,
-  NormalizedPaymentEvent,
-  PaymentStatus,
-  CreatePaymentParams,
-  CreatePaymentResult,
-  PaymentMethod,
-} from '../base';
+	CreatePaymentParams,
+	CreatePaymentResult,
+	NormalizedPaymentEvent,
+	PaymentGateway,
+	PaymentMethod,
+	PaymentStatus,
+} from "../base";
 
-import { getConfig } from '../../config/env';
-import { buildPaymentRequirement, getPaymentMethods } from './payment';
-import { verifyPayment, decodePaymentSignature, normalizeEvent } from './webhook';
-import type { X402PaymentSignature } from './types';
+import { getConfig } from "../../config/env";
+import { buildPaymentRequirement, getPaymentMethods } from "./payment";
+import type { X402PaymentSignature } from "./types";
+import {
+	decodePaymentSignature,
+	normalizeEvent,
+	verifyPayment,
+} from "./webhook";
 
 export class X402Gateway implements PaymentGateway {
-  readonly name = 'x402';
+	readonly name = "x402";
 
-  get enabled(): boolean {
-    return Boolean(getConfig().X402_WALLET_ADDRESS);
-  }
+	get enabled(): boolean {
+		return Boolean(getConfig().X402_WALLET_ADDRESS);
+	}
 
-  async createPayment(params: CreatePaymentParams): Promise<CreatePaymentResult> {
-    return buildPaymentRequirement(params);
-  }
+	async createPayment(
+		params: CreatePaymentParams,
+	): Promise<CreatePaymentResult> {
+		return buildPaymentRequirement(params);
+	}
 
-  getPaymentMethods(): PaymentMethod[] {
-    return getPaymentMethods();
-  }
+	getPaymentMethods(): PaymentMethod[] {
+		return getPaymentMethods();
+	}
 
-  verifySignature(body: unknown, headers: Record<string, string>): boolean {
-    // x402 signature is verified on-chain, not via HMAC
-    // The webhook handler calls verifyPayment for full verification
-    // This method checks that the payload has valid structure
-    const { signature, error } = decodePaymentSignature(body);
-    if (error) return false;
+	verifySignature(body: unknown, headers: Record<string, string>): boolean {
+		// x402 signature is verified on-chain, not via HMAC
+		// The webhook handler calls verifyPayment for full verification
+		// This method checks that the payload has valid structure
+		const { signature, error } = decodePaymentSignature(body);
+		if (error) return false;
 
-    // Verify environment matches
-    if (signature.network && !signature.network.includes('eip155:')) {
-      return false;
-    }
+		// Verify environment matches
+		if (signature.network && !signature.network.includes("eip155:")) {
+			return false;
+		}
 
-    return Boolean(signature.txHash && signature.asset);
-  }
+		return Boolean(signature.txHash && signature.asset);
+	}
 
-  normalizeEvent(body: unknown, metadata?: Record<string, unknown> | null): NormalizedPaymentEvent {
-    return normalizeEvent(body, metadata);
-  }
+	normalizeEvent(
+		body: unknown,
+		metadata?: Record<string, unknown> | null,
+	): NormalizedPaymentEvent {
+		return normalizeEvent(body, metadata);
+	}
 }

@@ -2,25 +2,26 @@
  * Database configuration — LibSQL/SQLite for order registry.
  */
 
-import { createClient, type Client } from '@libsql/client';
-import { getConfig } from './env';
-import { logger } from '../utils/logger';
-import { runMigrations } from './migrations';
-import { sha256Hash, generateWebhookSecret } from '../utils/crypto';
+import { type Client, createClient } from "@libsql/client";
+import { generateWebhookSecret, sha256Hash } from "../utils/crypto";
+import { logger } from "../utils/logger";
+import { getConfig } from "./env";
+import { runMigrations } from "./migrations";
 
 let db: Client | null = null;
 
 export function getDb(): Client {
-  if (!db) throw new Error('Database not initialized. Call initDatabase() first.');
-  return db;
+	if (!db)
+		throw new Error("Database not initialized. Call initDatabase() first.");
+	return db;
 }
 
 export async function initDatabase(): Promise<void> {
-  const config = getConfig();
-  db = createClient({ url: `file:${config.DATABASE_PATH}` });
+	const config = getConfig();
+	db = createClient({ url: `file:${config.DATABASE_PATH}` });
 
-  // Core tables (safe to run every boot)
-  await db.executeMultiple(`
+	// Core tables (safe to run every boot)
+	await db.executeMultiple(`
     CREATE TABLE IF NOT EXISTS orders (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
@@ -109,8 +110,8 @@ export async function initDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_refunds_order ON refunds(order_id);
     CREATE INDEX IF NOT EXISTS idx_refunds_merchant ON refunds(merchant_id);
   `);
-  // Dead letter queue for failed forward events
-  await db.executeMultiple(`
+	// Dead letter queue for failed forward events
+	await db.executeMultiple(`
     CREATE TABLE IF NOT EXISTS dead_letter_events (
       id TEXT PRIMARY KEY,
       order_id TEXT,
@@ -125,40 +126,50 @@ export async function initDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_dead_letter_created ON dead_letter_events(created_at);
   `);
 
-  // Idempotent column additions (ALTER TABLE doesn't support IF NOT EXISTS)
-  for (const col of ['merchant_id TEXT', 'fee INTEGER DEFAULT 0', 'net INTEGER DEFAULT 0']) {
-    try {
-      await db.execute(`ALTER TABLE orders ADD COLUMN ${col}`);
-    } catch { /* column already exists */ }
-  }
+	// Idempotent column additions (ALTER TABLE doesn't support IF NOT EXISTS)
+	for (const col of [
+		"merchant_id TEXT",
+		"fee INTEGER DEFAULT 0",
+		"net INTEGER DEFAULT 0",
+	]) {
+		try {
+			await db.execute(`ALTER TABLE orders ADD COLUMN ${col}`);
+		} catch {
+			/* column already exists */
+		}
+	}
 
-  // Backfill webhook_events columns for existing databases
-  for (const col of ['raw_payload TEXT', 'headers TEXT']) {
-    try {
-      await db.execute(`ALTER TABLE webhook_events ADD COLUMN ${col}`);
-    } catch { /* column already exists */ }
-  }
+	// Backfill webhook_events columns for existing databases
+	for (const col of ["raw_payload TEXT", "headers TEXT"]) {
+		try {
+			await db.execute(`ALTER TABLE webhook_events ADD COLUMN ${col}`);
+		} catch {
+			/* column already exists */
+		}
+	}
 
-  // Backfill merchant_id for existing orders
-  await db.execute("UPDATE orders SET merchant_id = project_id WHERE merchant_id IS NULL");
+	// Backfill merchant_id for existing orders
+	await db.execute(
+		"UPDATE orders SET merchant_id = project_id WHERE merchant_id IS NULL",
+	);
 
-  // Per-merchant idempotency index (requires merchant_id column to exist)
-  await db.execute(
-    'CREATE INDEX IF NOT EXISTS idx_orders_merchant_idempotency ON orders(merchant_id, idempotency_key) WHERE idempotency_key IS NOT NULL'
-  );
+	// Per-merchant idempotency index (requires merchant_id column to exist)
+	await db.execute(
+		"CREATE INDEX IF NOT EXISTS idx_orders_merchant_idempotency ON orders(merchant_id, idempotency_key) WHERE idempotency_key IS NOT NULL",
+	);
 
-  // Seed default merchant from env API_KEY if no merchants exist
-  const existing = await db.execute('SELECT COUNT(*) as count FROM merchants');
-  if ((existing.rows[0]?.count ?? 0) === 0) {
-    await db.execute({
-      sql: `INSERT OR IGNORE INTO merchants (id, name, api_key_hash, webhook_secret, active)
+	// Seed default merchant from env API_KEY if no merchants exist
+	const existing = await db.execute("SELECT COUNT(*) as count FROM merchants");
+	if ((existing.rows[0]?.count ?? 0) === 0) {
+		await db.execute({
+			sql: `INSERT OR IGNORE INTO merchants (id, name, api_key_hash, webhook_secret, active)
             VALUES ('merch_default', 'Default', ?, ?, 1)`,
-      args: [sha256Hash(config.API_KEY), generateWebhookSecret()],
-    });
-    logger.info('Default merchant seeded from env API_KEY');
-  }
+			args: [sha256Hash(config.API_KEY), generateWebhookSecret()],
+		});
+		logger.info("Default merchant seeded from env API_KEY");
+	}
 
-  // Run pending schema migrations
-  await runMigrations(db);
-  logger.info('Database initialized');
+	// Run pending schema migrations
+	await runMigrations(db);
+	logger.info("Database initialized");
 }

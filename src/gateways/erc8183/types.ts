@@ -8,59 +8,67 @@
  */
 
 /** Escrow lifecycle status */
-export type EscrowStatus = 'pending' | 'funded' | 'in_progress' | 'completed' | 'attested' | 'released' | 'disputed' | 'cancelled';
+export type EscrowStatus =
+	| "pending"
+	| "funded"
+	| "in_progress"
+	| "completed"
+	| "attested"
+	| "released"
+	| "disputed"
+	| "cancelled";
 
 /** A party in the escrow */
 export interface EscrowParty {
-  address: string;
-  role: 'employer' | 'provider' | 'evaluator';
+	address: string;
+	role: "employer" | "provider" | "evaluator";
 }
 
 /** Escrow job specification */
 export interface EscrowJob {
-  title: string;
-  description?: string;
-  budget: string;
-  token: string;
-  network: string;
-  deliverables?: string;
+	title: string;
+	description?: string;
+	budget: string;
+	token: string;
+	network: string;
+	deliverables?: string;
 }
 
 /** Full escrow entry */
 export interface EscrowEntry {
-  id: string;
-  status: EscrowStatus;
-  employer: string;
-  provider: string;
-  evaluator: string;
-  job: EscrowJob;
-  tokenAmount: string;
-  tokenAddress: string;
-  network: string;
-  /** Unix timestamp when escrow expires */
-  timeoutAt?: number;
-  /** Hash of attestation proof (by evaluator) */
-  attestationHash?: string;
-  createdAt: string;
-  updatedAt: string;
+	id: string;
+	status: EscrowStatus;
+	employer: string;
+	provider: string;
+	evaluator: string;
+	job: EscrowJob;
+	tokenAmount: string;
+	tokenAddress: string;
+	network: string;
+	/** Unix timestamp when escrow expires */
+	timeoutAt?: number;
+	/** Hash of attestation proof (by evaluator) */
+	attestationHash?: string;
+	createdAt: string;
+	updatedAt: string;
 }
 
 /** Create escrow params (from merchant) */
 export interface CreateEscrowParams {
-  employer: string;
-  provider: string;
-  evaluator: string;
-  job: EscrowJob;
-  timeoutMinutes?: number;
+	employer: string;
+	provider: string;
+	evaluator: string;
+	job: EscrowJob;
+	timeoutMinutes?: number;
 }
 
 /** Attestation payload */
 export interface EscrowAttestation {
-  escrowId: string;
-  evaluator: string;
-  approved: boolean;
-  signature?: string;
-  notes?: string;
+	escrowId: string;
+	evaluator: string;
+	approved: boolean;
+	signature?: string;
+	notes?: string;
 }
 
 /** Default timeout for escrows */

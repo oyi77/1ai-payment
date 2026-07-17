@@ -3,83 +3,83 @@
  */
 
 export interface Config {
-  PORT: number;
-  NODE_ENV: 'development' | 'production' | 'test';
-  DATABASE_PATH: string;
-  API_KEY: string;
-  ENCRYPTION_KEY: string;
-  CORS_ORIGIN: string;
-  ADMIN_API_KEY: string;
+	PORT: number;
+	NODE_ENV: "development" | "production" | "test";
+	DATABASE_PATH: string;
+	API_KEY: string;
+	ENCRYPTION_KEY: string;
+	CORS_ORIGIN: string;
+	ADMIN_API_KEY: string;
 
-  // Midtrans
-  MIDTRANS_SERVER_KEY: string;
-  MIDTRANS_CLIENT_KEY: string;
-  MIDTRANS_ENVIRONMENT: 'sandbox' | 'production';
+	// Midtrans
+	MIDTRANS_SERVER_KEY: string;
+	MIDTRANS_CLIENT_KEY: string;
+	MIDTRANS_ENVIRONMENT: "sandbox" | "production";
 
-  // Tripay
-  TRIPAY_API_KEY: string;
-  TRIPAY_PRIVATE_KEY: string;
-  TRIPAY_MERCHANT_CODE: string;
-  TRIPAY_ENVIRONMENT: 'sandbox' | 'production';
+	// Tripay
+	TRIPAY_API_KEY: string;
+	TRIPAY_PRIVATE_KEY: string;
+	TRIPAY_MERCHANT_CODE: string;
+	TRIPAY_ENVIRONMENT: "sandbox" | "production";
 
-  // Duitku
-  DUITKU_API_KEY: string;
-  DUITKU_MERCHANT_CODE: string;
-  DUITKU_ENVIRONMENT: 'sandbox' | 'production';
+	// Duitku
+	DUITKU_API_KEY: string;
+	DUITKU_MERCHANT_CODE: string;
+	DUITKU_ENVIRONMENT: "sandbox" | "production";
 
-  // NOWPayments
-  NOWPAYMENTS_API_KEY: string;
-  NOWPAYMENTS_IPN_SECRET: string;
-  NOWPAYMENTS_ENVIRONMENT: 'sandbox' | 'production';
+	// NOWPayments
+	NOWPAYMENTS_API_KEY: string;
+	NOWPAYMENTS_IPN_SECRET: string;
+	NOWPAYMENTS_ENVIRONMENT: "sandbox" | "production";
 
-  // iPaymu
-  IPAYMU_API_KEY: string;
-  IPAYMU_VA_KEY: string;
-  IPAYMU_ENVIRONMENT: 'sandbox' | 'production';
+	// iPaymu
+	IPAYMU_API_KEY: string;
+	IPAYMU_VA_KEY: string;
+	IPAYMU_ENVIRONMENT: "sandbox" | "production";
 
-  // Scalev (Headless Commerce Platform)
-  SCALEV_STOREFRONT_API_KEY: string;
-  SCALEV_STORE_ID: string;
-  SCALEV_VARIANT_ID: string;
-  SCALEV_WEBHOOK_SECRET: string;
-  SCALEV_ENVIRONMENT: 'sandbox' | 'production';
+	// Scalev (Headless Commerce Platform)
+	SCALEV_STOREFRONT_API_KEY: string;
+	SCALEV_STORE_ID: string;
+	SCALEV_VARIANT_ID: string;
+	SCALEV_WEBHOOK_SECRET: string;
+	SCALEV_ENVIRONMENT: "sandbox" | "production";
 
-  // Xendit
-  XENDIT_API_KEY: string;
-  XENDIT_CALLBACK_TOKEN: string;
-  XENDIT_ENVIRONMENT: 'sandbox' | 'production';
+	// Xendit
+	XENDIT_API_KEY: string;
+	XENDIT_CALLBACK_TOKEN: string;
+	XENDIT_ENVIRONMENT: "sandbox" | "production";
 
-  // Telegram Stars
-  TELEGRAM_BOT_TOKEN: string;
-  TELEGRAM_WEBHOOK_SECRET: string;
+	// Telegram Stars
+	TELEGRAM_BOT_TOKEN: string;
+	TELEGRAM_WEBHOOK_SECRET: string;
 
-  // Telegram Payments
-  TELEGRAM_PAYMENT_PROVIDER_TOKEN: string;
+	// Telegram Payments
+	TELEGRAM_PAYMENT_PROVIDER_TOKEN: string;
 
-  // PayPal
-  PAYPAL_CLIENT_ID: string;
-  PAYPAL_CLIENT_SECRET: string;
-  PAYPAL_WEBHOOK_ID: string;
-  PAYPAL_WEBHOOK_SECRET: string;
-  PAYPAL_ENVIRONMENT: 'sandbox' | 'production';
-  // x402 (Micropayments)
-  X402_RPC_URL: string;
-  X402_NETWORK: string;
-  X402_USDC_ADDRESS: string;
-  X402_WALLET_ADDRESS: string;
+	// PayPal
+	PAYPAL_CLIENT_ID: string;
+	PAYPAL_CLIENT_SECRET: string;
+	PAYPAL_WEBHOOK_ID: string;
+	PAYPAL_WEBHOOK_SECRET: string;
+	PAYPAL_ENVIRONMENT: "sandbox" | "production";
+	// x402 (Micropayments)
+	X402_RPC_URL: string;
+	X402_NETWORK: string;
+	X402_USDC_ADDRESS: string;
+	X402_WALLET_ADDRESS: string;
 
-  // ERC-8183 (Agentic Commerce Escrow)
-  ERC8183_NETWORK: string;
-  ERC8183_TOKEN_ADDRESS: string;
-  ERC8183_WALLET_ADDRESS: string;
-  
-  // Logging
-  LOG_LEVEL: 'debug' | 'info' | 'warn' | 'error';
-  
-  // Nexus — 1ai-product delivery (Telegram invite)
-  NEXUS_TELEGRAM_CHANNEL_ID: string;
-  NEXUS_TELEGRAM_BOT_TOKEN: string;
-  NEXUS_VARIANT_MAP: string; // JSON: variant_name → tier config
+	// ERC-8183 (Agentic Commerce Escrow)
+	ERC8183_NETWORK: string;
+	ERC8183_TOKEN_ADDRESS: string;
+	ERC8183_WALLET_ADDRESS: string;
+
+	// Logging
+	LOG_LEVEL: "debug" | "info" | "warn" | "error";
+
+	// Nexus — 1ai-product delivery (Telegram invite)
+	NEXUS_TELEGRAM_CHANNEL_ID: string;
+	NEXUS_TELEGRAM_BOT_TOKEN: string;
+	NEXUS_VARIANT_MAP: string; // JSON: variant_name → tier config
 }
 
 let cachedConfig: Config | null = null;
@@ -88,168 +88,197 @@ let cachedConfig: Config | null = null;
  * Reset the cached config. Used in tests to ensure env changes are picked up.
  */
 export function resetConfigCache(): void {
-  cachedConfig = null;
+	cachedConfig = null;
 }
 
 export function getConfig(): Config {
-  // In test mode, always re-read from env to pick up beforeAll changes
-  if (cachedConfig && cachedConfig.NODE_ENV !== 'test') return cachedConfig;
+	// In test mode, always re-read from env to pick up beforeAll changes
+	if (cachedConfig && cachedConfig.NODE_ENV !== "test") return cachedConfig;
 
-  const required = (key: string): string => {
-    const val = process.env[key];
-    if (!val) throw new Error(`Missing required env var: ${key}`);
-    return val;
-  };
+	const required = (key: string): string => {
+		const val = process.env[key];
+		if (!val) throw new Error(`Missing required env var: ${key}`);
+		return val;
+	};
 
-  const optional = (key: string, fallback = ''): string =>
-    process.env[key] || fallback;
+	const optional = (key: string, fallback = ""): string =>
+		process.env[key] || fallback;
 
-  cachedConfig = {
-    PORT: Number(optional('PORT', '3100')),
-    NODE_ENV: (optional('NODE_ENV', 'development') as Config['NODE_ENV']),
-    DATABASE_PATH: optional('DATABASE_PATH', './data/payment.db'),
-    API_KEY: required('API_KEY'),
-    ENCRYPTION_KEY: required('ENCRYPTION_KEY'),
-    CORS_ORIGIN: optional('CORS_ORIGIN', '*'),
-    ADMIN_API_KEY: required('ADMIN_API_KEY'),
-    MIDTRANS_SERVER_KEY: optional('MIDTRANS_SERVER_KEY'),
-    MIDTRANS_CLIENT_KEY: optional('MIDTRANS_CLIENT_KEY'),
-    MIDTRANS_ENVIRONMENT: (optional('MIDTRANS_ENVIRONMENT', 'sandbox') as Config['MIDTRANS_ENVIRONMENT']),
-    TRIPAY_API_KEY: optional('TRIPAY_API_KEY'),
-    TRIPAY_PRIVATE_KEY: optional('TRIPAY_PRIVATE_KEY'),
-    TRIPAY_MERCHANT_CODE: optional('TRIPAY_MERCHANT_CODE'),
-    TRIPAY_ENVIRONMENT: (optional('TRIPAY_ENVIRONMENT', 'sandbox') as Config['TRIPAY_ENVIRONMENT']),
-    DUITKU_API_KEY: optional('DUITKU_API_KEY'),
-    DUITKU_MERCHANT_CODE: optional('DUITKU_MERCHANT_CODE'),
-    DUITKU_ENVIRONMENT: (optional('DUITKU_ENVIRONMENT', 'sandbox') as Config['DUITKU_ENVIRONMENT']),
-    NOWPAYMENTS_API_KEY: optional('NOWPAYMENTS_API_KEY'),
-    NOWPAYMENTS_IPN_SECRET: optional('NOWPAYMENTS_IPN_SECRET'),
-    NOWPAYMENTS_ENVIRONMENT: (optional('NOWPAYMENTS_ENVIRONMENT', 'sandbox') as Config['NOWPAYMENTS_ENVIRONMENT']),
-    IPAYMU_API_KEY: optional('IPAYMU_API_KEY'),
-    IPAYMU_VA_KEY: optional('IPAYMU_VA_KEY'),
-    IPAYMU_ENVIRONMENT: (optional('IPAYMU_ENVIRONMENT', 'sandbox') as Config['IPAYMU_ENVIRONMENT']),
-    SCALEV_STOREFRONT_API_KEY: optional('SCALEV_STOREFRONT_API_KEY'),
-    SCALEV_STORE_ID: optional('SCALEV_STORE_ID'),
-    SCALEV_VARIANT_ID: optional('SCALEV_VARIANT_ID'),
-    SCALEV_WEBHOOK_SECRET: optional('SCALEV_WEBHOOK_SECRET'),
-    SCALEV_ENVIRONMENT: (optional('SCALEV_ENVIRONMENT', 'sandbox') as Config['SCALEV_ENVIRONMENT']),
-    XENDIT_API_KEY: optional('XENDIT_API_KEY'),
-    XENDIT_CALLBACK_TOKEN: optional('XENDIT_CALLBACK_TOKEN'),
-    XENDIT_ENVIRONMENT: (optional('XENDIT_ENVIRONMENT', 'sandbox') as Config['XENDIT_ENVIRONMENT']),
-    TELEGRAM_BOT_TOKEN: optional('TELEGRAM_BOT_TOKEN'),
-    TELEGRAM_WEBHOOK_SECRET: optional('TELEGRAM_WEBHOOK_SECRET'),
-    TELEGRAM_PAYMENT_PROVIDER_TOKEN: optional('TELEGRAM_PAYMENT_PROVIDER_TOKEN'),
-    PAYPAL_CLIENT_ID: optional('PAYPAL_CLIENT_ID'),
-    PAYPAL_CLIENT_SECRET: optional('PAYPAL_CLIENT_SECRET'),
-    PAYPAL_WEBHOOK_ID: optional('PAYPAL_WEBHOOK_ID'),
-    PAYPAL_WEBHOOK_SECRET: optional('PAYPAL_WEBHOOK_SECRET'),
-    PAYPAL_ENVIRONMENT: (optional('PAYPAL_ENVIRONMENT', 'sandbox') as Config['PAYPAL_ENVIRONMENT']),
-    X402_RPC_URL: optional('X402_RPC_URL'),
-    X402_NETWORK: optional('X402_NETWORK', 'eip155:8453'),
-    X402_USDC_ADDRESS: optional('X402_USDC_ADDRESS'),
-    X402_WALLET_ADDRESS: optional('X402_WALLET_ADDRESS'),
-    ERC8183_NETWORK: optional('ERC8183_NETWORK', 'eip155:8453'),
-    ERC8183_TOKEN_ADDRESS: optional('ERC8183_TOKEN_ADDRESS'),
-    ERC8183_WALLET_ADDRESS: optional('ERC8183_WALLET_ADDRESS'),
-    LOG_LEVEL: (optional('LOG_LEVEL', 'info') as Config['LOG_LEVEL']),
-    NEXUS_TELEGRAM_CHANNEL_ID: optional('NEXUS_TELEGRAM_CHANNEL_ID'),
-    NEXUS_TELEGRAM_BOT_TOKEN: optional('NEXUS_TELEGRAM_BOT_TOKEN'),
-    NEXUS_VARIANT_MAP: optional('NEXUS_VARIANT_MAP', '{}'),
-  };
+	cachedConfig = {
+		PORT: Number(optional("PORT", "3100")),
+		NODE_ENV: optional("NODE_ENV", "development") as Config["NODE_ENV"],
+		DATABASE_PATH: optional("DATABASE_PATH", "./data/payment.db"),
+		API_KEY: required("API_KEY"),
+		ENCRYPTION_KEY: required("ENCRYPTION_KEY"),
+		CORS_ORIGIN: optional("CORS_ORIGIN", "*"),
+		ADMIN_API_KEY: required("ADMIN_API_KEY"),
+		MIDTRANS_SERVER_KEY: optional("MIDTRANS_SERVER_KEY"),
+		MIDTRANS_CLIENT_KEY: optional("MIDTRANS_CLIENT_KEY"),
+		MIDTRANS_ENVIRONMENT: optional(
+			"MIDTRANS_ENVIRONMENT",
+			"sandbox",
+		) as Config["MIDTRANS_ENVIRONMENT"],
+		TRIPAY_API_KEY: optional("TRIPAY_API_KEY"),
+		TRIPAY_PRIVATE_KEY: optional("TRIPAY_PRIVATE_KEY"),
+		TRIPAY_MERCHANT_CODE: optional("TRIPAY_MERCHANT_CODE"),
+		TRIPAY_ENVIRONMENT: optional(
+			"TRIPAY_ENVIRONMENT",
+			"sandbox",
+		) as Config["TRIPAY_ENVIRONMENT"],
+		DUITKU_API_KEY: optional("DUITKU_API_KEY"),
+		DUITKU_MERCHANT_CODE: optional("DUITKU_MERCHANT_CODE"),
+		DUITKU_ENVIRONMENT: optional(
+			"DUITKU_ENVIRONMENT",
+			"sandbox",
+		) as Config["DUITKU_ENVIRONMENT"],
+		NOWPAYMENTS_API_KEY: optional("NOWPAYMENTS_API_KEY"),
+		NOWPAYMENTS_IPN_SECRET: optional("NOWPAYMENTS_IPN_SECRET"),
+		NOWPAYMENTS_ENVIRONMENT: optional(
+			"NOWPAYMENTS_ENVIRONMENT",
+			"sandbox",
+		) as Config["NOWPAYMENTS_ENVIRONMENT"],
+		IPAYMU_API_KEY: optional("IPAYMU_API_KEY"),
+		IPAYMU_VA_KEY: optional("IPAYMU_VA_KEY"),
+		IPAYMU_ENVIRONMENT: optional(
+			"IPAYMU_ENVIRONMENT",
+			"sandbox",
+		) as Config["IPAYMU_ENVIRONMENT"],
+		SCALEV_STOREFRONT_API_KEY: optional("SCALEV_STOREFRONT_API_KEY"),
+		SCALEV_STORE_ID: optional("SCALEV_STORE_ID"),
+		SCALEV_VARIANT_ID: optional("SCALEV_VARIANT_ID"),
+		SCALEV_WEBHOOK_SECRET: optional("SCALEV_WEBHOOK_SECRET"),
+		SCALEV_ENVIRONMENT: optional(
+			"SCALEV_ENVIRONMENT",
+			"sandbox",
+		) as Config["SCALEV_ENVIRONMENT"],
+		XENDIT_API_KEY: optional("XENDIT_API_KEY"),
+		XENDIT_CALLBACK_TOKEN: optional("XENDIT_CALLBACK_TOKEN"),
+		XENDIT_ENVIRONMENT: optional(
+			"XENDIT_ENVIRONMENT",
+			"sandbox",
+		) as Config["XENDIT_ENVIRONMENT"],
+		TELEGRAM_BOT_TOKEN: optional("TELEGRAM_BOT_TOKEN"),
+		TELEGRAM_WEBHOOK_SECRET: optional("TELEGRAM_WEBHOOK_SECRET"),
+		TELEGRAM_PAYMENT_PROVIDER_TOKEN: optional(
+			"TELEGRAM_PAYMENT_PROVIDER_TOKEN",
+		),
+		PAYPAL_CLIENT_ID: optional("PAYPAL_CLIENT_ID"),
+		PAYPAL_CLIENT_SECRET: optional("PAYPAL_CLIENT_SECRET"),
+		PAYPAL_WEBHOOK_ID: optional("PAYPAL_WEBHOOK_ID"),
+		PAYPAL_WEBHOOK_SECRET: optional("PAYPAL_WEBHOOK_SECRET"),
+		PAYPAL_ENVIRONMENT: optional(
+			"PAYPAL_ENVIRONMENT",
+			"sandbox",
+		) as Config["PAYPAL_ENVIRONMENT"],
+		X402_RPC_URL: optional("X402_RPC_URL"),
+		X402_NETWORK: optional("X402_NETWORK", "eip155:8453"),
+		X402_USDC_ADDRESS: optional("X402_USDC_ADDRESS"),
+		X402_WALLET_ADDRESS: optional("X402_WALLET_ADDRESS"),
+		ERC8183_NETWORK: optional("ERC8183_NETWORK", "eip155:8453"),
+		ERC8183_TOKEN_ADDRESS: optional("ERC8183_TOKEN_ADDRESS"),
+		ERC8183_WALLET_ADDRESS: optional("ERC8183_WALLET_ADDRESS"),
+		LOG_LEVEL: optional("LOG_LEVEL", "info") as Config["LOG_LEVEL"],
+		NEXUS_TELEGRAM_CHANNEL_ID: optional("NEXUS_TELEGRAM_CHANNEL_ID"),
+		NEXUS_TELEGRAM_BOT_TOKEN: optional("NEXUS_TELEGRAM_BOT_TOKEN"),
+		NEXUS_VARIANT_MAP: optional("NEXUS_VARIANT_MAP", "{}"),
+	};
 
-  return cachedConfig;
+	return cachedConfig;
 }
 export function getGatewayConfig(gateway: string) {
-  const config = getConfig();
-  switch (gateway) {
-    case 'midtrans':
-      return {
-        apiKey: config.MIDTRANS_SERVER_KEY,
-        environment: config.MIDTRANS_ENVIRONMENT,
-      };
-    case 'tripay':
-      return {
-        apiKey: config.TRIPAY_API_KEY,
-        privateKey: config.TRIPAY_PRIVATE_KEY,
-        merchantCode: config.TRIPAY_MERCHANT_CODE,
-        environment: config.TRIPAY_ENVIRONMENT,
-      };
-    case 'duitku':
-      return {
-        apiKey: config.DUITKU_API_KEY,
-        merchantCode: config.DUITKU_MERCHANT_CODE,
-        environment: config.DUITKU_ENVIRONMENT,
-      };
-    case 'nowpayments':
-      return {
-        apiKey: config.NOWPAYMENTS_API_KEY,
-        ipnSecret: config.NOWPAYMENTS_IPN_SECRET,
-        environment: config.NOWPAYMENTS_ENVIRONMENT,
-      };
-    case 'ipaymu':
-      return {
-        apiKey: config.IPAYMU_API_KEY,
-        vaKey: config.IPAYMU_VA_KEY,
-        environment: config.IPAYMU_ENVIRONMENT,
-      };
-    case 'scalev':
-      return {
-        storefrontApiKey: config.SCALEV_STOREFRONT_API_KEY,
-        storeId: config.SCALEV_STORE_ID,
-        variantId: config.SCALEV_VARIANT_ID,
-        webhookSecret: config.SCALEV_WEBHOOK_SECRET,
-        environment: config.SCALEV_ENVIRONMENT,
-      };
-    case 'xendit':
-      return {
-        apiKey: config.XENDIT_API_KEY,
-        callbackToken: config.XENDIT_CALLBACK_TOKEN,
-        environment: config.XENDIT_ENVIRONMENT,
-      };
-    case 'telegram_stars':
-      return {
-        botToken: config.TELEGRAM_BOT_TOKEN,
-        webhookSecret: config.TELEGRAM_WEBHOOK_SECRET,
-      };
-    case 'telegram_payments':
-      return {
-        botToken: config.TELEGRAM_BOT_TOKEN,
-        providerToken: config.TELEGRAM_PAYMENT_PROVIDER_TOKEN,
-        webhookSecret: config.TELEGRAM_WEBHOOK_SECRET,
-      };
-    case 'paypal':
-      return {
-        clientId: config.PAYPAL_CLIENT_ID,
-        clientSecret: config.PAYPAL_CLIENT_SECRET,
-        webhookId: config.PAYPAL_WEBHOOK_ID,
-        webhookSecret: config.PAYPAL_WEBHOOK_SECRET,
-        environment: config.PAYPAL_ENVIRONMENT,
-      };
-    default:
-      throw new Error(`Unknown gateway: ${gateway}`);
-  }
+	const config = getConfig();
+	switch (gateway) {
+		case "midtrans":
+			return {
+				apiKey: config.MIDTRANS_SERVER_KEY,
+				environment: config.MIDTRANS_ENVIRONMENT,
+			};
+		case "tripay":
+			return {
+				apiKey: config.TRIPAY_API_KEY,
+				privateKey: config.TRIPAY_PRIVATE_KEY,
+				merchantCode: config.TRIPAY_MERCHANT_CODE,
+				environment: config.TRIPAY_ENVIRONMENT,
+			};
+		case "duitku":
+			return {
+				apiKey: config.DUITKU_API_KEY,
+				merchantCode: config.DUITKU_MERCHANT_CODE,
+				environment: config.DUITKU_ENVIRONMENT,
+			};
+		case "nowpayments":
+			return {
+				apiKey: config.NOWPAYMENTS_API_KEY,
+				ipnSecret: config.NOWPAYMENTS_IPN_SECRET,
+				environment: config.NOWPAYMENTS_ENVIRONMENT,
+			};
+		case "ipaymu":
+			return {
+				apiKey: config.IPAYMU_API_KEY,
+				vaKey: config.IPAYMU_VA_KEY,
+				environment: config.IPAYMU_ENVIRONMENT,
+			};
+		case "scalev":
+			return {
+				storefrontApiKey: config.SCALEV_STOREFRONT_API_KEY,
+				storeId: config.SCALEV_STORE_ID,
+				variantId: config.SCALEV_VARIANT_ID,
+				webhookSecret: config.SCALEV_WEBHOOK_SECRET,
+				environment: config.SCALEV_ENVIRONMENT,
+			};
+		case "xendit":
+			return {
+				apiKey: config.XENDIT_API_KEY,
+				callbackToken: config.XENDIT_CALLBACK_TOKEN,
+				environment: config.XENDIT_ENVIRONMENT,
+			};
+		case "telegram_stars":
+			return {
+				botToken: config.TELEGRAM_BOT_TOKEN,
+				webhookSecret: config.TELEGRAM_WEBHOOK_SECRET,
+			};
+		case "telegram_payments":
+			return {
+				botToken: config.TELEGRAM_BOT_TOKEN,
+				providerToken: config.TELEGRAM_PAYMENT_PROVIDER_TOKEN,
+				webhookSecret: config.TELEGRAM_WEBHOOK_SECRET,
+			};
+		case "paypal":
+			return {
+				clientId: config.PAYPAL_CLIENT_ID,
+				clientSecret: config.PAYPAL_CLIENT_SECRET,
+				webhookId: config.PAYPAL_WEBHOOK_ID,
+				webhookSecret: config.PAYPAL_WEBHOOK_SECRET,
+				environment: config.PAYPAL_ENVIRONMENT,
+			};
+		default:
+			throw new Error(`Unknown gateway: ${gateway}`);
+	}
 }
 
 /**
  * Get gateway config for a specific merchant.
  * Checks merchant_gateways table first, falls back to platform env config.
  */
-export async function getGatewayConfigForMerchant(gateway: string, merchantId: string) {
-  const { getDb } = await import('./database');
-  const { decrypt } = await import('../utils/crypto');
-  const db = getDb();
-  const result = await db.execute({
-    sql: 'SELECT credentials, environment FROM merchant_gateways WHERE merchant_id = ? AND gateway = ? AND enabled = 1',
-    args: [merchantId, gateway],
-  });
+export async function getGatewayConfigForMerchant(
+	gateway: string,
+	merchantId: string,
+) {
+	const { getDb } = await import("./database");
+	const { decrypt } = await import("../utils/crypto");
+	const db = getDb();
+	const result = await db.execute({
+		sql: "SELECT credentials, environment FROM merchant_gateways WHERE merchant_id = ? AND gateway = ? AND enabled = 1",
+		args: [merchantId, gateway],
+	});
 
-  if (result.rows.length > 0) {
-    try {
-      return JSON.parse(decrypt(result.rows[0].credentials as string));
-    } catch {
-      // Fall through to platform config if decryption fails
-    }
-  }
+	if (result.rows.length > 0) {
+		try {
+			return JSON.parse(decrypt(result.rows[0].credentials as string));
+		} catch {
+			// Fall through to platform config if decryption fails
+		}
+	}
 
-  return getGatewayConfig(gateway);
+	return getGatewayConfig(gateway);
 }

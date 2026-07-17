@@ -16,47 +16,56 @@
  */
 
 import type {
-  PaymentGateway,
-  NormalizedPaymentEvent,
-  PaymentStatus,
-  CreatePaymentParams,
-  CreatePaymentResult,
-  PaymentMethod,
-} from '../base';
-
-import { createOrder, getPaymentMethods } from './payment';
-import { verifySignature, normalizeEvent, extractStatus } from './webhook';
+	CreatePaymentParams,
+	CreatePaymentResult,
+	NormalizedPaymentEvent,
+	PaymentGateway,
+	PaymentMethod,
+	PaymentStatus,
+} from "../base";
+import { createOrder, getPaymentMethods } from "./payment";
+import {
+	extractStatus,
+	normalizeEvent,
+	verifySignature as verifyWebhookSignature,
+} from "./webhook";
 
 export class PayPalGateway implements PaymentGateway {
-  readonly name = 'paypal';
+	readonly name = "paypal";
 
-  /**
-   * Create a PayPal order
-   */
-  async createPayment(params: CreatePaymentParams): Promise<CreatePaymentResult> {
-    return createOrder(params);
-  }
+	/**
+	 * Create a PayPal order
+	 */
+	async createPayment(
+		params: CreatePaymentParams,
+	): Promise<CreatePaymentResult> {
+		return createOrder(params);
+	}
 
-  /**
-   * Get available payment methods
-   */
-  getPaymentMethods(): PaymentMethod[] {
-    return getPaymentMethods();
-  }
+	/**
+	 * Get available payment methods
+	 */
+	getPaymentMethods(): PaymentMethod[] {
+		return getPaymentMethods();
+	}
 
-  /**
-   * Verify PayPal webhook signature
-   */
-  verifySignature(body: unknown, headers: Record<string, string>): boolean {
-    // PayPal signature verification is async, so we return true here
-    // and verify in the webhook handler
-    return true;
-  }
+	/**
+	 * Verify PayPal webhook signature via PayPal's verification API
+	 */
+	async verifySignature(
+		body: unknown,
+		headers: Record<string, string>,
+	): Promise<boolean> {
+		return verifyWebhookSignature(body, headers);
+	}
 
-  /**
-   * Normalize PayPal webhook event to standard payment event
-   */
-  normalizeEvent(body: unknown, metadata?: Record<string, unknown> | null): NormalizedPaymentEvent {
-    return normalizeEvent(body, metadata);
-  }
+	/**
+	 * Normalize PayPal webhook event to standard payment event
+	 */
+	normalizeEvent(
+		body: unknown,
+		metadata?: Record<string, unknown> | null,
+	): NormalizedPaymentEvent {
+		return normalizeEvent(body, metadata);
+	}
 }

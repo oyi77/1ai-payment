@@ -16,17 +16,17 @@
  */
 
 import type {
-  PaymentGateway,
-  NormalizedPaymentEvent,
-  PaymentStatus,
-  CreatePaymentParams,
-  CreatePaymentResult,
-  PaymentMethod,
-} from '../base';
+	CreatePaymentParams,
+	CreatePaymentResult,
+	NormalizedPaymentEvent,
+	PaymentGateway,
+	PaymentMethod,
+	PaymentStatus,
+} from "../base";
 
-import { getConfig } from '../../config/env';
-import { createEscrow, getPaymentMethods } from './payment';
-import { parseAttestation, normalizeEvent } from './webhook';
+import { getConfig } from "../../config/env";
+import { createEscrow, getPaymentMethods } from "./payment";
+import { normalizeEvent, parseAttestation } from "./webhook";
 
 /**
  * Simple in-memory store for escrow state.
@@ -35,31 +35,39 @@ import { parseAttestation, normalizeEvent } from './webhook';
 const escrowStore = new Map<string, { status: string; updatedAt: string }>();
 
 export class ERC8183Gateway implements PaymentGateway {
-  readonly name = 'erc8183';
+	readonly name = "erc8183";
 
-  get enabled(): boolean {
-    return Boolean(getConfig().ERC8183_TOKEN_ADDRESS);
-  }
+	get enabled(): boolean {
+		return Boolean(getConfig().ERC8183_TOKEN_ADDRESS);
+	}
 
-  async createPayment(params: CreatePaymentParams): Promise<CreatePaymentResult> {
-    const result = await createEscrow(params);
-    escrowStore.set(result.gatewayReference, { status: 'pending', updatedAt: new Date().toISOString() });
-    return result;
-  }
+	async createPayment(
+		params: CreatePaymentParams,
+	): Promise<CreatePaymentResult> {
+		const result = await createEscrow(params);
+		escrowStore.set(result.gatewayReference, {
+			status: "pending",
+			updatedAt: new Date().toISOString(),
+		});
+		return result;
+	}
 
-  getPaymentMethods(): PaymentMethod[] {
-    return getPaymentMethods();
-  }
+	getPaymentMethods(): PaymentMethod[] {
+		return getPaymentMethods();
+	}
 
-  verifySignature(body: unknown, headers: Record<string, string>): boolean {
-    // For ERC-8183, signature verification depends on the attestation signature
-    // For MVP, we check structural validity
-    const { attestation, error } = parseAttestation(body);
-    if (error) return false;
-    return Boolean(attestation.escrowId && attestation.evaluator);
-  }
+	verifySignature(body: unknown, headers: Record<string, string>): boolean {
+		// For ERC-8183, signature verification depends on the attestation signature
+		// For MVP, we check structural validity
+		const { attestation, error } = parseAttestation(body);
+		if (error) return false;
+		return Boolean(attestation.escrowId && attestation.evaluator);
+	}
 
-  normalizeEvent(body: unknown, metadata?: Record<string, unknown> | null): NormalizedPaymentEvent {
-    return normalizeEvent(body, metadata);
-  }
+	normalizeEvent(
+		body: unknown,
+		metadata?: Record<string, unknown> | null,
+	): NormalizedPaymentEvent {
+		return normalizeEvent(body, metadata);
+	}
 }

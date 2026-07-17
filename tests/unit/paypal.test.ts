@@ -134,8 +134,15 @@ describe('PayPalGateway.normalizeEvent', () => {
 });
 
 describe('PayPalGateway.verifySignature', () => {
+  // Previously returned true always (sync stub). Now actually calls PayPal's API
+  // via the async verifySignature function from webhook.ts.
+  // Without configured PayPal env vars, it returns false.
 
-  test('returns true (gateway-level verification is async)', () => {
-    expect(gateway.verifySignature(makeWebhookEvent('CHECKOUT.ORDER.APPROVED', 'COMPLETED'), {})).toBe(true);
+  test('returns false without configured PayPal credentials', async () => {
+    const result = await gateway.verifySignature(
+      makeWebhookEvent('CHECKOUT.ORDER.APPROVED', 'COMPLETED'),
+      {},
+    );
+    expect(result).toBe(false);
   });
 });
