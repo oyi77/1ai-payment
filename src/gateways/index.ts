@@ -46,6 +46,9 @@ const registry: Record<string, PaymentGateway> = {
 	erc8183: new ERC8183Gateway(),
 };
 
+// Snapshot of production gateways so tests can register fakes and restore.
+const defaultRegistry: Record<string, PaymentGateway> = { ...registry };
+
 export function getGateway(name: string): PaymentGateway | undefined {
 	return registry[name];
 }
@@ -56,4 +59,23 @@ export function getGatewayNames(): string[] {
 
 export function isGatewayConfigured(name: string): boolean {
 	return name in registry;
+}
+
+/**
+ * Register a gateway implementation at runtime. Primarily used by tests to
+ * inject fake gateways (e.g. refund support) without network access.
+ */
+export function registerGateway(name: string, gateway: PaymentGateway): void {
+	registry[name] = gateway;
+}
+
+/**
+ * Restore the registry to its production snapshot. Call in test teardown so
+ * fake gateways never leak across test files.
+ */
+export function resetGatewayRegistry(): void {
+	for (const key of Object.keys(registry)) {
+		delete registry[key];
+	}
+	Object.assign(registry, defaultRegistry);
 }
