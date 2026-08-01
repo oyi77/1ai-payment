@@ -4,7 +4,7 @@
 
 import { getDb } from "../config/database";
 import { getGateway } from "../gateways";
-import { generateOrderId } from "../utils/crypto";
+import { generateRefundId } from "../utils/crypto";
 import { GatewayError } from "../utils/errors";
 import { logger } from "../utils/logger";
 import { getOrderById } from "./order.service";
@@ -65,11 +65,40 @@ export async function createRefund(
 		);
 	}
 
-	const id = generateOrderId().replace("pay_", "ref_");
+	// Cumulative refund guard — total non-failed refunds must not exceed order amount
+	const sumResult = await db.execute({
+		sql: "SELECT COALESCE(SUM(amount), 0) AS total FROM refunds WHERE order_id = ? AND status != 'failed'",
+		args: [params.order_id],
+	});
+	const existingTotal = Number(
+		(sumResult.rows[0] as Record<string, unknown>).total ?? 0,
+	);
+	if (existingTotal + refundAmount > order.amount) {
+		throw new GatewayError(
+			"",
+			`Refund total (${existingTotal + refundAmount}) exceeds order amount (${order.amount})`,
+		);
+	}
+
+	const id = generateRefundId();
 	const gateway = getGateway(order.gateway);
 
 	let gatewayRefundId: string | null = null;
 	let status = "pending";
+
+	// Insert refund record first — unsupported/failed refunds are still recorded
+	await db.execute({
+		sql: `INSERT INTO refunds (id, order_id, merchant_id, amount, gateway, status, reason)
+          VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
+		args: [
+			id,
+			params.order_id,
+			params.merchant_id,
+			refundAmount,
+			order.gateway,
+			params.reason ?? null,
+		],
+	});
 
 	// Attempt gateway refund if supported
 	if (gateway?.refundPayment && order.gateway_reference) {
@@ -87,41 +116,37 @@ export async function createRefund(
 			) {
 				status = "pending"; // Mark as pending for manual processing
 			} else {
-				throw err;
+				status = "failed"; // Gateway rejected the refund — record the failure
 			}
 		}
 	} else {
 		status = "pending"; // No gateway refund support — manual processing needed
 	}
 
-	// Insert refund record
-	await db.execute({
-		sql: `INSERT INTO refunds (id, order_id, merchant_id, amount, gateway, gateway_refund_id, status, reason)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		args: [
-			id,
-			params.order_id,
-			params.merchant_id,
-			refundAmount,
-			order.gateway,
-			gatewayRefundId,
-			status,
-			params.reason ?? null,
-		],
-	});
-
-	// Update order status to refunded if full refund
-	if (refundAmount >= order.amount) {
-		await db.execute({
+	// Persist final status — mark the order refunded only when the gateway
+	// actually confirmed the refund (status "success"). A pending or failed
+	// full refund must not flip the order away from "success", or a later
+	// gateway confirmation would have nowhere to land.
+	const statements: Array<{
+		sql: string;
+		args: Array<string | number | null>;
+	}> = [
+		{
+			sql: "UPDATE refunds SET status = ?, gateway_refund_id = ?, updated_at = datetime('now') WHERE id = ?",
+			args: [status, gatewayRefundId, id],
+		},
+	];
+	if (refundAmount >= order.amount && status === "success") {
+		statements.push({
 			sql: "UPDATE orders SET status = 'refunded', updated_at = datetime('now') WHERE id = ?",
 			args: [params.order_id],
 		});
 	}
+	await db.batch(statements);
 
 	logger.info("Refund created", {
 		id,
 		order_id: params.order_id,
-		amount: refundAmount,
 		status,
 	});
 
