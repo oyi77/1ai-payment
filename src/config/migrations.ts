@@ -71,6 +71,54 @@ const MIGRATIONS: Migration[] = [
       `);
 		},
 	},
+	{
+		version: "003",
+		name: "Forward status, dead-letter replay, refund dedup",
+		run: async (db: Client) => {
+			// orders.forward_status — last forward HTTP status.
+			// markForwarded no longer overwrites the payment status.
+			try {
+				await db.execute(
+					"ALTER TABLE orders ADD COLUMN forward_status INTEGER",
+				);
+			} catch {
+				// column already exists
+			}
+
+			// dead_letter_events.replayed_at — set when a dead letter is re-forwarded.
+			try {
+				await db.execute(
+					"ALTER TABLE dead_letter_events ADD COLUMN replayed_at TEXT",
+				);
+			} catch {
+				// column already exists
+			}
+
+			// Refund dedup — prevent a duplicate gateway refund for the same order.
+			await db.execute(
+				"CREATE UNIQUE INDEX IF NOT EXISTS idx_refunds_order_gateway_ref ON refunds(order_id, gateway_refund_id) WHERE gateway_refund_id IS NOT NULL",
+			);
+		},
+	},
+	{
+		version: "004",
+		name: "Atomic dedupe for unknown-order webhook events",
+		run: async (db: Client) => {
+			// Webhooks for orders not in the DB store order_id = NULL, so the
+			// idx_webhook_events_dedup index (WHERE order_id IS NOT NULL) cannot
+			// dedupe them. They store gateway_reference = the raw reference or a
+			// fingerprint (JSON of event fields incl. status), so this partial
+			// unique index makes the SELECT-then-INSERT guard atomic: identical
+			// duplicate callbacks collide, while pending vs success still both
+			// insert (different status values).
+			await db.execute(
+				"DELETE FROM webhook_events WHERE order_id IS NULL AND id NOT IN (SELECT MIN(id) FROM webhook_events WHERE order_id IS NULL GROUP BY gateway, gateway_reference, status)",
+			);
+			await db.execute(
+				"CREATE UNIQUE INDEX IF NOT EXISTS idx_webhook_events_unknown_dedup ON webhook_events(gateway, gateway_reference, status) WHERE order_id IS NULL",
+			);
+		},
+	},
 ];
 
 export async function runMigrations(db: Client): Promise<void> {

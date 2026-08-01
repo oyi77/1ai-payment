@@ -4,7 +4,6 @@
  * Each gateway has its own endpoint:
  * - POST /webhook/midtrans
  * - POST /webhook/tripay
- * - ... (10 gateways total)
  *
  * Flow: receive → verify signature → normalize → lookup order → forward to project
  * Returns 200 immediately. Forwarding happens asynchronously with retries.
@@ -14,6 +13,7 @@
 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { getDb } from "../config/database";
+import { getConfig } from "../config/env";
 import { getGateway } from "../gateways";
 import type { NormalizedPaymentEvent } from "../gateways/base";
 import { webhooksReceivedCounter } from "../middleware/metrics";
@@ -92,10 +92,22 @@ for (const gatewayName of GATEWAY_NAMES) {
 			headers[key.toLowerCase()] = value;
 		});
 
-		// Parse body
+		// HTTPS enforcement (production only)
+		if (
+			getConfig().NODE_ENV === "production" &&
+			!c.req.url.startsWith("https://") &&
+			headers["x-forwarded-proto"] !== "https"
+		) {
+			logger.warn(`Webhook ${gatewayName}: non-HTTPS request rejected`);
+			return c.json({ error: "HTTPS required" }, 400);
+		}
+
+		// Parse body — read raw text first so HMAC gateways verify over raw bytes
+		let rawBody: string;
 		let body: unknown;
 		try {
-			body = await c.req.json();
+			rawBody = await c.req.text();
+			body = rawBody ? JSON.parse(rawBody) : {};
 		} catch {
 			logger.warn(`Webhook ${gatewayName}: invalid JSON body`);
 			return c.json({ error: "Invalid JSON" }, 400);
@@ -104,7 +116,9 @@ for (const gatewayName of GATEWAY_NAMES) {
 		// Verify signature
 		let signatureValid = false;
 		try {
-			signatureValid = await gateway.verifySignature(body, headers);
+			signatureValid = gateway.verifySignatureRaw
+				? await gateway.verifySignatureRaw(rawBody, headers)
+				: await gateway.verifySignature(body, headers);
 		} catch (err: unknown) {
 			logger.error(`Webhook ${gatewayName}: signature verification error`, {
 				error: err instanceof Error ? err.message : String(err),
@@ -163,27 +177,71 @@ for (const gatewayName of GATEWAY_NAMES) {
 			});
 			try {
 				const db = getDb();
+				// order_id is NULL for unknown orders, so the UNIQUE index
+				// (order_id, gateway, status) cannot dedupe — guard manually.
+				const fingerprint =
+					event.order_id ||
+					event.gateway_reference ||
+					JSON.stringify({
+						gateway: event.gateway,
+						order_id: event.order_id,
+						gateway_reference: event.gateway_reference,
+						status: event.status,
+						amount: event.amount,
+						currency: event.currency,
+						payment_method: event.payment_method,
+						paid_at: event.paid_at,
+					});
+				const existing = await db.execute({
+					sql: "SELECT id FROM webhook_events WHERE gateway = ? AND (order_id = ? OR gateway_reference = ?)",
+					args: [gatewayName, fingerprint, fingerprint],
+				});
+				if (existing.rows.length > 0) {
+					logger.info("Duplicate webhook for unknown order, skipping", {
+						gateway: gatewayName,
+						order_id: event.order_id,
+						status: event.status,
+					});
+					return c.json({ ok: true as const }, 200);
+				}
 				await db.execute({
 					sql: `INSERT INTO webhook_events (id, gateway, order_id, gateway_reference, status, raw_payload, headers, signature_valid)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 					args: [
 						generateEventId(),
 						gatewayName,
 						event.order_id,
-						event.gateway_reference,
+						event.gateway_reference || fingerprint,
 						event.status,
 						JSON.stringify(body),
 						JSON.stringify(headers),
+						signatureValid ? 1 : 0,
 					],
 				});
 			} catch (dbErr: unknown) {
+				// The SELECT above is only a fast path — two concurrent identical
+				// callbacks can both pass it. The partial UNIQUE index from
+				// migration v004 is the atomic dedupe; a violation means this
+				// exact event was already processed, so skip quietly (no nexus
+				// fulfillment, no double-credit).
+				if (
+					dbErr instanceof Error &&
+					dbErr.message.includes("UNIQUE constraint")
+				) {
+					logger.info("Duplicate webhook for unknown order, skipping", {
+						gateway: gatewayName,
+						order_id: event.order_id,
+						status: event.status,
+					});
+					return c.json({ ok: true as const }, 200);
+				}
 				logger.error("Failed to log webhook for unknown order", {
 					error: String(dbErr),
 				});
 			}
 
 			// B2: Try nexus fulfillment for direct Scalev checkout (no order in DB)
-			if (gatewayName === "scalev") {
+			if (gatewayName === "scalev" && event.status === "success") {
 				const result = await handleNexusPayment(
 					gatewayName,
 					body as Record<string, unknown>,
@@ -208,7 +266,7 @@ for (const gatewayName of GATEWAY_NAMES) {
 			const db = getDb();
 			await db.execute({
 				sql: `INSERT INTO webhook_events (id, gateway, order_id, gateway_reference, status, raw_payload, headers, signature_valid)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 				args: [
 					eventId,
 					gatewayName,
@@ -217,6 +275,7 @@ for (const gatewayName of GATEWAY_NAMES) {
 					fullEvent.status,
 					JSON.stringify(body),
 					JSON.stringify(headers),
+					signatureValid ? 1 : 0,
 				],
 			});
 		} catch (dbErr: unknown) {
@@ -247,8 +306,10 @@ for (const gatewayName of GATEWAY_NAMES) {
 			fullEvent.gateway_reference,
 		);
 
-		// Look up merchant's webhook_secret for signing
-		let webhookSecret = order.id; // fallback
+		// Look up merchant's webhook_secret for signing — no fallback. Only
+		// forward when a real secret exists; signing with anything else would
+		// make verification fail on the project side.
+		let webhookSecret: string | null = null;
 		try {
 			const merchantResult = await getDb().execute({
 				sql: "SELECT webhook_secret FROM merchants WHERE id = ?",
@@ -258,7 +319,19 @@ for (const gatewayName of GATEWAY_NAMES) {
 				webhookSecret = merchantResult.rows[0].webhook_secret as string;
 			}
 		} catch {
-			/* use fallback */
+			/* treat as missing secret */
+		}
+
+		if (!webhookSecret || webhookSecret.length === 0) {
+			logger.warn(
+				"Webhook: merchant webhook_secret missing, skipping forward",
+				{
+					gateway: gatewayName,
+					order_id: order.id,
+					status: fullEvent.status,
+				},
+			);
+			return c.json({ ok: true as const }, 200);
 		}
 
 		forwardEvent(fullEvent, order, webhookSecret).catch((err: unknown) => {
