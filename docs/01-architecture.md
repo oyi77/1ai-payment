@@ -188,9 +188,11 @@ Key properties:
   known gateway returns `501`. The body is read as raw text first, and HMAC
   gateways verify over the exact raw bytes (`verifySignatureRaw(rawBody,
   headers)`).
-- **Transport gate: HTTPS in production.** When `NODE_ENV=production`, a
-  webhook over plain HTTP is rejected with `400` unless the
-  `x-forwarded-proto: https` header is present (TLS terminates at Cloudflare).
+- **Transport gate: HTTPS when `REQUIRE_HTTPS` is enabled.** The
+  `REQUIRE_HTTPS` config flag (env var, default `true` when
+  `NODE_ENV=production`, `false` otherwise) rejects a webhook over plain
+  HTTP with `400` unless the `x-forwarded-proto: https` header is present
+  (TLS terminates at Cloudflare).
 - **Forwarding is async and fire-and-forget.** The receiver replies `200` to
   the gateway immediately; the project callback runs in the background with
   up to 3 retries (`5s`, `30s`, `300s` backoff, in-process sleep). There is no

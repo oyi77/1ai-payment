@@ -43,6 +43,14 @@ const errorJson = {
 	"application/json": { schema: webhookErrorSchema },
 } as const;
 
+/**
+ * Determine whether an incoming webhook request was transported over TLS.
+ * A trusted reverse proxy signals this via the X-Forwarded-Proto header.
+ */
+export function isHttpsRequest(url: string, xForwardedProto?: string): boolean {
+	return url.startsWith("https://") || xForwardedProto === "https";
+}
+
 for (const gatewayName of GATEWAY_NAMES) {
 	const route = createRoute({
 		method: "post",
@@ -92,11 +100,10 @@ for (const gatewayName of GATEWAY_NAMES) {
 			headers[key.toLowerCase()] = value;
 		});
 
-		// HTTPS enforcement (production only)
+		// HTTPS enforcement (configurable; defaults to production-only)
 		if (
-			getConfig().NODE_ENV === "production" &&
-			!c.req.url.startsWith("https://") &&
-			headers["x-forwarded-proto"] !== "https"
+			getConfig().REQUIRE_HTTPS &&
+			!isHttpsRequest(c.req.url, headers["x-forwarded-proto"])
 		) {
 			logger.warn(`Webhook ${gatewayName}: non-HTTPS request rejected`);
 			return c.json({ error: "HTTPS required" }, 400);

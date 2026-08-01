@@ -5,6 +5,8 @@
 export interface Config {
 	PORT: number;
 	NODE_ENV: "development" | "production" | "test";
+	/** Enforce HTTPS on webhook callbacks (defaults to NODE_ENV === "production") */
+	REQUIRE_HTTPS: boolean;
 	DATABASE_PATH: string;
 	API_KEY: string;
 	ENCRYPTION_KEY: string;
@@ -105,9 +107,19 @@ export function getConfig(): Config {
 	const optional = (key: string, fallback = ""): string =>
 		process.env[key] || fallback;
 
+	const bool = (key: string, fallback: boolean): boolean => {
+		const val = process.env[key];
+		if (val === undefined) return fallback;
+		const normalized = val.trim().toLowerCase();
+		return normalized === "true" || normalized === "1" || normalized === "yes";
+	};
+
+	const nodeEnv = optional("NODE_ENV", "development") as Config["NODE_ENV"];
+
 	cachedConfig = {
 		PORT: Number(optional("PORT", "3100")),
-		NODE_ENV: optional("NODE_ENV", "development") as Config["NODE_ENV"],
+		NODE_ENV: nodeEnv,
+		REQUIRE_HTTPS: bool("REQUIRE_HTTPS", nodeEnv === "production"),
 		DATABASE_PATH: optional("DATABASE_PATH", "./data/payment.db"),
 		API_KEY: required("API_KEY"),
 		ENCRYPTION_KEY: required("ENCRYPTION_KEY"),

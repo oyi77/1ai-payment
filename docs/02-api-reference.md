@@ -113,7 +113,7 @@ Gateway callback receiver. One route for all gateways; the `gateway` path segmen
 
 **Flow:**
 
-1. In production, require a TLS connection: if the request URL is not `https://` and the `x-forwarded-proto` header is not `https`, reject with `400 { error: 'HTTPS required' }`.
+1. If `REQUIRE_HTTPS` is enabled (default in production), require a TLS connection: if the request URL is not `https://` and the `x-forwarded-proto` header is not `https`, reject with `400 { error: 'HTTPS required' }`.
 2. Lowercase-normalize headers, verify the gateway signature (reject with `401` on mismatch).
 3. Normalize the payload into a `NormalizedPaymentEvent`.
 4. Look up the order (by gateway reference, then by order id).
@@ -132,7 +132,7 @@ An event for an **unknown order** is still acknowledged with `200` (and logged) 
 
 | Status | Body | When |
 |--------|------|------|
-| 400 | `{ error: 'HTTPS required' }` | Plain-HTTP request in production |
+| 400 | `{ error: 'HTTPS required' }` | Plain-HTTP request while `REQUIRE_HTTPS` is enabled |
 | 400 | `{ error: 'Invalid JSON' }` | Body is not valid JSON |
 | 400 | `{ error: 'Failed to normalize event' }` | Payload cannot be normalized |
 | 401 | `{ error: 'Invalid signature' }` | Signature verification failed |
