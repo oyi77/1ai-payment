@@ -114,6 +114,42 @@ describe("createRefund", () => {
 			}),
 		).rejects.toThrow(/exceed/i);
 	});
+
+	test("throws when cumulative refunds would exceed order amount", async () => {
+		const orderId = await createSuccessOrder({ amount: 10000 });
+		await createRefund({
+			order_id: orderId,
+			merchant_id: "merch_refund",
+			amount: 6000,
+		});
+		await expect(
+			createRefund({
+				order_id: orderId,
+				merchant_id: "merch_refund",
+				amount: 6000,
+			}),
+		).rejects.toThrow(/exceed/i);
+	});
+
+	test("leaves order success when full refund is not gateway-confirmed", async () => {
+		const orderId = await createSuccessOrder({ amount: 50000 });
+		const refund = await createRefund({
+			order_id: orderId,
+			merchant_id: "merch_refund",
+			amount: 50000,
+		});
+
+		// Midtrans has no refundPayment support, so the refund stays pending and
+		// the order must NOT be flipped to "refunded" until the gateway confirms.
+		expect(refund.status).toBe("pending");
+
+		const result = await db.execute({
+			sql: "SELECT status FROM orders WHERE id = ?",
+			args: [orderId],
+		});
+		const status = (result.rows[0] as Record<string, unknown>).status;
+		expect(status).toBe("success");
+	});
 });
 
 describe("getRefundById", () => {
