@@ -29,6 +29,7 @@ import {
 	transactionResponseSchema,
 	webhookDeliverySchema,
 } from "../schemas";
+import { replayDeadLetter } from "../services/forwarder.service";
 import {
 	getAvailableGateways,
 	getGateway,
@@ -303,10 +304,20 @@ const getPaymentRoute = createRoute({
 
 paymentRoutes.openapi(getPaymentRoute, async (c) => {
 	const { id } = c.req.valid("param");
+	const merchantId = c.get("merchantId") ?? "merch_default";
 
 	try {
 		const order = await getOrderById(id);
 		if (!order) {
+			return c.json(
+				{
+					success: false as const,
+					error: { code: "ORDER_NOT_FOUND", message: `Order not found: ${id}` },
+				},
+				404,
+			);
+		}
+		if (order.merchant_id !== merchantId) {
 			return c.json(
 				{
 					success: false as const,
@@ -678,6 +689,144 @@ paymentRoutes.openapi(listWebhookDeliveriesRoute, async (c) => {
 				error: {
 					code: "INTERNAL_ERROR",
 					message: "Failed to list webhook deliveries",
+				},
+			},
+			500,
+		);
+	}
+});
+
+// ── POST /api/webhook-deliveries/{id}/replay ────────────────────
+
+const replayWebhookDeliveryRoute = createRoute({
+	method: "post",
+	path: "/webhook-deliveries/{id}/replay",
+	tags: ["Webhooks"],
+	summary: "Replay a dead-lettered webhook delivery",
+	description:
+		"Re-forwards a previously failed webhook delivery to the owning project, " +
+		"using the stored event and the merchant's webhook secret. Only the " +
+		"merchant that owns the order may replay a delivery.",
+	security: [{ ApiKeyAuth: [] }],
+	request: {
+		params: z.object({
+			id: z.string().openapi({ example: "dl_abc123" }),
+		}),
+	},
+	responses: {
+		200: {
+			description: "Delivery re-forwarded.",
+			content: {
+				"application/json": {
+					schema: z.object({
+						success: z.literal(true),
+						data: z.object({
+							id: z.string(),
+							replayed_at: z.string().nullable(),
+						}),
+					}),
+				},
+			},
+		},
+		401: {
+			description: "Unauthorized.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		404: {
+			description: "Dead letter or owning order not found.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		502: {
+			description: "Replay failed at the forwarding step.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		500: {
+			description: "Internal error.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+	},
+});
+
+paymentRoutes.openapi(replayWebhookDeliveryRoute, async (c) => {
+	const merchantId = c.get("merchantId") ?? "merch_default";
+	const { id } = c.req.valid("param");
+
+	try {
+		const db = getDb();
+		const result = await db.execute({
+			sql: "SELECT order_id FROM dead_letter_events WHERE id = ?",
+			args: [id],
+		});
+		if (result.rows.length === 0) {
+			return c.json(
+				{
+					success: false as const,
+					error: { code: "NOT_FOUND", message: "Dead letter not found" },
+				},
+				404,
+			);
+		}
+
+		const orderId = String(
+			(result.rows[0] as Record<string, unknown>).order_id ?? "",
+		);
+		const order = await getOrderById(orderId);
+		if (
+			!order ||
+			(order.merchant_id !== merchantId && order.project_id !== merchantId)
+		) {
+			return c.json(
+				{
+					success: false as const,
+					error: { code: "NOT_FOUND", message: "Dead letter not found" },
+				},
+				404,
+			);
+		}
+
+		const replay = await replayDeadLetter(id);
+		if (!replay.ok) {
+			return c.json(
+				{
+					success: false as const,
+					error: {
+						code: "REPLAY_FAILED",
+						message: replay.error ?? "Replay failed",
+					},
+				},
+				502,
+			);
+		}
+
+		const after = await db.execute({
+			sql: "SELECT replayed_at FROM dead_letter_events WHERE id = ?",
+			args: [id],
+		});
+		const replayedAt =
+			after.rows.length > 0
+				? (((after.rows[0] as Record<string, unknown>).replayed_at as
+						| string
+						| null) ?? null)
+				: null;
+
+		return c.json(
+			{
+				success: true as const,
+				data: { id, replayed_at: replayedAt },
+			},
+			200,
+		);
+	} catch (err: unknown) {
+		logger.error("Error replaying webhook delivery", {
+			id,
+			error: err instanceof Error ? err.message : String(err),
+		});
+		return c.json(
+			{
+				success: false as const,
+				error: {
+					code: "INTERNAL_ERROR",
+					message: "Failed to replay delivery",
 				},
 			},
 			500,
