@@ -3,8 +3,13 @@
  *
  * Covers escrow creation, event normalization, attestation parsing, and signature verification.
  */
-import { describe, expect, test, beforeAll } from 'bun:test';
+import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
+import { privateKeyToAccount } from 'viem/accounts';
 import { ERC8183Gateway } from '../../src/gateways/erc8183';
+import {
+  buildAttestationMessage,
+  verifyAttestationSignature,
+} from '../../src/gateways/erc8183/webhook';
 
 beforeAll(() => {
   process.env.API_KEY = 'test_api_key';
@@ -91,42 +96,103 @@ describe('ERC8183Gateway.createPayment', () => {
 });
 
 describe('ERC8183Gateway.verifySignature', () => {
-  test('accepts valid attestation', () => {
-    const result = gateway.verifySignature({
+  // Fixed test keys — never used outside tests.
+  const signer = privateKeyToAccount(`0x${'11'.repeat(32)}`);
+  const stranger = privateKeyToAccount(`0x${'22'.repeat(32)}`);
+
+  function validAttestation(signature: string) {
+    return {
       escrow_id: 'escrow_001',
-      evaluator: '0xevaluator1234567890abcdef1234567890abcdef',
+      evaluator: signer.address,
       approved: true,
-    }, {});
+      signature,
+    };
+  }
+
+  afterAll(() => {
+    delete process.env.ERC8183_EVALUATOR_ADDRESS;
+  });
+
+  test('accepts attestation signed by configured evaluator', async () => {
+    process.env.ERC8183_EVALUATOR_ADDRESS = signer.address;
+    const signature = await signer.signMessage({
+      message: buildAttestationMessage({
+        escrowId: 'escrow_001',
+        evaluator: signer.address,
+        approved: true,
+        notes: null,
+      }),
+    });
+
+    const result = await gateway.verifySignature(validAttestation(signature), {});
 
     expect(result).toBe(true);
   });
 
-  test('rejects missing escrow_id', () => {
-    const result = gateway.verifySignature({
-      evaluator: '0xevaluator',
+  test('rejects attestation without signature (fail closed)', async () => {
+    process.env.ERC8183_EVALUATOR_ADDRESS = signer.address;
+
+    const result = await gateway.verifySignature({
+      escrow_id: 'escrow_001',
+      evaluator: signer.address,
       approved: true,
     }, {});
 
     expect(result).toBe(false);
   });
 
-  test('rejects missing evaluator', () => {
-    const result = gateway.verifySignature({
-      escrow_id: 'escrow_001',
+  test('rejects when no evaluator is configured (fail closed)', async () => {
+    delete process.env.ERC8183_EVALUATOR_ADDRESS;
+    const signature = await signer.signMessage({
+      message: buildAttestationMessage({
+        escrowId: 'escrow_001',
+        evaluator: signer.address,
+        approved: true,
+        notes: null,
+      }),
+    });
+
+    const result = await gateway.verifySignature(validAttestation(signature), {});
+
+    expect(result).toBe(false);
+  });
+
+  test('rejects signature from a different wallet', async () => {
+    process.env.ERC8183_EVALUATOR_ADDRESS = signer.address;
+    const signature = await stranger.signMessage({
+      message: buildAttestationMessage({
+        escrowId: 'escrow_001',
+        evaluator: signer.address,
+        approved: true,
+        notes: null,
+      }),
+    });
+
+    const result = await gateway.verifySignature(validAttestation(signature), {});
+
+    expect(result).toBe(false);
+  });
+
+  test('rejects missing escrow_id', async () => {
+    process.env.ERC8183_EVALUATOR_ADDRESS = signer.address;
+
+    const result = await gateway.verifySignature({
+      evaluator: signer.address,
       approved: true,
     }, {});
 
     expect(result).toBe(false);
   });
 
-  test('accepts status-based attestation format', () => {
-    const result = gateway.verifySignature({
+  test('rejects missing evaluator', async () => {
+    process.env.ERC8183_EVALUATOR_ADDRESS = signer.address;
+
+    const result = await gateway.verifySignature({
       escrow_id: 'escrow_001',
-      evaluator: '0xeval',
-      status: 'completed',
+      approved: true,
     }, {});
 
-    expect(result).toBe(true);
+    expect(result).toBe(false);
   });
 });
 

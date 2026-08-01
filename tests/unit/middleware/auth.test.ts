@@ -1,6 +1,7 @@
 /**
  * Unit tests for auth middleware — API-key lookup in merchants table,
- * env fallback, disabled merchant rejection, admin-key skip.
+ * env fallback, disabled merchant rejection, admin key does not bypass
+ * merchant auth.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -116,8 +117,9 @@ describe("authMiddleware", () => {
 		expect(res.merchantPlan).toBe("free");
 	});
 
-	test("skips merchant auth when admin key is present and no API key", async () => {
+	test("admin key does not bypass merchant auth", async () => {
 		const res = await callAuth(undefined, "test-admin-key-auth");
-		expect(res.status).toBe(200);
+		expect(res.status).toBe(401);
+		expect(res.body.success).toBe(false);
 	});
 });

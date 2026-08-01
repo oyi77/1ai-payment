@@ -20,6 +20,16 @@ export async function initDatabase(): Promise<void> {
 	const config = getConfig();
 	db = createClient({ url: `file:${config.DATABASE_PATH}` });
 
+	// SQLite pragmas — best-effort; keep booting if the driver rejects them
+	try {
+		await db.execute("PRAGMA journal_mode = WAL;");
+		await db.execute("PRAGMA busy_timeout = 5000;");
+	} catch (err) {
+		logger.warn("SQLite pragma setup failed (continuing without WAL)", {
+			error: err instanceof Error ? err.message : String(err),
+		});
+	}
+
 	// Core tables (safe to run every boot)
 	await db.executeMultiple(`
     CREATE TABLE IF NOT EXISTS orders (
@@ -45,6 +55,7 @@ export async function initDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_orders_project ON orders(project_id);
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
     CREATE INDEX IF NOT EXISTS idx_orders_idempotency ON orders(idempotency_key);
+    CREATE INDEX IF NOT EXISTS idx_orders_gateway_reference ON orders(gateway_reference);
 
     CREATE TABLE IF NOT EXISTS webhook_events (
       id TEXT PRIMARY KEY,

@@ -26,7 +26,11 @@ import type {
 
 import { getConfig } from "../../config/env";
 import { createEscrow, getPaymentMethods } from "./payment";
-import { normalizeEvent, parseAttestation } from "./webhook";
+import {
+	normalizeEvent,
+	parseAttestation,
+	verifyAttestationSignature,
+} from "./webhook";
 
 /**
  * Simple in-memory store for escrow state.
@@ -56,12 +60,15 @@ export class ERC8183Gateway implements PaymentGateway {
 		return getPaymentMethods();
 	}
 
-	verifySignature(body: unknown, headers: Record<string, string>): boolean {
-		// For ERC-8183, signature verification depends on the attestation signature
-		// For MVP, we check structural validity
+	async verifySignature(
+		body: unknown,
+		_headers: Record<string, string>,
+	): Promise<boolean> {
+		// Fail closed: reject unless the attestation parses AND its signature
+		// verifies against the configured evaluator address.
 		const { attestation, error } = parseAttestation(body);
 		if (error) return false;
-		return Boolean(attestation.escrowId && attestation.evaluator);
+		return verifyAttestationSignature(attestation);
 	}
 
 	normalizeEvent(

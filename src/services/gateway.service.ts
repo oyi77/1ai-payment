@@ -29,7 +29,7 @@ export function getGatewayHealth(): Record<string, GatewayStatus> {
 			const config = getGatewayConfig(name);
 			result[name] = {
 				name,
-				configured: Boolean(config.apiKey),
+				configured: isConfigured(name, config),
 			};
 		} catch {
 			result[name] = { name, configured: false };
@@ -37,6 +37,22 @@ export function getGatewayHealth(): Record<string, GatewayStatus> {
 	}
 
 	return result;
+}
+
+// A gateway counts as configured only when its credential-specific env vars are set.
+function isConfigured(name: string, config: unknown): boolean {
+	const cfg = config as Record<string, unknown>;
+	switch (name) {
+		case "scalev":
+			return Boolean(cfg.storefrontApiKey && cfg.storeId);
+		case "telegram_stars":
+		case "telegram_payments":
+			return Boolean(cfg.botToken && cfg.webhookSecret);
+		case "paypal":
+			return Boolean(cfg.clientId && cfg.clientSecret && cfg.webhookId);
+		default:
+			return Boolean(cfg.apiKey);
+	}
 }
 
 export function getAvailableGateways(): GatewayInfo[] {
@@ -74,3 +90,5 @@ export function getGatewayMethods(name: string): GatewayInfo | undefined {
 		methods,
 	};
 }
+
+export { getGatewayConfigForMerchant } from "../config/env";

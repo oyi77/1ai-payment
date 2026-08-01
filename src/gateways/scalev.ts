@@ -207,6 +207,14 @@ export class ScalevGateway implements PaymentGateway {
 	}
 
 	verifySignature(body: unknown, headers: Record<string, string>): boolean {
+		// Signature is HMAC over the raw request body — delegate to raw
+		return this.verifySignatureRaw(JSON.stringify(body), headers);
+	}
+
+	verifySignatureRaw(
+		rawBody: string,
+		headers: Record<string, string>,
+	): boolean {
 		const config = getConfig();
 		if (!config.SCALEV_WEBHOOK_SECRET) {
 			logger.error("SCALEV_WEBHOOK_SECRET not configured");
@@ -222,10 +230,9 @@ export class ScalevGateway implements PaymentGateway {
 			return false;
 		}
 
-		const payload = JSON.stringify(body);
 		const expected = crypto
 			.createHmac("sha256", config.SCALEV_WEBHOOK_SECRET)
-			.update(payload)
+			.update(rawBody)
 			.digest("hex");
 
 		try {

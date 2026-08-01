@@ -64,6 +64,7 @@ describe('POST /api/register', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'Callback Store',
+        // plan is ignored — merchants always register on the free tier
         plan: 'pro',
         default_callback_url: 'https://mystore.com/payment-callback',
       }),
@@ -72,7 +73,7 @@ describe('POST /api/register', () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.data.merchant.name).toBe('Callback Store');
-    expect(body.data.merchant.plan).toBe('pro');
+    expect(body.data.merchant.plan).toBe('free');
     expect(body.data.merchant.default_callback_url).toBe(
       'https://mystore.com/payment-callback',
     );

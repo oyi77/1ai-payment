@@ -6,19 +6,33 @@
 each merge. No step breaks existing API consumers. No step requires a "big bang"
 migration. If we stop at any step, the service is in a valid, better state.
 
-## Current State (v0.1 — Internal)
+Statuses below are audited against the current codebase (`git log` + `src/` + `tests/`).
+✅ = fully shipped, 🟡 = partially shipped (gap listed), ⬜ = not started.
+
+## Current State (v0.1 — Multi-Tenant)
 
 ```
-Single API key (env var)
-Single tenant (hardcoded project_id: '1ai-content')
-Gateway creds from env only
-No merchant management
-No billing
-No dashboard
+Multi-tenant: merchants table + per-merchant API keys (SHA-256 hashed)
+Public merchant self-registration (POST /api/register)
+Merchant CRUD + API-key rotation + gateway credential management APIs
+Gateway creds from env, with per-merchant overrides stored (encrypted)
+   — stored, but NOT yet used by the payment-creation path
+Per-plan API rate limits (free 30 / pro 120 / enterprise 600 per min)
+Transactions, refunds (manual), webhook-delivery log endpoints
+Merchant portal dashboard (/dashboard)
+TypeScript SDK (@1ai/payment)
+Prometheus metrics (/metrics)
+Webhook events + dead-letter tracking
+12 gateways (incl. x402 micropayments, erc8183 escrow)
+Nexus: Scalev direct-checkout fulfillment + Telegram delivery cron
+No billing, no fee computation, no webhook-secret rotation yet
 ```
 
-**What works:** Payment creation, webhook processing, signature verification,
-idempotent operations, 10 gateways, auto-generated OpenAPI docs.
+**What works:** Payment creation, webhook processing, signature verification
+(timing-safe), per-merchant idempotent lookups, forwarding with merchant
+`webhook_secret` + 3-retry backoff, transaction history, refunds, webhook
+delivery logs, merchant registration/CRUD, dashboard, SDK, metrics, 12 gateways,
+auto-generated OpenAPI docs (`/doc`, `/reference`).
 
 ---
 
@@ -30,144 +44,87 @@ idempotent operations, 10 gateways, auto-generated OpenAPI docs.
 
 ### Step 1.1 — Add `merchants` table (DB-only, zero behavior change)
 
+**Status: ✅ Done**
+
 **Files:** `src/config/database.ts`
 
-```sql
-CREATE TABLE IF NOT EXISTS merchants (
-  id TEXT PRIMARY KEY,                    -- 'merch_xxxxx'
-  name TEXT NOT NULL,                     -- Display name
-  api_key_hash TEXT NOT NULL UNIQUE,      -- SHA-256 of API key
-  webhook_secret TEXT NOT NULL,           -- HMAC secret for forwarding
-  default_callback_url TEXT,              -- Fallback callback
-  active INTEGER DEFAULT 1,
-  plan TEXT DEFAULT 'free',               -- free | pro | enterprise
-  created_at TEXT DEFAULT (datetime('now')),
-  updated_at TEXT DEFAULT (datetime('now'))
-);
+**Shipped:**
+- `merchants` table: `id` (`merch_xxxxx`), `name`, `api_key_hash UNIQUE`,
+  `webhook_secret`, `default_callback_url`, `active`, `plan` (`free|pro|enterprise`),
+  timestamps; `idx_merchants_api_key` on `api_key_hash`.
+- `merchant_gateways`, `refunds`, `webhook_events`, `dead_letter_events` and
+  Nexus tables (`nexus_customers`, `nexus_subscriptions`) also live here now.
+- Default merchant seeded from env `API_KEY` when no merchants exist
+  (`INSERT OR IGNORE ... 'merch_default'`) — backward compatible with the old
+  single-key setup.
 
-CREATE INDEX IF NOT EXISTS idx_merchants_api_key ON merchants(api_key_hash);
-```
+**Verified:** `bun run typecheck` passes; DB boots via `initDatabase()`; existing
+API key still authenticates (now via the seeded `merch_default` row).
 
-**Also:** Seed a default merchant row that matches current env `API_KEY`:
-
-```sql
--- In initDatabase(), after CREATE TABLE merchants:
--- If no merchants exist, create default from env API_KEY
-INSERT OR IGNORE INTO merchants (id, name, api_key_hash, webhook_secret, active)
-VALUES ('merch_default', 'Default', hex(sha256(?)), hex(randomblob(32)), 1);
-```
-
-**Verification:**
-- `bun run typecheck` passes
-- `bun run dev` starts, logs "Database initialized"
-- All existing API calls work identically (no behavior change)
-- `merchants` table exists in `data/payment.db`
-
-**Rollback:** `DROP TABLE IF EXISTS merchants;`
+**Rollback:** Drop the table (was never needed in production — schema only).
 
 ---
 
 ### Step 1.2 — Auth middleware reads from `merchants` table (backward-compatible)
 
+**Status: ✅ Done**
+
 **Files:** `src/middleware/auth.ts`
 
-Change: Instead of comparing against env `API_KEY`, look up the API key hash
-in the `merchants` table. If no merchant found, fall back to env `API_KEY`
-(existing behavior).
+**Shipped:**
+- `X-API-Key` → `sha256` → `SELECT ... FROM merchants WHERE api_key_hash = ?`.
+- Inactive merchant → `403 MERCHANT_DISABLED`; missing/invalid → `401 UNAUTHORIZED`.
+- Sets `merchantId`, `merchantName`, `merchantPlan` on context for downstream handlers.
+- Fallback: env `API_KEY` maps to `merch_default` / `Default` / `free`.
+- Admin auth is separate: admin routes use `src/middleware/admin-auth.ts`
+  (`X-Admin-Key`); merchant routes always require a valid `X-API-Key` —
+  `X-Admin-Key` alone is rejected (401).
 
-```typescript
-export async function authMiddleware(c: Context, next: Next) {
-  const apiKey = c.req.header('X-API-Key');
-  if (!apiKey) {
-    return c.json({ success: false, error: { code: 'UNAUTHORIZED', ... } }, 401);
-  }
+**Verified:** Merchant-scoped tests cover auth; env-key fallback preserved.
 
-  const db = getDb();
-  const keyHash = sha256(apiKey);
-  const result = await db.execute({
-    sql: 'SELECT id, name, active FROM merchants WHERE api_key_hash = ?',
-    args: [keyHash],
-  });
-
-  if (result.rows.length > 0) {
-    const merchant = result.rows[0];
-    if (!merchant.active) {
-      return c.json({ success: false, error: { code: 'MERCHANT_DISABLED', ... } }, 403);
-    }
-    c.set('merchantId', merchant.id as string);
-    c.set('merchantName', merchant.name as string);
-    await next();
-    return;
-  }
-
-  // Fallback: env API_KEY (backward compatibility)
-  const config = getConfig();
-  if (apiKey === config.API_KEY) {
-    c.set('merchantId', 'merch_default');
-    c.set('merchantName', 'Default');
-    await next();
-    return;
-  }
-
-  return c.json({ success: false, error: { code: 'UNAUTHORIZED', ... } }, 401);
-}
-```
-
-**Verification:**
-- Existing `X-API-Key: <env API_KEY>` calls still work
-- New merchant API keys work (once merchants are created)
-- `c.get('merchantId')` available in downstream handlers
-
-**Rollback:** Revert auth.ts to env-only comparison.
+**Rollback:** Revert to env-only comparison.
 
 ---
 
 ### Step 1.3 — Order creation uses merchant context (no API change)
 
+**Status: ✅ Done**
+
 **Files:** `src/routes/payment.ts`, `src/services/order.service.ts`
 
-Change: Replace hardcoded `project_id: '1ai-content'` with
-`c.get('merchantId')`.
+**Shipped:**
+- `orderParams.project_id = merchant_id = c.get('merchantId') ?? 'merch_default'`
+  (was hardcoded `'1ai-content'`).
+- `orders` table gained `merchant_id` (plus `fee`, `net` columns — see 4.3).
+- Order creation is a DB-level duplicate check on idempotency keys (see 1.6 for
+  the scoping caveat).
 
-```typescript
-// In createPayment handler:
-const orderParams: CreateOrderParams = {
-  project_id: c.get('merchantId') ?? 'merch_default', // was '1ai-content'
-  ...
-};
-```
+**Verified:** Orders created with the env key have `merchant_id = 'merch_default'`;
+new merchant keys get their own `merch_xxxxx`.
 
-**Verification:**
-- Orders created with existing API key have `project_id = 'merch_default'`
-- Orders created with new merchant key have `project_id = merch_xxxxx`
-- All other behavior identical
-
-**Rollback:** Hardcode `'1ai-content'` again.
+**Rollback:** Hardcode the fallback again.
 
 ---
 
 ### Step 1.4 — Webhook forwarding uses merchant's webhook_secret
 
+**Status: ✅ Done**
+
 **Files:** `src/routes/webhook.ts`, `src/services/forwarder.service.ts`
 
-Change: Look up `webhook_secret` from `merchants` table using order's
-`project_id`, instead of using `order.id` as secret.
+**Shipped:**
+- Webhook handler resolves `webhook_secret` via
+  `SELECT webhook_secret FROM merchants WHERE id = order.project_id`, falling back
+  to `order.id` when the merchant row is missing.
+- `forwarder.service.ts` signs forwarded payloads with that secret
+  (`X-Payment-Signature` header), retries 3× (5s / 30s / 300s backoff, 30s
+  timeout), writes failures to `dead_letter_events`, and increments
+  `forward_failures_total`.
+- Webhook dedup via `webhook_events` `UNIQUE(order_id, gateway, status)`; raw
+  payload stored (not logged) for audit; never emitted to logs.
 
-```typescript
-// In webhook handler, after finding the order:
-const merchant = await db.execute({
-  sql: 'SELECT webhook_secret FROM merchants WHERE id = ?',
-  args: [order.project_id],
-});
-const webhookSecret = merchant.rows[0]?.webhook_secret ?? order.id;
-
-forwardEvent(fullEvent, order, webhookSecret);
-```
-
-**Verification:**
-- Forwarded events signed with merchant's secret
-- Fallback to `order.id` if merchant not found (backward compat)
-- Existing projects receive correctly signed payloads
+**Verified:** Duplicate gateway callbacks produce one `webhook_events` row and one
+forward; project receives correctly signed payload.
 
 **Rollback:** Use `order.id` as secret again.
 
@@ -175,65 +132,50 @@ forwardEvent(fullEvent, order, webhookSecret);
 
 ### Step 1.5 — Merchant CRUD API
 
-**Files:** `src/routes/merchant.ts` (new), `src/schemas.ts`, `src/index.ts`
+**Status: ✅ Done** (plus a public registration endpoint not in the original plan)
 
-New endpoints (all require auth):
+**Files:** `src/routes/merchant.ts`, `src/routes/register.ts` (new), `src/schemas.ts`, `src/index.ts`
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/merchants` | POST | Create merchant (returns API key once) |
-| `/api/merchants` | GET | List all merchants |
-| `/api/merchants/:id` | GET | Get merchant details |
-| `/api/merchants/:id` | PATCH | Update merchant (name, callback_url, active) |
-| `/api/merchants/:id/api-key` | POST | Rotate API key (returns new key once) |
+**Shipped:**
+- `POST /api/merchants` — create merchant, returns raw API key **once**
+  (`1pay_` + random hex), stores SHA-256 hash.
+- `GET /api/merchants` — own record (returned as an array);
+  `GET/PATCH /api/merchants/{id}` — detail/update
+  (name, `default_callback_url`, `active`); `POST /api/merchants/{id}/api-key` —
+  rotate (old key dies, new key returned once).
+- **Bonus:** `POST /api/register` (public, no auth, rate-limited 5/hr per IP) —
+  self-serve merchant registration; returns API key once + merchant profile.
+  Merely a convenience wrapper over merchant creation.
 
-**API key generation:**
-```typescript
-function generateApiKey(): string {
-  return '1pay_' + randomBytes(32).toString('hex');
-}
-// Store SHA-256 hash, return raw key ONCE
-```
+**Verified:** Create → use new key → payment creation works; rotate → old key 401s.
 
-**Verification:**
-- Create merchant → get API key
-- Use new API key → payment creation works
-- List merchants → shows all
-- Rotate key → old key stops working, new key works
-
-**Rollback:** Remove merchant routes, delete merchant table.
+**Rollback:** Remove routes.
 
 ---
 
 ### Step 1.6 — Per-merchant idempotency scope
 
-**Files:** `src/services/order.service.ts`
+**Status: 🟡 Partial**
 
-Change: Add `merchant_id` to idempotency key uniqueness:
+**Files:** `src/routes/payment.ts`, `src/services/order.service.ts`, `src/config/database.ts`
 
-```sql
--- Current: UNIQUE(idempotency_key) — global
--- Target:  UNIQUE(merchant_id, idempotency_key) — per-merchant
-```
+**Shipped:**
+- Lookup path is merchant-scoped: `getOrderByIdempotencyKey(key, merchantId)` —
+  same key from the same merchant returns the existing order (200, unchanged).
+- `idx_orders_merchant_idempotency` added on `(merchant_id, idempotency_key)`.
 
-Migration:
-```sql
--- Add column (nullable, backward compat)
-ALTER TABLE orders ADD COLUMN merchant_id TEXT;
+**Gap:** The **global** `UNIQUE(idempotency_key)` constraint is still on
+`orders` (it predates merchants), and the new index is **not unique** (it was
+meant to replace the global constraint). Consequence: the same idempotency key
+used by **two different merchants** still fails at the DB layer with
+`409 DUPLICATE_ORDER` instead of creating two separate orders — exactly the
+cross-tenant collision the roadmap wanted to eliminate.
 
--- Populate from project_id
-UPDATE orders SET merchant_id = project_id WHERE merchant_id IS NULL;
+**Target:** drop the global UNIQUE and recreate the constraint as
+`CREATE UNIQUE INDEX ... ON orders(merchant_id, idempotency_key) WHERE idempotency_key IS NOT NULL`
+(needs a small migration that first de-dupes existing rows).
 
--- Recreate index
-CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_idempotency_merchant
-  ON orders(merchant_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
-```
-
-**Verification:**
-- Same idempotency key from different merchants → two separate orders
-- Same idempotency key from same merchant → same order (idempotent)
-
-**Rollback:** Drop new index, restore global unique.
+**Rollback:** Keep the current state (global UNIQUE still active).
 
 ---
 
@@ -243,21 +185,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_idempotency_merchant
 
 ### Step 2.1 — Transaction history endpoint
 
-**Files:** `src/routes/payment.ts` (add route), `src/services/order.service.ts`
+**Status: ✅ Done**
 
-New endpoint:
+**Files:** `src/routes/payment.ts` (route), `src/services/order.service.ts` (query)
 
-```
-GET /api/transactions?status=success&gateway=midtrans&from=2026-01-01&to=2026-12-31&limit=50&offset=0
-```
+**Shipped:**
+- `GET /api/transactions?status=&gateway=&from=&to=&limit=&offset=` — scoped to
+  the authenticated merchant (`orders.merchant_id`), `limit` capped at 100
+  (default 50). Returns `fee`/`net` from the order row (currently always 0 — see 4.3).
 
-Scopes to `merchant_id` from auth context. Returns paginated results.
-
-**Verification:**
-- Merchant A sees only their transactions
-- Merchant B sees only their transactions
-- Filters work correctly
-- Pagination works
+**Verified:** Merchant A sees only A's rows; filters + pagination tested.
 
 **Rollback:** Remove route.
 
@@ -265,64 +202,48 @@ Scopes to `merchant_id` from auth context. Returns paginated results.
 
 ### Step 2.2 — Refund API
 
-**Files:** `src/routes/refund.ts` (new), `src/services/refund.service.ts` (new),
-`src/config/database.ts`, `src/schemas.ts`
+**Status: 🟡 Partial**
 
-New table:
-```sql
-CREATE TABLE IF NOT EXISTS refunds (
-  id TEXT PRIMARY KEY,                    -- 'ref_xxxxx'
-  order_id TEXT NOT NULL REFERENCES orders(id),
-  merchant_id TEXT NOT NULL,
-  amount INTEGER NOT NULL,                -- Refund amount (partial or full)
-  gateway TEXT NOT NULL,
-  gateway_refund_id TEXT,                 -- Gateway's refund reference
-  status TEXT DEFAULT 'pending',          -- pending, success, failed
-  reason TEXT,
-  created_at TEXT DEFAULT (datetime('now')),
-  updated_at TEXT DEFAULT (datetime('now'))
-);
-```
+**Files:** `src/routes/refund.ts`, `src/services/refund.service.ts`, `src/config/database.ts`, `src/schemas.ts`
 
-New endpoint:
-```
-POST /api/refunds
-{
-  "order_id": "pay_xxxxx",
-  "amount": 50000,       // optional, defaults to full amount
-  "reason": "Customer request"
-}
-```
+**Shipped:**
+- `refunds` table: `order_id`, `merchant_id`, `amount`, `gateway`,
+  `gateway_refund_id`, `status` (`pending|success|failed`), `reason`, timestamps.
+- `POST /api/refunds` — order must exist **and belong to the merchant**
+  (`merchant_id` or `project_id` match), status must be `success`, amount optional
+  (defaults to full, must be ≤ `order.amount`). Full refund flips the order to
+  `refunded`. `GET /api/refunds` lists with pagination, merchant-scoped.
 
-**Gateway refund implementation:**
-Each gateway implements `refundPayment(gatewayRef, amount)` method on
-`PaymentGateway` interface. Gateways that don't support refunds throw
-`GatewayError('REFUND_NOT_SUPPORTED')`.
+**Gaps:**
+- **No gateway implements `refundPayment`** — the optional method exists on the
+  `PaymentGateway` interface (`src/gateways/base.ts`), the service checks it, but
+  no concrete gateway provides one. Every refund falls through to
+  `status = 'pending'` (manual processing). Gateway-initiated refunds are
+  effectively dead code.
+- **No refund idempotency** — every `POST /api/refunds` call inserts a new row;
+  retrying the same refund double-creates entries.
 
-**Verification:**
-- Create payment → pay → refund → order status updates
-- Partial refund works
-- Idempotent refund (same request = same result)
-- Gateway that doesn't support refund returns clear error
+**Target:** implement `refundPayment` per gateway (or a clear
+`REFUND_NOT_SUPPORTED`), add an `idempotency_key` to `refunds` with a UNIQUE
+constraint.
 
-**Rollback:** Drop refunds table, remove routes.
+**Rollback:** Drop `refunds` table, remove routes.
 
 ---
 
 ### Step 2.3 — Webhook delivery log endpoint
 
-**Files:** `src/routes/webhook.ts` (add route), `src/services/order.service.ts`
+**Status: ✅ Done**
 
-New endpoint:
-```
-GET /api/webhook-deliveries?order_id=pay_xxxxx&limit=20
-```
+**Files:** `src/routes/payment.ts` (route), `src/config/database.ts` (`webhook_events`)
 
-Returns delivery attempts for the merchant's orders.
+**Shipped:**
+- `GET /api/webhook-deliveries?order_id=&limit=` — joins `webhook_events` +
+  `orders`, scoped to `orders.merchant_id`; returns `id`, `gateway`, `order_id`,
+  `status`, `signature_valid`, `created_at`. No raw payload or headers exposed
+  (raw data stays in the DB row, never in API responses or logs).
 
-**Verification:**
-- Shows forward attempts, status codes, timestamps
-- Scoped to merchant
+**Verified:** Shows forward attempts + signature validity for the merchant's orders.
 
 **Rollback:** Remove route.
 
@@ -335,23 +256,16 @@ Returns delivery attempts for the merchant's orders.
 
 ### Step 3.1 — Add `merchant_gateways` table
 
+**Status: ✅ Done**
+
 **Files:** `src/config/database.ts`
 
-```sql
-CREATE TABLE IF NOT EXISTS merchant_gateways (
-  id TEXT PRIMARY KEY,
-  merchant_id TEXT NOT NULL REFERENCES merchants(id),
-  gateway TEXT NOT NULL,                  -- 'midtrans', 'tripay', etc.
-  credentials TEXT NOT NULL,              -- Encrypted JSON (AES-256-GCM)
-  environment TEXT DEFAULT 'sandbox',
-  enabled INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT (datetime('now')),
-  updated_at TEXT DEFAULT (datetime('now')),
-  UNIQUE(merchant_id, gateway)
-);
-```
+**Shipped:**
+- `merchant_gateways`: `merchant_id`, `gateway`, `credentials` (**encrypted** JSON,
+  AES-256-GCM via `src/utils/crypto.ts`), `environment`, `enabled`,
+  `UNIQUE(merchant_id, gateway)`, timestamps.
 
-**Verification:** Table created, zero behavior change.
+**Verified:** Table created at boot; zero behavior change to existing flows.
 
 **Rollback:** Drop table.
 
@@ -359,54 +273,40 @@ CREATE TABLE IF NOT EXISTS merchant_gateways (
 
 ### Step 3.2 — Gateway config resolution (merchant-first, fallback to env)
 
-**Files:** `src/config/env.ts` (modify `getGatewayConfig`)
+**Status: 🟡 Partial**
 
-```typescript
-export async function getGatewayConfigForMerchant(
-  gateway: string,
-  merchantId: string
-) {
-  const db = getDb();
-  const result = await db.execute({
-    sql: 'SELECT credentials, environment FROM merchant_gateways WHERE merchant_id = ? AND gateway = ? AND enabled = 1',
-    args: [merchantId, gateway],
-  });
+**Files:** `src/config/env.ts` (`getGatewayConfigForMerchant`)
 
-  if (result.rows.length > 0) {
-    return JSON.parse(decrypt(result.rows[0].credentials as string));
-  }
+**Shipped:**
+- `getGatewayConfigForMerchant(gateway, merchantId)` implemented exactly as
+  planned: reads `merchant_gateways` (enabled=1), decrypts credentials, falls
+  back to env config.
 
-  // Fallback to platform env config
-  return getGatewayConfig(gateway);
-}
-```
+**Gap:** **Nothing calls it.** `POST /api/payments` builds the gateway instance
+from platform env config and calls `gw.createPayment(...)` directly — merchant
+credentials can be stored and managed via the API (3.3) but are never resolved
+during payment creation (or refunds/webhooks). The helper is currently dead code.
 
-**Change in payment route:** Pass `merchantId` to gateway config resolution.
+**Target:** pass `merchantId` into the config resolution in `src/routes/payment.ts`
+(create flow) and in `refund.service.ts`.
 
-**Verification:**
-- Merchant with own creds → uses own creds
-- Merchant without own creds → uses platform creds (env)
-- Existing behavior unchanged
-
-**Rollback:** Revert to env-only config.
+**Rollback:** Revert to env-only config (i.e., current behavior).
 
 ---
 
 ### Step 3.3 — Merchant gateway management API
 
-**Files:** `src/routes/merchant.ts` (add endpoints)
+**Status: ✅ Done**
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/merchants/:id/gateways` | GET | List configured gateways |
-| `/api/merchants/:id/gateways/:gateway` | PUT | Set gateway credentials |
-| `/api/merchants/:id/gateways/:gateway` | DELETE | Remove gateway config |
-| `/api/merchants/:id/gateways/:gateway` | PATCH | Enable/disable gateway |
+**Files:** `src/routes/merchant.ts` (endpoints)
 
-**Verification:**
-- Set creds → payment uses those creds
-- Delete creds → falls back to platform
-- Enable/disable works
+**Shipped:**
+- `GET /api/merchants/{id}/gateways` — list configured gateways
+- `PUT /api/merchants/{id}/gateways/{gateway}` — set credentials (encrypted at rest)
+- `PATCH /api/merchants/{id}/gateways/{gateway}` — enable/disable
+- `DELETE /api/merchants/{id}/gateways/{gateway}` — remove config (falls back to platform)
+
+**Verified:** CRUD + enable/disable tested; credentials stored encrypted.
 
 **Rollback:** Remove endpoints.
 
@@ -418,17 +318,22 @@ export async function getGatewayConfigForMerchant(
 
 ### Step 4.1 — Per-merchant rate limiting
 
+**Status: ✅ Done**
+
 **Files:** `src/middleware/rate-limit.ts`
 
-Change: Key rate limiter by `merchant_id` instead of IP.
+**Shipped:**
+- Rate limiter keys on `c.get('merchantId')`, falling back to
+  `X-Forwarded-For` / `CF-Connecting-IP` / `'unknown'` for unauthenticated
+  requests. In-memory `Map` counters with setTimeout eviction; excess →
+  `429 RATE_LIMITED`.
+- Applied per-route-group in `src/app.ts`: `/api/register` 5/hr per IP,
+  `/api/*` 60/min default, `/webhook/*` 120/min flat (see 4.2).
 
-```typescript
-const key = c.get('merchantId') || c.req.header('X-Forwarded-For') || 'unknown';
-```
+**Verified:** Merchant A hitting the limit does not throttle merchant B.
 
-**Verification:**
-- Merchant A hitting limit doesn't affect Merchant B
-- IP-based fallback for unauthenticated requests
+**Note:** In-memory state means limits are per-process — multi-instance
+deployments need a shared store (see Backlog).
 
 **Rollback:** Revert to IP-only keying.
 
@@ -436,20 +341,21 @@ const key = c.get('merchantId') || c.req.header('X-Forwarded-For') || 'unknown';
 
 ### Step 4.2 — Add `plan` rate limit tiers
 
-**Files:** `src/middleware/rate-limit.ts`, `src/config/database.ts`
+**Status: 🟡 Partial**
 
-Read merchant's `plan` from context, apply tier:
+**Files:** `src/middleware/rate-limit.ts`, `src/app.ts`
 
-| Plan | API Rate | Webhook Rate |
-|------|----------|-------------|
-| free | 30/min | 60/min |
-| pro | 120/min | 300/min |
-| enterprise | 600/min | 1200/min |
+**Shipped:**
+- Plan tiers applied to **API** routes via `PLAN_LIMITS`:
+  `free=30/min`, `pro=120/min`, `enterprise=600/min` (env-key fallback = free).
 
-**Verification:**
-- Free merchant hits limit at 30
-- Pro merchant hits limit at 120
-- Existing behavior (env key) uses free tier
+**Gap:** **Webhook endpoints stay flat** (`/webhook/*` 120/min for everyone).
+The roadmap's webhook tiers (free 60 / pro 300 / enterprise 1200) were never
+added. Webhook processing is also plan-unaware on ingress.
+
+**Target:** plan-aware webhook limits (gateway webhooks are unauthenticated, so
+tiering requires resolving the owning merchant before rate-limiting — a
+lookup-then-limit ordering change).
 
 **Rollback:** Revert to flat rate.
 
@@ -457,26 +363,21 @@ Read merchant's `plan` from context, apply tier:
 
 ### Step 4.3 — Transaction fee tracking (no billing yet)
 
+**Status: 🟡 Partial**
+
 **Files:** `src/config/database.ts`, `src/services/order.service.ts`
 
-Add `fee` and `net` columns to orders:
+**Shipped:**
+- `orders.fee` and `orders.net` columns added (`INTEGER DEFAULT 0`); surfaced in
+  `GET /api/transactions` responses; `mapRow` defaults them to 0.
 
-```sql
-ALTER TABLE orders ADD COLUMN fee INTEGER DEFAULT 0;
-ALTER TABLE orders ADD COLUMN net INTEGER DEFAULT 0;
-```
+**Gap:** **No code computes them.** The planned fee formula
+(enterprise 1% / pro 2% / free 2.5% on success) does not exist anywhere — no
+success-webhook hook writes `fee`/`net`. Every transaction reports
+`fee=0, net=0`; the values are columns-only.
 
-On payment success:
-```typescript
-const feeRate = merchant.plan === 'enterprise' ? 0.01 : merchant.plan === 'pro' ? 0.02 : 0.025;
-const fee = Math.round(amount * feeRate);
-const net = amount - fee;
-```
-
-**Verification:**
-- Fee calculated correctly per plan
-- Net = amount - fee
-- Existing orders have fee=0 (no breakage)
+**Target:** compute on successful payment webhook using the merchant's `plan`
+(stored, not env), keeping existing rows at 0.
 
 **Rollback:** Drop columns.
 
@@ -486,68 +387,70 @@ const net = amount - fee;
 
 > **Goal:** Merchant-facing dashboard, API docs per merchant, SDK.
 
-### Step 5.1 — Dashboard scaffold (Next.js or Hono + static)
+### Step 5.1 — Dashboard scaffold
 
-**Files:** `src/dashboard/` (new directory)
+**Status: ✅ Done**
 
-Static React app served from `/dashboard`. Uses the same API endpoints
-with merchant's API key.
+**Files:** `src/dashboard/index.html` (single-file SPA), served from `src/app.ts`
 
-Pages:
-- Overview (transaction count, volume, success rate)
-- Transactions (list, search, filter)
-- Gateways (configure credentials)
-- Webhooks (delivery logs, configure endpoints)
-- Settings (API key, plan, callback URL)
+**Shipped:**
+- `/dashboard` serves a self-contained static app (no React build step; plain
+  HTML/CSS/JS).
+- Flows: landing → API-key login → dashboard shell with sidebar
+  (**Overview** with stats + recent transactions, **Transactions**, **Refunds**,
+  **Gateways**, **Settings**) and a plan badge.
+- Uses the same authenticated API endpoints (`/api/transactions`, `/api/refunds`,
+  `/api/merchants/:id/gateways`, ...) with the merchant's key.
+- Includes sign-out and API-key reveal-on-registration UX.
 
-**Verification:**
-- `/dashboard` loads
-- Login with API key
-- Transactions show correct data
+**Gap vs. original plan:** no dedicated **Webhooks** page (delivery logs are not
+exposed in the UI, though the API exists) and no search/filter controls beyond
+what the API offers.
 
-**Rollback:** Remove dashboard directory.
+**Verified:** `/dashboard` loads; login + data rendering work against the API.
+
+**Rollback:** Remove the route + file.
 
 ---
 
 ### Step 5.2 — Per-merchant API docs
 
-**Files:** `src/index.ts`
+**Status: 🟡 Partial**
 
-Change: `/reference` accepts `X-API-Key` header or `?key=` query param.
-Swagger UI uses the key to authenticate "Try it out" requests.
+**Files:** `src/index.ts` (Swagger `/reference`)
 
-**Verification:**
-- Swagger UI pre-fills API key
-- Try-it-out works with merchant's key
+**Shipped:**
+- `/reference` accepts `?key=`; Swagger UI is configured with
+  `persistAuthorization: true`.
 
-**Rollback:** Remove key pre-fill.
+**Gap:** The key is **not injected** into Swagger's authorization state — the
+query param only persists the UI toggle. "Try it out" requests still need the
+user to manually paste the key into the Authorize dialog. The original goal
+("Swagger pre-fills the API key") is unmet.
+
+**Target:** seed `localStorage`/Swagger auth with the `?key=` value on load.
+
+**Rollback:** Remove key handling (keep `/reference` open).
 
 ---
 
 ### Step 5.3 — TypeScript SDK
 
-**Files:** `packages/sdk/` (new directory)
+**Status: ✅ Done**
 
-```typescript
-import { OneAIPayment } from '@1ai/payment';
+**Files:** `packages/sdk/` (`src/index.ts`, `dist/`, `package.json`)
 
-const payment = new OneAIPayment({ apiKey: '1pay_xxxxx' });
+**Shipped:**
+- `@1ai/payment` `v0.1.0` (private), built via `tsc` to `dist/`.
+- `OneAIPayment` class (`apiKey`, configurable `baseUrl`):
+  `register()`, `create()`, `get()`, `listTransactions()`, `refund()`,
+  `listRefunds()`, `listGateways()`, `listWebhookDeliveries()`,
+  `getGatewayMethods()`; `APIError` class for typed errors.
 
-const order = await payment.create({
-  gateway: 'midtrans',
-  amount: 100000,
-  callbackUrl: 'https://my-app.com/callback',
-  metadata: { userId: '123' },
-});
+**Gap:** no SDK tests yet (`"test": "echo 'TODO: add tests'"`) and the package is
+unpublished/private.
 
-// order.paymentUrl → redirect user
-// order.id → track payment
-```
-
-**Verification:**
-- SDK creates payment
-- SDK gets payment status
-- SDK lists transactions
+**Verified:** `bun run typecheck` passes; SDK methods mirror the REST API surface.
 
 **Rollback:** Remove package.
 
@@ -555,35 +458,84 @@ const order = await payment.create({
 
 ## Summary: Dependency Graph
 
+Statuses: ✅ done · 🟡 partial · ⬜ not started.
+
 ```
-1.1 (merchants table)
- └─► 1.2 (auth reads merchants)
-      ├─► 1.3 (order uses merchant_id)
-      │    └─► 1.6 (per-merchant idempotency)
-      ├─► 1.4 (forwarding uses merchant secret)
-      └─► 1.5 (merchant CRUD API)
-           ├─► 2.1 (transaction history)
-           ├─► 2.2 (refunds)
-           ├─► 2.3 (webhook delivery logs)
-           ├─► 3.1 (merchant_gateways table)
-           │    └─► 3.2 (merchant-first config)
-           │         └─► 3.3 (gateway management API)
-           ├─► 4.1 (per-merchant rate limiting)
-           │    └─► 4.2 (plan tiers)
-           └─► 4.3 (fee tracking)
-                └─► 5.1 (dashboard)
-                     ├─► 5.2 (per-merchant docs)
-                     └─► 5.3 (SDK)
+1.1 ✅ merchants table
+ └─► 1.2 ✅ auth reads merchants
+      ├─► 1.3 ✅ order uses merchant_id
+      │    └─► 1.6 🟡 per-merchant idempotency (global UNIQUE still present)
+      ├─► 1.4 ✅ forwarding uses merchant secret
+      └─► 1.5 ✅ merchant CRUD API (+ public registration, bonus)
+           ├─► 2.1 ✅ transaction history
+           ├─► 2.2 🟡 refunds (no gateway impl, no idempotency)
+           ├─► 2.3 ✅ webhook delivery logs
+           ├─► 3.1 ✅ merchant_gateways table
+           │    └─► 3.2 🟡 merchant-first config (helper exists, unwired)
+           │         └─► 3.3 ✅ gateway management API
+           ├─► 4.1 ✅ per-merchant rate limiting
+           │    └─► 4.2 🟡 plan tiers (API only, webhooks flat)
+           └─► 4.3 🟡 fee tracking (columns only, never computed)
+                └─► 5.1 ✅ dashboard
+                     ├─► 5.2 🟡 per-merchant docs (key not pre-filled)
+                     └─► 5.3 ✅ SDK
 ```
 
 Each leaf is independently deployable. Each parent works without its children.
 
-## Estimated Effort
+## Shipped Beyond the Original Roadmap
 
-| Phase | Steps | Est. Time | Priority |
-|-------|-------|-----------|----------|
-| Phase 1: Multi-tenant | 6 steps | 2-3 weeks | **P0** — blocks everything |
-| Phase 2: History & Refunds | 3 steps | 1-2 weeks | **P1** — merchant needs |
-| Phase 3: Merchant Gateways | 3 steps | 1-2 weeks | **P1** — platform differentiation |
-| Phase 4: Rate & Billing | 3 steps | 1 week | **P2** — monetization |
-| Phase 5: Dashboard & SDK | 3 steps | 2-3 weeks | **P2** — adoption |
+Shipped items the roadmap did not plan (audited — all present in code):
+
+| Item | Where | Notes |
+|------|-------|-------|
+| Public merchant registration | `POST /api/register` (`src/routes/register.ts`) | Self-serve onboarding, 5/hr per IP |
+| Admin API | `GET /api/admin/merchants` + `PATCH /api/admin/merchants/{id}` (`src/routes/admin.ts`, `X-Admin-Key`) | List + plan/active updates (no web UI) |
+| Prometheus metrics | `GET /metrics` (`src/middleware/metrics.ts`) | Counters + `payment_creation_duration_seconds` histogram; admin auth required (`X-Admin-Key`) |
+| Webhook events + dead letters | `webhook_events`, `dead_letter_events` (`src/config/database.ts`) | Dedup + audit + failed-forward queue |
+| Gateways 11–12 | `x402` (micropayments), `erc8183` (agentic-commerce escrow) | Registry: 12 total |
+| Nexus (1ai-product delivery) | `src/services/nexus-fulfillment.ts`, `nexus-cron.ts` | Scalev direct-checkout fulfillment + Telegram invite delivery; 6h maintenance cron; `nexus_customers` / `nexus_subscriptions` |
+
+## Future Work / Backlog
+
+Genuinely-future items, roughly by dependency order. None block current use.
+
+1. **Complete 1.6** — drop global `UNIQUE(idempotency_key)`; migrate to
+   `UNIQUE(merchant_id, idempotency_key)`. Cross-merchant key reuse is the only
+   remaining multi-tenant correctness gap.
+2. **Complete 3.2** — wire `getGatewayConfigForMerchant` into payment creation
+   (and refund) paths so stored merchant credentials actually take effect.
+3. **Refund hardening** — per-gateway `refundPayment` implementations (or explicit
+   `REFUND_NOT_SUPPORTED`), plus refund idempotency (`idempotency_key` + UNIQUE).
+4. **Complete 4.3 — billing foundation** — compute `fee`/`net` on successful
+   webhooks from the merchant's `plan`. This is the prerequisite for billing.
+5. **Webhook secret rotation API** — per-merchant endpoint to rotate
+   `merchants.webhook_secret` (API-key rotation already exists; secret rotation
+   does not).
+6. **Plan-aware webhook rate limits** — per-merchant tiers on `/webhook/*`
+   (currently flat 120/min).
+7. **Billing** — plan payments, overage, dunning. Depends on 4/5. No billing
+   code exists yet.
+8. **Admin dashboard expansion** — web UI + detail/disable/plan-change actions
+   (API lists merchants and can update plan/active; no web UI / detail actions
+   yet).
+9. **Dashboard Webhooks page** — surface `webhook-deliveries` in the portal.
+10. **Complete 5.2** — inject `?key=` into Swagger authorization on load.
+11. **SDK maturity** — test suite (`bun test`), CI publish (currently private).
+12. **Distributed rate limiting** — replace the in-memory `Map` with a shared
+    store (Redis/libSQL) so limits hold across instances.
+
+## Status & Estimated Effort
+
+| Phase | Steps | Status | Est. Time (original) | Priority |
+|-------|-------|--------|----------------------|----------|
+| Phase 1: Multi-tenant | 6 steps | 5 done, 1 partial | 2-3 weeks | **P0** — blocks everything |
+| Phase 2: History & Refunds | 3 steps | 2 done, 1 partial | 1-2 weeks | **P1** — merchant needs |
+| Phase 3: Merchant Gateways | 3 steps | 2 done, 1 partial | 1-2 weeks | **P1** — platform differentiation |
+| Phase 4: Rate & Billing | 3 steps | 1 done, 2 partial | 1 week | **P2** — monetization |
+| Phase 5: Dashboard & SDK | 3 steps | 2 done, 1 partial | 2-3 weeks | **P2** — adoption |
+
+**Remaining to finish all 18 steps:** the four 🟡 gaps (1.6 migration, 3.2 wiring,
+2.2 gateway refunds + idempotency, 4.3 fee computation) and the two 🟡 polish
+items (4.2 webhook tiers, 5.2 docs pre-fill) — roughly 1-2 focused weeks.
+Everything after that (billing, rotation, admin UI) is net-new backlog.

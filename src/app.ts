@@ -9,7 +9,10 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { getConfig } from "./config/env";
+import { adminAuthMiddleware } from "./middleware/admin-auth";
+import { authMiddleware } from "./middleware/auth";
 import { metricsHandler } from "./middleware/metrics";
 import { rateLimitMiddleware } from "./middleware/rate-limit";
 import { adminRoutes } from "./routes/admin";
@@ -20,6 +23,8 @@ import { refundRoutes } from "./routes/refund";
 import { registerRoutes } from "./routes/register";
 import { webhookRoutes } from "./routes/webhook";
 import { defaultHook } from "./schemas";
+import { PaymentError } from "./utils/errors";
+import { logger } from "./utils/logger";
 const config = getConfig();
 export { config };
 
@@ -27,13 +32,26 @@ const app = new OpenAPIHono({ defaultHook });
 
 // Middleware
 app.use("*", cors({ origin: getConfig().CORS_ORIGIN }));
+
+// Merchant auth BEFORE rate limiting: the limiter keys by merchantId (set by
+// auth) so plans apply per-merchant, not per-IP. Applied per-prefix because
+// Hono <4.13 rejects array-form app.use([...]) with "handler is an instance
+// of Array". /api/register is public; /api/admin/* is exempt — admin routes
+// carry their own adminAuthMiddleware.
+app.use("/api/payments/*", authMiddleware);
+app.use("/api/gateways/*", authMiddleware);
+app.use("/api/transactions/*", authMiddleware);
+app.use("/api/webhook-deliveries/*", authMiddleware);
+app.use("/api/refunds/*", authMiddleware);
+app.use("/api/merchants/*", authMiddleware);
+
 // Stricter rate limit for registration (5 req per hour per IP)
 app.use("/api/register", rateLimitMiddleware({ windowMs: 3_600_000, max: 5 }));
 app.use("/api/*", rateLimitMiddleware({ windowMs: 60_000, max: 60 }));
 app.use("/webhook/*", rateLimitMiddleware({ windowMs: 60_000, max: 120 }));
 
-// Metrics — no auth, no rate limit
-app.get("/metrics", metricsHandler);
+// Metrics — admin auth required
+app.get("/metrics", adminAuthMiddleware(), metricsHandler);
 
 // Static files — landing page at /, merchant portal at /dashboard
 app.get("/", async (c) => {
@@ -75,6 +93,42 @@ app.doc("/doc", {
 		description: "Payment gateway aggregator microservice for 1ai-ecosystem",
 	},
 });
+
+// Unified error envelope — every handler error and unhandled route falls back
+// to { success: false, error: { code, message } }.
+app.onError((err, c) => {
+	if (err instanceof PaymentError) {
+		return c.json(
+			{
+				success: false as const,
+				error: { code: err.code, message: err.message },
+			},
+			err.statusCode as ContentfulStatusCode,
+		);
+	}
+	logger.error("Unhandled error", { error: err });
+	const message =
+		config.NODE_ENV === "production"
+			? "Internal server error"
+			: (err.message ?? "Internal server error");
+	return c.json(
+		{
+			success: false as const,
+			error: { code: "INTERNAL_ERROR", message },
+		},
+		500,
+	);
+});
+
+app.notFound((c) =>
+	c.json(
+		{
+			success: false as const,
+			error: { code: "NOT_FOUND", message: "Route not found" },
+		},
+		404,
+	),
+);
 
 // Swagger UI at /reference — pre-fills API key from query param
 app.get("/reference", (c) => {

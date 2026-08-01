@@ -2,12 +2,13 @@
  * Merchant routes — CRUD for merchant accounts.
  *
  * - POST   /api/merchants           — create merchant (returns API key once)
- * - GET    /api/merchants           — list all merchants
- * - GET    /api/merchants/:id       — get merchant details
- * - PATCH  /api/merchants/:id       — update merchant
+ * - GET    /api/merchants           — get requester's own merchant account
+ * - GET    /api/merchants/:id       — get merchant details (own merchant only)
+ * - PATCH  /api/merchants/:id       — update merchant (own merchant only)
  * - POST   /api/merchants/:id/api-key — rotate API key (returns new key once)
  *
- * All endpoints require API key authentication.
+ * All endpoints require API key authentication. `:id` routes are scoped to the
+ * authenticated merchant; plan/active changes are admin-only.
  */
 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
@@ -35,7 +36,10 @@ import {
 } from "../utils/crypto";
 import { logger } from "../utils/logger";
 
-export const merchantRoutes = new OpenAPIHono({ defaultHook });
+type MerchantEnv = {
+	Variables: { merchantId?: string; merchantName?: string };
+};
+export const merchantRoutes = new OpenAPIHono<MerchantEnv>({ defaultHook });
 
 merchantRoutes.use("/*", authMiddleware);
 
@@ -93,11 +97,11 @@ merchantRoutes.openapi(createMerchantRoute, async (c) => {
 				apiKeyHash,
 				webhookSecret,
 				body.default_callback_url ?? null,
-				body.plan,
+				"free",
 			],
 		});
 
-		logger.info("Merchant created", { id, name: body.name, plan: body.plan });
+		logger.info("Merchant created", { id, name: body.name, plan: "free" });
 
 		return c.json(
 			{
@@ -108,7 +112,7 @@ merchantRoutes.openapi(createMerchantRoute, async (c) => {
 						name: body.name,
 						default_callback_url: body.default_callback_url ?? null,
 						active: true,
-						plan: body.plan,
+						plan: "free",
 						created_at: new Date().toISOString(),
 						updated_at: new Date().toISOString(),
 					},
@@ -140,8 +144,9 @@ const listMerchantsRoute = createRoute({
 	method: "get",
 	path: "/merchants",
 	tags: ["Merchants"],
-	summary: "List all merchants",
-	description: "Returns all merchant accounts (no API keys — hashes only).",
+	summary: "Get own merchant",
+	description:
+		"Returns the authenticated merchant's own account (no API keys — hashes only).",
 	security: [{ ApiKeyAuth: [] }],
 	responses: {
 		200: {
@@ -164,9 +169,11 @@ const listMerchantsRoute = createRoute({
 
 merchantRoutes.openapi(listMerchantsRoute, async (c) => {
 	const db = getDb();
-	const result = await db.execute(
-		"SELECT id, name, default_callback_url, active, plan, created_at, updated_at FROM merchants ORDER BY created_at DESC",
-	);
+	const merchantId = c.get("merchantId") ?? "merch_default";
+	const result = await db.execute({
+		sql: "SELECT id, name, default_callback_url, active, plan, created_at, updated_at FROM merchants WHERE id = ?",
+		args: [merchantId],
+	});
 
 	return c.json(
 		{
@@ -213,6 +220,10 @@ const getMerchantRoute = createRoute({
 			description: "Unauthorized.",
 			content: { "application/json": { schema: errorSchema } },
 		},
+		403: {
+			description: "Forbidden.",
+			content: { "application/json": { schema: errorSchema } },
+		},
 		404: {
 			description: "Merchant not found.",
 			content: { "application/json": { schema: errorSchema } },
@@ -222,6 +233,16 @@ const getMerchantRoute = createRoute({
 
 merchantRoutes.openapi(getMerchantRoute, async (c) => {
 	const { id } = c.req.valid("param");
+	const requesterId = c.get("merchantId");
+	if (id !== requesterId) {
+		return c.json(
+			{
+				success: false as const,
+				error: { code: "FORBIDDEN", message: "Forbidden" },
+			},
+			403,
+		);
+	}
 	const db = getDb();
 
 	const result = await db.execute({
@@ -264,7 +285,8 @@ const updateMerchantRoute = createRoute({
 	path: "/merchants/{id}",
 	tags: ["Merchants"],
 	summary: "Update merchant",
-	description: "Updates merchant name, callback URL, active status, or plan.",
+	description:
+		"Updates merchant name or callback URL. Plan and active changes are admin-only.",
 	security: [{ ApiKeyAuth: [] }],
 	request: {
 		params: z.object({ id: z.string().openapi({ example: "merch_abc123" }) }),
@@ -288,6 +310,10 @@ const updateMerchantRoute = createRoute({
 			description: "Unauthorized.",
 			content: { "application/json": { schema: errorSchema } },
 		},
+		403: {
+			description: "Forbidden.",
+			content: { "application/json": { schema: errorSchema } },
+		},
 		404: {
 			description: "Merchant not found.",
 			content: { "application/json": { schema: errorSchema } },
@@ -298,6 +324,16 @@ const updateMerchantRoute = createRoute({
 merchantRoutes.openapi(updateMerchantRoute, async (c) => {
 	const { id } = c.req.valid("param");
 	const body = c.req.valid("json");
+	const requesterId = c.get("merchantId");
+	if (id !== requesterId) {
+		return c.json(
+			{
+				success: false as const,
+				error: { code: "FORBIDDEN", message: "Forbidden" },
+			},
+			403,
+		);
+	}
 	const db = getDb();
 
 	// Check exists
@@ -325,14 +361,6 @@ merchantRoutes.openapi(updateMerchantRoute, async (c) => {
 	if (body.default_callback_url !== undefined) {
 		updates.push("default_callback_url = ?");
 		args.push(body.default_callback_url);
-	}
-	if (body.active !== undefined) {
-		updates.push("active = ?");
-		args.push(body.active ? 1 : 0);
-	}
-	if (body.plan !== undefined) {
-		updates.push("plan = ?");
-		args.push(body.plan);
 	}
 
 	args.push(id);
@@ -389,6 +417,10 @@ const rotateKeyRoute = createRoute({
 			description: "Unauthorized.",
 			content: { "application/json": { schema: errorSchema } },
 		},
+		403: {
+			description: "Forbidden.",
+			content: { "application/json": { schema: errorSchema } },
+		},
 		404: {
 			description: "Merchant not found.",
 			content: { "application/json": { schema: errorSchema } },
@@ -398,6 +430,16 @@ const rotateKeyRoute = createRoute({
 
 merchantRoutes.openapi(rotateKeyRoute, async (c) => {
 	const { id } = c.req.valid("param");
+	const requesterId = c.get("merchantId");
+	if (id !== requesterId) {
+		return c.json(
+			{
+				success: false as const,
+				error: { code: "FORBIDDEN", message: "Forbidden" },
+			},
+			403,
+		);
+	}
 	const db = getDb();
 
 	const existing = await db.execute({
@@ -461,6 +503,10 @@ const listGatewaysRoute = createRoute({
 			description: "Unauthorized.",
 			content: { "application/json": { schema: errorSchema } },
 		},
+		403: {
+			description: "Forbidden.",
+			content: { "application/json": { schema: errorSchema } },
+		},
 		404: {
 			description: "Merchant not found.",
 			content: { "application/json": { schema: errorSchema } },
@@ -470,6 +516,16 @@ const listGatewaysRoute = createRoute({
 
 merchantRoutes.openapi(listGatewaysRoute, async (c) => {
 	const { id } = c.req.valid("param");
+	const requesterId = c.get("merchantId");
+	if (id !== requesterId) {
+		return c.json(
+			{
+				success: false as const,
+				error: { code: "FORBIDDEN", message: "Forbidden" },
+			},
+			403,
+		);
+	}
 	const db = getDb();
 
 	const merchant = await db.execute({
@@ -546,6 +602,10 @@ const setGatewayRoute = createRoute({
 			description: "Unauthorized.",
 			content: { "application/json": { schema: errorSchema } },
 		},
+		403: {
+			description: "Forbidden.",
+			content: { "application/json": { schema: errorSchema } },
+		},
 		404: {
 			description: "Merchant not found.",
 			content: { "application/json": { schema: errorSchema } },
@@ -556,6 +616,16 @@ const setGatewayRoute = createRoute({
 merchantRoutes.openapi(setGatewayRoute, async (c) => {
 	const { id, gateway } = c.req.valid("param");
 	const body = c.req.valid("json");
+	const requesterId = c.get("merchantId");
+	if (id !== requesterId) {
+		return c.json(
+			{
+				success: false as const,
+				error: { code: "FORBIDDEN", message: "Forbidden" },
+			},
+			403,
+		);
+	}
 	const db = getDb();
 
 	const merchant = await db.execute({
@@ -644,6 +714,10 @@ const toggleGatewayRoute = createRoute({
 			description: "Unauthorized.",
 			content: { "application/json": { schema: errorSchema } },
 		},
+		403: {
+			description: "Forbidden.",
+			content: { "application/json": { schema: errorSchema } },
+		},
 		404: {
 			description: "Gateway config not found.",
 			content: { "application/json": { schema: errorSchema } },
@@ -654,6 +728,16 @@ const toggleGatewayRoute = createRoute({
 merchantRoutes.openapi(toggleGatewayRoute, async (c) => {
 	const { id, gateway } = c.req.valid("param");
 	const body = c.req.valid("json");
+	const requesterId = c.get("merchantId");
+	if (id !== requesterId) {
+		return c.json(
+			{
+				success: false as const,
+				error: { code: "FORBIDDEN", message: "Forbidden" },
+			},
+			403,
+		);
+	}
 	const db = getDb();
 
 	await db.execute({
@@ -726,11 +810,25 @@ const deleteGatewayRoute = createRoute({
 			description: "Unauthorized.",
 			content: { "application/json": { schema: errorSchema } },
 		},
+		403: {
+			description: "Forbidden.",
+			content: { "application/json": { schema: errorSchema } },
+		},
 	},
 });
 
 merchantRoutes.openapi(deleteGatewayRoute, async (c) => {
 	const { id, gateway } = c.req.valid("param");
+	const requesterId = c.get("merchantId");
+	if (id !== requesterId) {
+		return c.json(
+			{
+				success: false as const,
+				error: { code: "FORBIDDEN", message: "Forbidden" },
+			},
+			403,
+		);
+	}
 	const db = getDb();
 
 	await db.execute({

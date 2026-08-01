@@ -56,7 +56,7 @@ async function handleExpiredSubscriptions(): Promise<void> {
 	const now = new Date().toISOString().replace("T", " ").slice(0, 19);
 
 	const result = await db.execute({
-		sql: `SELECT id, telegram_chat_id FROM nexus_subscriptions
+		sql: `SELECT id, telegram_chat_id, telegram_invite_link FROM nexus_subscriptions
           WHERE status = 'active' AND expires_at < ?`,
 		args: [now],
 	});
@@ -71,8 +71,12 @@ async function handleExpiredSubscriptions(): Promise<void> {
 		// Revoke invite if we have bot config
 		const botToken =
 			config.NEXUS_TELEGRAM_BOT_TOKEN || config.TELEGRAM_BOT_TOKEN;
-		if (botToken) {
-			await revokeTelegramInviteLink(botToken, String(row.telegram_chat_id));
+		if (botToken && row.telegram_invite_link) {
+			await revokeTelegramInviteLink(
+				botToken,
+				String(row.telegram_chat_id),
+				String(row.telegram_invite_link),
+			);
 		}
 
 		await db.execute({

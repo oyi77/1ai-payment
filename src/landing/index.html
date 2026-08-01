@@ -201,8 +201,8 @@ section { scroll-margin-top:80px; }
       <span class="lang-en hidden">Payment infrastructure for Indonesia &amp; global commerce</span>
     </p>
     <h1 style="font-size:clamp(34px,5.5vw,64px);font-weight:800;line-height:1.1;letter-spacing:-1px;margin:0 auto 20px;max-width:800px" class="reveal">
-      <span class="lang-id">Satu API.<br /><span style="background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">12+ gateway.</span><br />Semua metode pembayaran yang pelangganmu sudah pakai.</span>
-      <span class="lang-en hidden">One API.<br /><span style="background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">12+ gateways.</span><br />Every payment method your merchants already use.</span>
+      <span class="lang-id">Satu API.<br /><span style="background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">12 gateway.</span><br />Semua metode pembayaran yang pelangganmu sudah pakai.</span>
+      <span class="lang-en hidden">One API.<br /><span style="background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">12 gateways.</span><br />Every payment method your merchants already use.</span>
     </h1>
     <p style="font-size:clamp(15px,1.8vw,19px);color:#7c89b5;max-width:640px;margin:0 auto 36px;line-height:1.7" class="reveal">
       <span class="lang-id">Midtrans, Tripay, Duitku, Xendit, PayPal, Telegram, dan lainnya — dinormalisasi dalam satu integrasi. Ganti gateway cukup ganti parameter, bukan integrasi baru.</span>
@@ -277,7 +277,7 @@ section { scroll-margin-top:80px; }
       </div>
     </div>
     <div class="glass card-hover" style="border-radius:12px;padding:28px 20px;text-align:center" class="reveal">
-      <div style="font-size:36px;font-weight:800;background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">60</div>
+      <div style="font-size:36px;font-weight:800;background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">30</div>
       <div style="font-size:12px;color:#7c89b5;margin-top:4px;font-weight:500;letter-spacing:.03em">
         <span class="lang-id">REQ/MENIT</span>
         <span class="lang-en hidden">REQ/MIN</span>
@@ -347,8 +347,8 @@ section { scroll-margin-top:80px; }
       <span class="lang-en hidden">One contract. Every payment method.</span>
     </h2>
     <p style="color:#7c89b5;font-size:16px;max-width:540px;margin-bottom:48px" class="reveal">
-      <span class="lang-id">Berhenti memelihara 11 SDK berbeda. Ganti satu parameter untuk mengganti provider — kode checkout-mu tidak pernah berubah.</span>
-      <span class="lang-en hidden">Stop maintaining 11 different SDKs. Change one parameter to switch providers — your checkout code never changes.</span>
+      <span class="lang-id">Berhenti memelihara 12 SDK berbeda. Ganti satu parameter untuk mengganti provider — kode checkout-mu tidak pernah berubah.</span>
+      <span class="lang-en hidden">Stop maintaining 12 different SDKs. Change one parameter to switch providers — your checkout code never changes.</span>
     </p>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
       <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px;transition:all .25s ease;position:relative" class="card-hover"
@@ -359,8 +359,8 @@ section { scroll-margin-top:80px; }
           <span class="lang-en hidden">Single API</span>
         </h3>
         <p style="font-size:14px;color:#7c89b5;line-height:1.7">
-          <span class="lang-id">Berhenti memelihara 11 SDK berbeda. Ganti satu parameter untuk mengganti provider — kode checkout-mu tidak pernah berubah.</span>
-          <span class="lang-en hidden">Stop maintaining 11 different SDKs. Change one parameter to switch providers — your checkout code never changes.</span>
+          <span class="lang-id">Berhenti memelihara 12 SDK berbeda. Ganti satu parameter untuk mengganti provider — kode checkout-mu tidak pernah berubah.</span>
+          <span class="lang-en hidden">Stop maintaining 12 different SDKs. Change one parameter to switch providers — your checkout code never changes.</span>
         </p>
       </div>
       <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px;transition:all .25s ease;position:relative" class="card-hover"
@@ -691,7 +691,7 @@ section { scroll-margin-top:80px; }
       </div>
       <div style="width:1px;height:40px;background:#1e2745"></div>
       <div style="text-align:center">
-        <div style="font-size:14px;font-weight:600">10+ Gateways</div>
+        <div style="font-size:14px;font-weight:600">12 Gateways</div>
         <div style="font-size:12px;color:#7c89b5;margin-top:2px">In production, aggregated</div>
       </div>
     </div>
@@ -868,7 +868,7 @@ section { scroll-margin-top:80px; }
         <span class="lang-en hidden">Contact</span>
       </a>
     </div>
-    <p style="font-size:12px;opacity:.6">CV Graha Insan Mandiri Berkah · Open source · MIT license</p>
+    <p style="font-size:12px;opacity:.6">CV Graha Insan Mandiri Berkah</p>
   </div>
 </footer>
 
@@ -884,7 +884,7 @@ x-api-key: 1pay_...
   "amount": 150000,
   "currency": "IDR",
   "gateway": "midtrans",
-  "method": "credit_card",
+  "payment_method": "credit_card",
   "callback_url": "https://mystore.com/payment/callback",
   "metadata": { "order_id": "ORD-2026-001" }
 }`,
@@ -897,7 +897,8 @@ x-api-key: 1pay_...
   "gateway": "midtrans",
   "status": "pending",
   "payment_url": "https://app.sandbox.midtrans.com/snap/v2/...",
-  "expires_at": "2026-07-14T14:30:00Z"
+  "created_at": "2026-07-05T10:00:00.000Z",
+  "updated_at": "2026-07-05T10:00:00.000Z"
 }`,
   },
   xendit: {
@@ -909,7 +910,7 @@ x-api-key: 1pay_...
   "amount": 250000,
   "currency": "IDR",
   "gateway": "xendit",
-  "method": "virtual_account",
+  "payment_method": "virtual_account",
   "callback_url": "https://mystore.com/payment/callback",
   "metadata": { "order_id": "ORD-2026-002" }
 }`,
@@ -922,7 +923,8 @@ x-api-key: 1pay_...
   "gateway": "xendit",
   "status": "pending",
   "payment_url": "https://checkout.xendit.co/...",
-  "expires_at": "2026-07-14T14:30:00Z"
+  "created_at": "2026-07-05T10:00:00.000Z",
+  "updated_at": "2026-07-05T10:00:00.000Z"
 }`,
   },
   paypal: {
@@ -931,10 +933,10 @@ Content-Type: application/json
 x-api-key: 1pay_...
 
 {
-  "amount": 49.99,
+  "amount": 50,
   "currency": "USD",
   "gateway": "paypal",
-  "method": "paypal_checkout",
+  "payment_method": "paypal_checkout",
   "callback_url": "https://mystore.com/payment/callback",
   "metadata": { "order_id": "ORD-2026-003" }
 }`,
@@ -942,12 +944,13 @@ x-api-key: 1pay_...
 
 {
   "id": "pay_pp_ghi789",
-  "amount": 49.99,
+  "amount": 50,
   "currency": "USD",
   "gateway": "paypal",
   "status": "pending",
   "payment_url": "https://www.paypal.com/checkout/...",
-  "expires_at": "2026-07-14T15:00:00Z"
+  "created_at": "2026-07-05T10:00:00.000Z",
+  "updated_at": "2026-07-05T10:00:00.000Z"
 }`,
   },
   tripay: {
@@ -959,7 +962,7 @@ x-api-key: 1pay_...
   "amount": 100000,
   "currency": "IDR",
   "gateway": "tripay",
-  "method": "qr_code",
+  "payment_method": "qr_code",
   "callback_url": "https://mystore.com/payment/callback",
   "metadata": { "order_id": "ORD-2026-004" }
 }`,
@@ -972,7 +975,8 @@ x-api-key: 1pay_...
   "gateway": "tripay",
   "status": "pending",
   "payment_url": "https://tripay.co.id/checkout/...",
-  "expires_at": "2026-07-14T14:30:00Z"
+  "created_at": "2026-07-05T10:00:00.000Z",
+  "updated_at": "2026-07-05T10:00:00.000Z"
 }`,
   },
   telegram_stars: {
@@ -984,7 +988,7 @@ x-api-key: 1pay_...
   "amount": 100,
   "currency": "XTR",
   "gateway": "telegram_stars",
-  "method": "stars",
+  "payment_method": "stars",
   "callback_url": "https://mystore.com/payment/callback",
   "metadata": { "order_id": "ORD-2026-005" }
 }`,
@@ -997,7 +1001,8 @@ x-api-key: 1pay_...
   "gateway": "telegram_stars",
   "status": "pending",
   "payment_url": "https://t.me/...",
-  "expires_at": "2026-07-14T14:30:00Z"
+  "created_at": "2026-07-05T10:00:00.000Z",
+  "updated_at": "2026-07-05T10:00:00.000Z"
 }`,
   },
 };

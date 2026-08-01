@@ -74,14 +74,14 @@ registerRoutes.openapi(registerRoute, async (c) => {
 				apiKeyHash,
 				webhookSecret,
 				body.default_callback_url ?? null,
-				body.plan,
+				"free",
 			],
 		});
 
 		logger.info("Merchant registered", {
 			id,
 			name: body.name,
-			plan: body.plan,
+			plan: "free",
 		});
 
 		return c.json(
@@ -93,7 +93,7 @@ registerRoutes.openapi(registerRoute, async (c) => {
 						name: body.name,
 						default_callback_url: body.default_callback_url ?? null,
 						active: true,
-						plan: body.plan,
+						plan: "free",
 						created_at: new Date().toISOString(),
 						updated_at: new Date().toISOString(),
 					},

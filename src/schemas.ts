@@ -35,7 +35,7 @@ export const gatewayNameSchema = z.enum(GATEWAY_NAMES).openapi({
 });
 
 export const paymentStatusSchema = z
-	.enum(["pending", "success", "failed", "expired", "cancelled"])
+	.enum(["pending", "success", "failed", "expired", "cancelled", "refunded"])
 	.openapi({
 		description: "Lifecycle status of a payment order",
 		example: "pending",
@@ -182,10 +182,6 @@ export const createMerchantBodySchema = z
 			.url()
 			.optional()
 			.openapi({ example: "https://my-store.com/callback" }),
-		plan: z
-			.enum(["free", "pro", "enterprise"])
-			.default("free")
-			.openapi({ example: "free" }),
 	})
 	.openapi("CreateMerchantBody");
 
@@ -202,13 +198,18 @@ export const updateMerchantBodySchema = z
 			.url()
 			.optional()
 			.openapi({ example: "https://my-store.com/callback" }),
-		active: z.boolean().optional().openapi({ example: true }),
+	})
+	.openapi("UpdateMerchantBody");
+
+export const adminMerchantUpdateBodySchema = z
+	.object({
 		plan: z
 			.enum(["free", "pro", "enterprise"])
 			.optional()
 			.openapi({ example: "pro" }),
+		active: z.boolean().optional().openapi({ example: true }),
 	})
-	.openapi("UpdateMerchantBody");
+	.openapi("AdminUpdateMerchantBody");
 
 export const merchantResponseSchema = z
 	.object({

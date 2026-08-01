@@ -28,15 +28,14 @@ logger.info(`OpenAPI spec: http://localhost:${config.PORT}/doc`);
 function shutdown(signal: string) {
 	logger.info(`Received ${signal}, starting graceful shutdown...`);
 	stopNexusCron();
-	server.stop();
 	const forceExit = setTimeout(() => {
 		logger.error("Graceful shutdown timed out, forcing exit");
 		process.exit(1);
 	}, 10_000).unref();
-	queueMicrotask(() => {
+	// Let Bun finish draining open connections before exiting.
+	server.stop().then(() => {
 		clearTimeout(forceExit);
 		logger.info("Graceful shutdown complete");
-		process.exit(0);
 	});
 }
 

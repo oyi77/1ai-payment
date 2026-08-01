@@ -2,7 +2,7 @@
  * Prometheus metrics middleware —
  * counters for payments, webhooks, errors, and latency histograms.
  *
- * Exposed at GET /metrics (no auth, no rate limit).
+ * Exposed at GET /metrics (admin auth enforced in app.ts).
  */
 
 import client from "prom-client";

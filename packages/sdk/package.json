@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "test": "echo 'TODO: add tests'"
+    "test": "bun test"
   },
   "keywords": ["payment", "gateway", "aggregator", "sdk"],
   "license": "UNLICENSED",

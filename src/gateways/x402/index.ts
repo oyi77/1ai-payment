@@ -27,7 +27,7 @@ import type { X402PaymentSignature } from "./types";
 import {
 	decodePaymentSignature,
 	normalizeEvent,
-	verifyPayment,
+	verifyAndCachePayment,
 } from "./webhook";
 
 export class X402Gateway implements PaymentGateway {
@@ -47,10 +47,14 @@ export class X402Gateway implements PaymentGateway {
 		return getPaymentMethods();
 	}
 
-	verifySignature(body: unknown, headers: Record<string, string>): boolean {
-		// x402 signature is verified on-chain, not via HMAC
-		// The webhook handler calls verifyPayment for full verification
-		// This method checks that the payload has valid structure
+	async verifySignature(
+		body: unknown,
+		headers: Record<string, string>,
+	): Promise<boolean> {
+		// x402 payments are verified ON-CHAIN — a payload is only accepted
+		// when a real USDC transfer to the merchant wallet is confirmed via
+		// RPC. The client's declared verified/asset/amount fields are not
+		// trusted, and missing credentials always fail closed.
 		const { signature, error } = decodePaymentSignature(body);
 		if (error) return false;
 
@@ -59,7 +63,12 @@ export class X402Gateway implements PaymentGateway {
 			return false;
 		}
 
-		return Boolean(signature.txHash && signature.asset);
+		// Fail closed without credentials — nothing to verify against.
+		const cfg = getConfig() as unknown as Record<string, string | undefined>;
+		if (!cfg.X402_WALLET_ADDRESS) return false;
+
+		const result = await verifyAndCachePayment(signature);
+		return result.verified;
 	}
 
 	normalizeEvent(

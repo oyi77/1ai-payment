@@ -65,12 +65,12 @@ function getDefaultVariantMap(): Record<string, NexusProduct> {
 	// keys must match `variant_name` from Scalev webhook payload
 	return {
 		"Bot Crypto": { tier: "auto_bot", label: "Auto Bot", durationDays: 30 },
-		"Chanel Signal Crypto": {
+		"Channel Signal Crypto": {
 			tier: "signal_channel",
 			label: "Signal Channel",
 			durationDays: 30,
 		},
-		"Nexus Data Intelegent": {
+		"Nexus Data Intelligent": {
 			tier: "nexus_terminal",
 			label: "Nexus Terminal",
 			durationDays: 30,

@@ -130,6 +130,14 @@ export class TripayGateway implements PaymentGateway {
 	}
 
 	verifySignature(body: unknown, headers: Record<string, string>): boolean {
+		// Signature is HMAC over the raw request body — delegate to raw
+		return this.verifySignatureRaw(JSON.stringify(body), headers);
+	}
+
+	verifySignatureRaw(
+		rawBody: string,
+		headers: Record<string, string>,
+	): boolean {
 		const config = getConfig();
 
 		if (!config.TRIPAY_PRIVATE_KEY) {
@@ -145,7 +153,7 @@ export class TripayGateway implements PaymentGateway {
 
 		const expected = crypto
 			.createHmac("sha256", config.TRIPAY_PRIVATE_KEY)
-			.update(JSON.stringify(body))
+			.update(rawBody)
 			.digest("hex");
 
 		try {

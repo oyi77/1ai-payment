@@ -48,12 +48,14 @@ export interface Order {
 export interface Refund {
   id: string;
   order_id: string;
+  merchant_id: string;
   amount: number;
   gateway: string;
   gateway_refund_id: string | null;
   status: string;
   reason: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface GatewayInfo {
@@ -61,6 +63,44 @@ export interface GatewayInfo {
   enabled: boolean;
   currencies: string[];
   methods: { code: string; name: string; currencies: string[] }[];
+}
+
+export interface Merchant {
+  id: string;
+  name: string;
+  default_callback_url: string | null;
+  active: boolean;
+  plan: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  gateway: string;
+  order_id: string | null;
+  status: string | null;
+  signature_valid: number;
+  created_at: string;
+}
+
+/** Error returned by the 1ai-payment API, carrying the error code and HTTP status. */
+export class APIError extends Error {
+  readonly code: string;
+  readonly status: number;
+
+  constructor(code: string, message: string, status: number) {
+    super(message);
+    this.name = 'APIError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+interface Envelope<T> {
+  success: boolean;
+  data?: T;
+  error?: { code: string; message: string };
 }
 
 export class OneAIPayment {
@@ -85,13 +125,28 @@ export class OneAIPayment {
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    const data = await res.json() as { success: boolean; data?: T; error?: { code: string; message: string } };
+    // Gateway proxies may return non-JSON error bodies (e.g. HTML from a load
+    // balancer); don't let res.json() throw a SyntaxError in that case.
+    const data = await res.json().catch(() => null) as Envelope<T> | null;
 
-    if (!data.success) {
-      throw new Error(data.error?.message ?? `Request failed: ${res.status}`);
+    if (!data || !data.success) {
+      throw new APIError(
+        data?.error?.code ?? 'HTTP_ERROR',
+        data?.error?.message ?? `Request failed with status ${res.status}`,
+        res.status,
+      );
     }
 
     return data.data as T;
+  }
+
+  /** Register a new merchant. Public endpoint — no API key required. */
+  async register(params: {
+    name: string;
+    default_callback_url?: string;
+    plan?: string;
+  }): Promise<{ merchant: Merchant; api_key: string }> {
+    return this.request('POST', '/api/register', params);
   }
 
   /** Create a payment and get a payment URL to redirect the user to. */
@@ -141,5 +196,24 @@ export class OneAIPayment {
   /** List available gateways. */
   async listGateways(): Promise<GatewayInfo[]> {
     return this.request<GatewayInfo[]>('GET', '/api/gateways');
+  }
+
+  /** List webhook deliveries for an order, with pagination. */
+  async listWebhookDeliveries(params?: {
+    order_id?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ deliveries: WebhookDelivery[]; total: number }> {
+    const query = new URLSearchParams();
+    if (params?.order_id) query.set('order_id', params.order_id);
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.offset) query.set('offset', String(params.offset));
+    const qs = query.toString();
+    return this.request('GET', `/api/webhook-deliveries${qs ? `?${qs}` : ''}`);
+  }
+
+  /** Get payment methods available for a gateway. */
+  async getGatewayMethods(gateway: string): Promise<GatewayInfo> {
+    return this.request<GatewayInfo>('GET', `/api/gateways/${gateway}/methods`);
   }
 }

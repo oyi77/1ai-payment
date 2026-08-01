@@ -31,6 +31,7 @@ export interface Order {
 	updated_at: string;
 	forwarded_at: string | null;
 	forward_attempts: number;
+	forward_status: number | null;
 }
 
 export interface CreateOrderParams {
@@ -74,7 +75,6 @@ export async function createOrder(params: CreateOrderParams): Promise<Order> {
 		logger.info("Order created", {
 			id,
 			gateway: params.gateway,
-			amount: params.amount,
 		});
 
 		const row = await getOrderById(id);
@@ -182,9 +182,11 @@ export async function markForwarded(
 	attempts?: number,
 ): Promise<void> {
 	const db = getDb();
+	// Record forward outcome without touching the payment status —
+	// the payment lifecycle (pending → success/refunded) is owned by the webhook layer.
 	await db.execute({
-		sql: `UPDATE orders SET forwarded_at = datetime('now'), forward_attempts = ?, status = 'forwarded' WHERE id = ?`,
-		args: [attempts ?? 1, id],
+		sql: `UPDATE orders SET forwarded_at = datetime('now'), forward_attempts = ?, forward_status = ? WHERE id = ?`,
+		args: [attempts ?? 1, statusCode ?? 0, id],
 	});
 }
 
@@ -279,5 +281,6 @@ function mapRow(row: Record<string, unknown>): Order {
 		updated_at: row.updated_at as string,
 		forwarded_at: (row.forwarded_at as string) ?? null,
 		forward_attempts: (row.forward_attempts as number) ?? 0,
+		forward_status: (row.forward_status as number) ?? null,
 	};
 }

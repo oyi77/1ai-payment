@@ -77,8 +77,13 @@ describe('X402Gateway.createPayment', () => {
 });
 
 describe('X402Gateway.verifySignature', () => {
-  test('accepts valid signature payload', () => {
-    const result = gateway.verifySignature({
+  test('does not trust a structurally valid payload without credentials', async () => {
+    // x402 verification is on-chain — a valid-looking payload is never
+    // auto-trusted. Without X402_WALLET_ADDRESS the gateway fails closed.
+    const prev = process.env.X402_WALLET_ADDRESS;
+    delete process.env.X402_WALLET_ADDRESS;
+
+    const result = await gateway.verifySignature({
       tx_hash: '0xabc123def456',
       network: 'eip155:8453',
       asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
@@ -86,11 +91,13 @@ describe('X402Gateway.verifySignature', () => {
       payer: '0xabcdef1234567890abcdef1234567890abcdef12',
     }, {});
 
-    expect(result).toBe(true);
+    expect(result).toBe(false);
+
+    process.env.X402_WALLET_ADDRESS = prev;
   });
 
-  test('rejects missing tx_hash', () => {
-    const result = gateway.verifySignature({
+  test('rejects missing tx_hash', async () => {
+    const result = await gateway.verifySignature({
       network: 'eip155:8453',
       asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
     }, {});
@@ -98,8 +105,8 @@ describe('X402Gateway.verifySignature', () => {
     expect(result).toBe(false);
   });
 
-  test('rejects missing asset', () => {
-    const result = gateway.verifySignature({
+  test('rejects missing asset', async () => {
+    const result = await gateway.verifySignature({
       tx_hash: '0xabc',
       network: 'eip155:8453',
     }, {});
@@ -107,8 +114,8 @@ describe('X402Gateway.verifySignature', () => {
     expect(result).toBe(false);
   });
 
-  test('rejects non-evm network', () => {
-    const result = gateway.verifySignature({
+  test('rejects non-evm network', async () => {
+    const result = await gateway.verifySignature({
       tx_hash: '0xabc',
       network: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
       asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
@@ -120,7 +127,9 @@ describe('X402Gateway.verifySignature', () => {
 });
 
 describe('X402Gateway.normalizeEvent', () => {
-  test('maps verified to success', () => {
+  test('does not trust client verified flag (status from on-chain cache)', () => {
+    // Status comes from the on-chain verification cache — a client-declared
+    // `verified: true` with an uncached tx hash stays pending.
     const event = gateway.normalizeEvent({
       order_id: 'ord_001',
       tx_hash: '0xabc',
@@ -131,7 +140,7 @@ describe('X402Gateway.normalizeEvent', () => {
 
     expect(event.gateway).toBe('x402');
     expect(event.order_id).toBe('ord_001');
-    expect(event.status).toBe('success');
+    expect(event.status).toBe('pending');
     expect(event.amount).toBe(1);
     expect(event.currency).toBe('USD');
   });

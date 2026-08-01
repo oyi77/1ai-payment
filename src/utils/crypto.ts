@@ -36,6 +36,13 @@ export function generateEventId(): string {
 }
 
 /**
+ * Generate unique refund ID.
+ */
+export function generateRefundId(): string {
+	return `ref_${nanoid(21)}`;
+}
+
+/**
  * SHA-256 hash (hex) — used for API key storage.
  */
 export function sha256Hash(input: string): string {

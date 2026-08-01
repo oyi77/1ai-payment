@@ -54,10 +54,8 @@ export function verifySignature(
 
 	const secretToken = config.TELEGRAM_WEBHOOK_SECRET;
 	if (!secretToken) {
-		logger.warn(
-			"TELEGRAM_WEBHOOK_SECRET not configured - skipping verification",
-		);
-		return true;
+		logger.error("TELEGRAM_WEBHOOK_SECRET not configured");
+		return false; // Fail closed — no secret means no verification possible
 	}
 
 	const token = headers["x-telegram-bot-api-secret-token"];

@@ -11,17 +11,17 @@
 import type { Context, Next } from "hono";
 import { getDb } from "../config/database";
 import { getConfig } from "../config/env";
-import { sha256Hash } from "../utils/crypto";
+import { sha256Hash, timingSafeCompare } from "../utils/crypto";
 
 export async function authMiddleware(c: Context, next: Next) {
-	const apiKey = c.req.header("X-API-Key");
-	const adminKey = c.req.header("X-Admin-Key");
-
-	// Skip merchant auth if admin key is present — admin routes have their own auth.
-	if (!apiKey && adminKey) {
+	// Idempotency guard — this middleware is mounted at app level AND inside
+	// route sub-apps (payment/merchant/refund). Skip when already authenticated.
+	if (c.get("merchantId")) {
 		await next();
 		return;
 	}
+
+	const apiKey = c.req.header("X-API-Key");
 
 	if (!apiKey) {
 		return c.json(
@@ -64,7 +64,7 @@ export async function authMiddleware(c: Context, next: Next) {
 
 	// Fallback: env API_KEY (backward compatibility for existing consumers)
 	const config = getConfig();
-	if (apiKey === config.API_KEY) {
+	if (timingSafeCompare(apiKey, config.API_KEY)) {
 		c.set("merchantId", "merch_default");
 		c.set("merchantName", "Default");
 		c.set("merchantPlan", "free");

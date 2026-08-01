@@ -23,6 +23,7 @@
     label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px; text-align: left; }
     input, select { width: 100%; padding: 12px 16px; background: #0f1117; border: 1px solid #2d3a55; border-radius: 8px; color: #e2e8f0; font-size: 14px; margin-bottom: 16px; }
     input:focus, select:focus { outline: none; border-color: #818cf8; }
+    input:focus-visible, select:focus-visible, .btn:focus-visible, .sidebar nav button:focus-visible, a:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
     input::placeholder { color: #4a5568; }
     select option { background: #0f1117; }
 
@@ -116,7 +117,7 @@
   <div class="page center-page active" id="pageLanding">
     <div class="card">
       <h1>1ai-payment</h1>
-      <p class="subtitle">Accept payments across 10 gateways with a single API. Create your merchant account to get started.</p>
+      <p class="subtitle">Accept payments across 12 gateways with a single API. Create your merchant account to get started.</p>
 
       <div id="landingError" class="error-msg"></div>
 
@@ -197,7 +198,7 @@
       <div class="step-content" id="step3">
         <h3 style="margin-bottom:12px">3. You're Ready! 🎉</h3>
         <ul class="feature-list">
-          <li>Payment creation with 10 gateways</li>
+          <li>Payment creation with 12 gateways</li>
           <li>Automatic webhook forwarding</li>
           <li>Transaction history and refunds</li>
           <li>Per-merchant rate limiting</li>
@@ -329,11 +330,22 @@
     // ── Helpers ──────────────────────────────────────
     function headers() { return { 'X-API-Key': token, 'Content-Type': 'application/json' }; }
 
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    const STATUS_BADGE = { success: 'success', pending: 'pending', failed: 'failed' };
+    function badgeClass(status) { return STATUS_BADGE[status] || 'pending'; }
+
     async function api(method, path, body) {
-      const res = await fetch(API + path, { method, headers: headers(), body: body ? JSON.stringify(body) : undefined });
-      const data = await res.json();
-      if (res.status === 401) { logout(); return null; }
-      return data;
+      try {
+        const res = await fetch(API + path, { method, headers: headers(), body: body ? JSON.stringify(body) : undefined });
+        const data = await res.json().catch(() => null);
+        if (res.status === 401) { logout(); return null; }
+        return data;
+      } catch (e) {
+        return null;
+      }
     }
 
     function showPage(id) {
@@ -466,53 +478,57 @@ const order = await payment.create({
 
     async function loadDashboard() {
       const all = await api('GET', '/api/transactions?limit=50');
-      if (!all) return;
-      const txs = all.data.transactions;
+      if (!all || !all.success || !all.data) return;
+      const txs = all.data.transactions || [];
       document.getElementById('sTotal').textContent = all.data.total;
       document.getElementById('sSuccess').textContent = txs.filter(t => t.status === 'success').length;
       document.getElementById('sPending').textContent = txs.filter(t => t.status === 'pending').length;
       document.getElementById('sFailed').textContent = txs.filter(t => t.status === 'failed').length;
       document.getElementById('overviewTxTable').innerHTML = txs.slice(0, 5).map(t =>
-        `<tr><td class="mono">${t.id}</td><td>${t.gateway}</td><td>${t.amount.toLocaleString()} ${t.currency}</td><td><span class="badge ${t.status}">${t.status}</span></td><td>${new Date(t.created_at).toLocaleDateString()}</td></tr>`
+        `<tr><td class="mono">${escapeHtml(t.id)}</td><td>${escapeHtml(t.gateway)}</td><td>${Number(t.amount).toLocaleString()} ${escapeHtml(t.currency)}</td><td><span class="badge ${badgeClass(t.status)}">${escapeHtml(t.status)}</span></td><td>${new Date(t.created_at).toLocaleDateString()}</td></tr>`
       ).join('') || '<tr><td colspan="5" style="color:#64748b">No transactions yet</td></tr>';
     }
 
     async function loadTransactions() {
       const data = await api('GET', '/api/transactions?limit=50');
-      if (!data) return;
-      document.getElementById('txTable').innerHTML = data.data.transactions.map(t =>
-        `<tr><td class="mono">${t.id}</td><td>${t.gateway}</td><td>${t.amount.toLocaleString()} ${t.currency}</td><td><span class="badge ${t.status}">${t.status}</span></td><td>${t.payment_method || '-'}</td><td>${new Date(t.created_at).toLocaleString()}</td></tr>`
-      ).join('') || '<tr><td colspan="6" style="color:#64748b">No transactions yet</td></tr>';
+      if (!data || !data.success || !data.data) return;
+      const txs = data.data.transactions || [];
+      let rows = txs.slice(0, 50).map(t =>
+        `<tr><td class="mono">${escapeHtml(t.id)}</td><td>${escapeHtml(t.gateway)}</td><td>${Number(t.amount).toLocaleString()} ${escapeHtml(t.currency)}</td><td><span class="badge ${badgeClass(t.status)}">${escapeHtml(t.status)}</span></td><td>${escapeHtml(t.payment_method || '-')}</td><td>${new Date(t.created_at).toLocaleString()}</td></tr>`
+      ).join('');
+      if (txs.length > 50) rows += `<tr><td colspan="6" style="color:#64748b;text-align:center">Showing latest 50 of ${txs.length} transactions</td></tr>`;
+      document.getElementById('txTable').innerHTML = rows || '<tr><td colspan="6" style="color:#64748b">No transactions yet</td></tr>';
     }
 
     async function loadRefunds() {
       const data = await api('GET', '/api/refunds?limit=50');
-      if (!data) return;
-      document.getElementById('refundTable').innerHTML = data.data.refunds.map(r =>
-        `<tr><td class="mono">${r.id}</td><td class="mono">${r.order_id}</td><td>${r.amount.toLocaleString()}</td><td><span class="badge ${r.status}">${r.status}</span></td><td>${r.reason || '-'}</td><td>${new Date(r.created_at).toLocaleString()}</td></tr>`
-      ).join('') || '<tr><td colspan="6" style="color:#64748b">No refunds yet</td></tr>';
+      if (!data || !data.success || !data.data) return;
+      const refunds = data.data.refunds || [];
+      let rows = refunds.slice(0, 50).map(r =>
+        `<tr><td class="mono">${escapeHtml(r.id)}</td><td class="mono">${escapeHtml(r.order_id)}</td><td>${Number(r.amount).toLocaleString()}</td><td><span class="badge ${badgeClass(r.status)}">${escapeHtml(r.status)}</span></td><td>${escapeHtml(r.reason || '-')}</td><td>${new Date(r.created_at).toLocaleString()}</td></tr>`
+      ).join('');
+      if (refunds.length > 50) rows += `<tr><td colspan="6" style="color:#64748b;text-align:center">Showing latest 50 of ${refunds.length} refunds</td></tr>`;
+      document.getElementById('refundTable').innerHTML = rows || '<tr><td colspan="6" style="color:#64748b">No refunds yet</td></tr>';
     }
 
     async function loadGateways() {
       const data = await api('GET', '/api/gateways');
-      if (!data) return;
+      if (!data || !data.success || !data.data) return;
       const gwList = data.data;
       document.getElementById('gwTable').innerHTML = gwList.map(g =>
-        `<tr><td>${g.gateway}</td><td>${g.currencies.join(', ')}</td><td><span class="badge ${g.enabled ? 'success' : 'pending'}">${g.enabled ? 'Available' : 'Configured'}</span></td><td><a href="/reference" target="_blank" style="font-size:12px">Configure →</a></td></tr>`
+        `<tr><td>${escapeHtml(g.gateway)}</td><td>${(g.currencies || []).map(c => escapeHtml(c)).join(', ')}</td><td><span class="badge ${g.enabled ? 'success' : 'pending'}">${g.enabled ? 'Available' : 'Configured'}</span></td><td><a href="/reference" target="_blank" style="font-size:12px">Configure →</a></td></tr>`
       ).join('');
     }
 
     async function loadSettings() {
       // Try to get merchant info from API
       const merchants = await api('GET', '/api/merchants');
-      if (merchants && merchants.data && merchants.data.length > 0) {
-        const m = merchants.data[0]; // Default merchant
-        document.getElementById('setMerchantId').textContent = m.id;
-        document.getElementById('setName').textContent = m.name;
-        document.getElementById('setPlan').textContent = m.plan;
-        document.getElementById('setCallback').textContent = m.default_callback_url || 'Not set';
-        document.getElementById('dashPlan').textContent = m.plan;
-      }
+      const m = merchants && merchants.success && merchants.data && merchants.data.length > 0 ? merchants.data[0] : null;
+      document.getElementById('setMerchantId').textContent = m ? m.id : '—';
+      document.getElementById('setName').textContent = m ? m.name : 'Merchant not found';
+      document.getElementById('setPlan').textContent = m ? m.plan : 'free';
+      document.getElementById('setCallback').textContent = m ? (m.default_callback_url || 'Not set') : '—';
+      document.getElementById('dashPlan').textContent = m ? m.plan : 'free';
     }
 
     async function rotateKey() {
@@ -521,7 +537,7 @@ const order = await payment.create({
       if (!merchants || !merchants.data || merchants.data.length === 0) return;
       const id = merchants.data[0].id;
       const result = await api('POST', `/api/merchants/${id}/api-key`);
-      if (!result || !result.success) return;
+      if (!result || !result.success || !result.data) return;
       token = result.data.api_key;
       localStorage.setItem('1pay_key', token);
       document.getElementById('newKeyValue').textContent = result.data.api_key;

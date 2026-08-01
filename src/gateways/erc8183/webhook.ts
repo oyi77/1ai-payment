@@ -6,11 +6,20 @@
  * with evaluator attestation. The webhook receives attestation events
  * (evaluator approves/rejects work).
  *
+ * Attestation signature scheme:
+ *   The evaluator signs `JSON.stringify({ escrowId, evaluator, approved, notes })`
+ *   with their wallet. The expected evaluator address is read from the
+ *   ERC8183_EVALUATOR_ADDRESS env var (or ERC8183_EVALUATOR_PUBLIC_KEY).
+ *   Verification recovers the signer from the signature (viem) and
+ *   compares it to the configured evaluator using a timing-safe compare.
+ *   Missing signature or missing configured evaluator => reject.
+ *
  * Reference: https://eips.ethereum.org/EIPS/eip-8183
  */
 
+import { isAddress, recoverMessageAddress } from "viem";
 import { getConfig } from "../../config/env";
-import { logger } from "../../utils/logger";
+import { timingSafeCompare } from "../../utils/crypto";
 import type { NormalizedPaymentEvent } from "../base";
 import type {
 	CreateEscrowParams,
@@ -55,6 +64,73 @@ export function parseAttestation(body: unknown): {
 			attestation: { escrowId: "", evaluator: "", approved: false },
 			error: msg,
 		};
+	}
+}
+
+/**
+ * Get the configured evaluator address used to verify attestations.
+ * Fails closed (undefined) when not configured — webhooks are rejected.
+ */
+function getEvaluatorAddress(): string | undefined {
+	const cfg = getConfig();
+	const evaluator =
+		cfg.ERC8183_EVALUATOR_ADDRESS ||
+		(process.env.ERC8183_EVALUATOR_PUBLIC_KEY ?? undefined);
+	if (!evaluator || !isAddress(evaluator)) return undefined;
+	return evaluator.toLowerCase();
+}
+
+/**
+ * Build the canonical message an evaluator signs for an attestation.
+ * The scheme is: JSON.stringify({ escrowId, evaluator, approved, notes })
+ * with `notes` normalized to null when absent.
+ */
+export function buildAttestationMessage(
+	attestation: EscrowAttestation,
+): string {
+	return JSON.stringify({
+		escrowId: attestation.escrowId,
+		evaluator: attestation.evaluator,
+		approved: attestation.approved,
+		notes: attestation.notes ?? null,
+	});
+}
+
+/**
+ * Verify an attestation's signature against the configured evaluator.
+ *
+ * Recovers the signer from the attestation signature and requires:
+ *   1. a signature is present,
+ *   2. an evaluator address is configured (fail closed otherwise),
+ *   3. the recovered signer matches the configured evaluator (timing-safe),
+ *   4. if the payload's evaluator is a valid address, it must also match.
+ */
+export async function verifyAttestationSignature(
+	attestation: EscrowAttestation,
+): Promise<boolean> {
+	if (!attestation.signature) return false;
+
+	const expectedEvaluator = getEvaluatorAddress();
+	if (!expectedEvaluator) return false;
+
+	try {
+		const recovered = (
+			await recoverMessageAddress({
+				message: buildAttestationMessage(attestation),
+				signature: attestation.signature as `0x${string}`,
+			})
+		).toLowerCase();
+
+		if (!timingSafeCompare(recovered, expectedEvaluator)) return false;
+
+		// If the payload declares an evaluator address, it must be the signer.
+		if (isAddress(attestation.evaluator)) {
+			if (recovered !== attestation.evaluator.toLowerCase()) return false;
+		}
+
+		return true;
+	} catch {
+		return false;
 	}
 }
 

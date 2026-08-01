@@ -72,6 +72,7 @@ export interface Config {
 	ERC8183_NETWORK: string;
 	ERC8183_TOKEN_ADDRESS: string;
 	ERC8183_WALLET_ADDRESS: string;
+	ERC8183_EVALUATOR_ADDRESS: string;
 
 	// Logging
 	LOG_LEVEL: "debug" | "info" | "warn" | "error";
@@ -177,6 +178,7 @@ export function getConfig(): Config {
 		ERC8183_NETWORK: optional("ERC8183_NETWORK", "eip155:8453"),
 		ERC8183_TOKEN_ADDRESS: optional("ERC8183_TOKEN_ADDRESS"),
 		ERC8183_WALLET_ADDRESS: optional("ERC8183_WALLET_ADDRESS"),
+		ERC8183_EVALUATOR_ADDRESS: optional("ERC8183_EVALUATOR_ADDRESS"),
 		LOG_LEVEL: optional("LOG_LEVEL", "info") as Config["LOG_LEVEL"],
 		NEXUS_TELEGRAM_CHANNEL_ID: optional("NEXUS_TELEGRAM_CHANNEL_ID"),
 		NEXUS_TELEGRAM_BOT_TOKEN: optional("NEXUS_TELEGRAM_BOT_TOKEN"),
@@ -251,6 +253,19 @@ export function getGatewayConfig(gateway: string) {
 				webhookSecret: config.PAYPAL_WEBHOOK_SECRET,
 				environment: config.PAYPAL_ENVIRONMENT,
 			};
+		case "x402":
+			return {
+				rpcUrl: config.X402_RPC_URL,
+				network: config.X402_NETWORK,
+				usdcAddress: config.X402_USDC_ADDRESS,
+				walletAddress: config.X402_WALLET_ADDRESS,
+			};
+		case "erc8183":
+			return {
+				network: config.ERC8183_NETWORK,
+				tokenAddress: config.ERC8183_TOKEN_ADDRESS,
+				walletAddress: config.ERC8183_WALLET_ADDRESS,
+			};
 		default:
 			throw new Error(`Unknown gateway: ${gateway}`);
 	}
@@ -274,7 +289,10 @@ export async function getGatewayConfigForMerchant(
 
 	if (result.rows.length > 0) {
 		try {
-			return JSON.parse(decrypt(result.rows[0].credentials as string));
+			return {
+				...JSON.parse(decrypt(result.rows[0].credentials as string)),
+				environment: result.rows[0].environment,
+			};
 		} catch {
 			// Fall through to platform config if decryption fails
 		}

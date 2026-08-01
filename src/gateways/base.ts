@@ -72,6 +72,18 @@ export interface PaymentGateway {
 	): boolean | Promise<boolean>;
 
 	/**
+	 * Verify webhook signature over the RAW request body bytes.
+	 * Optional — gateways whose signature is computed over the raw JSON
+	 * body (HMAC over bytes, not parsed fields) implement this so the
+	 * webhook route passes the unmodified body. Falls back to
+	 * verifySignature when not implemented.
+	 */
+	verifySignatureRaw?(
+		rawBody: string,
+		headers: Record<string, string>,
+	): boolean | Promise<boolean>;
+
+	/**
 	 * Normalize gateway-specific payload to standard format.
 	 * Throws if payload is malformed.
 	 * metadata is injected from order registry, not from gateway.

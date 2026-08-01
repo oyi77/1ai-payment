@@ -46,6 +46,14 @@ export async function handleNexusPayment(
 		return { success: false, error: "Not a Scalev payment" };
 	}
 
+	// Ignore non-success webhook payloads (failed/expired/cancelled)
+	const rawStatus = body.status ?? body.payment_status;
+	if (rawStatus && rawStatus !== "success") {
+		return { success: false, error: "Payment not successful" };
+	}
+
+	const scalevOrderId = String(body.id ?? body.order_id ?? "");
+
 	const variant = extractVariantFromPayload(body);
 	if (!variant) {
 		logger.warn(
@@ -71,7 +79,12 @@ export async function handleNexusPayment(
 	});
 
 	try {
-		return await fulfillOrder(product, customerEmail, customerName);
+		return await fulfillOrder(
+			product,
+			customerEmail,
+			customerName,
+			scalevOrderId,
+		);
 	} catch (err: unknown) {
 		const msg = err instanceof Error ? err.message : String(err);
 		logger.error("Nexus: fulfillment failed", { error: msg });
@@ -83,6 +96,7 @@ async function fulfillOrder(
 	product: { tier: string; label: string; durationDays: number },
 	customerEmail: string | undefined,
 	customerName: string | undefined,
+	scalevOrderId = "",
 ): Promise<FulfillmentResult> {
 	const db = getDb();
 	const config = getConfig();
@@ -133,21 +147,37 @@ async function fulfillOrder(
 	const channelId = config.NEXUS_TELEGRAM_CHANNEL_ID;
 	const botToken = config.NEXUS_TELEGRAM_BOT_TOKEN || config.TELEGRAM_BOT_TOKEN;
 
+	// Idempotency — skip duplicate fulfillment for the same Scalev order
+	if (scalevOrderId) {
+		const existing = await db.execute({
+			sql: "SELECT id FROM nexus_subscriptions WHERE scalev_order_id = ?",
+			args: [scalevOrderId],
+		});
+		if (existing.rows.length > 0) {
+			return { success: true, subscriptionId: String(existing.rows[0].id) };
+		}
+	}
+
 	// 4. Generate Telegram invite link
 	let inviteLink: string | undefined;
 	if (channelId && botToken) {
-		inviteLink = await generateTelegramInviteLink(botToken, channelId);
+		inviteLink = await generateTelegramInviteLink(
+			botToken,
+			channelId,
+			product.durationDays,
+		);
 	}
 
 	await db.execute({
 		sql: `INSERT INTO nexus_subscriptions
-          (id, customer_id, tier, variant, status, telegram_invite_link, telegram_chat_id, expires_at, created_at, updated_at)
-          VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`,
+          (id, customer_id, tier, variant, scalev_order_id, status, telegram_invite_link, telegram_chat_id, expires_at, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`,
 		args: [
 			subId,
 			dbCustomerId,
 			product.tier,
 			product.label,
+			scalevOrderId || null,
 			inviteLink ?? null,
 			channelId || null,
 			expiresAt,
@@ -178,11 +208,12 @@ async function fulfillOrder(
 
 /**
  * Create a Telegram chat invite link using the Bot API.
- * Uses createChatInviteLink with a 1-day expiration by default.
+ * Uses createChatInviteLink with a 30-day expiration by default.
  */
 async function generateTelegramInviteLink(
 	botToken: string,
 	chatId: string,
+	durationDays = 30,
 ): Promise<string | undefined> {
 	try {
 		const url = `${TELEGRAM_API}/bot${botToken}/createChatInviteLink`;
@@ -192,7 +223,7 @@ async function generateTelegramInviteLink(
 			body: JSON.stringify({
 				chat_id: chatId,
 				member_limit: 1,
-				expire_date: Math.floor(Date.now() / 1000) + 86400, // 24h
+				expire_date: Math.floor(Date.now() / 1000) + durationDays * 86400,
 			}),
 		});
 
@@ -232,13 +263,17 @@ async function generateTelegramInviteLink(
 export async function revokeTelegramInviteLink(
 	botToken: string,
 	chatId: string,
+	inviteLink: string,
 ): Promise<void> {
 	try {
 		const url = `${TELEGRAM_API}/bot${botToken}/revokeChatInviteLink`;
 		await fetch(url, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ chat_id: chatId }),
+			body: JSON.stringify({
+				chat_id: chatId,
+				invite_link: inviteLink,
+			}),
 		});
 	} catch (err: unknown) {
 		logger.warn("Nexus: failed to revoke invite link", {

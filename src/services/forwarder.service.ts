@@ -10,7 +10,7 @@ import type { NormalizedPaymentEvent } from "../gateways/base";
 import { forwardFailuresCounter } from "../middleware/metrics";
 import { signPayload } from "../utils/crypto";
 import { generateEventId } from "../utils/crypto";
-import { markForwarded } from "./order.service";
+import { getOrderById, markForwarded } from "./order.service";
 import type { Order } from "./order.service";
 
 interface ForwardResult {
@@ -164,4 +164,87 @@ async function writeDeadLetter(
 	} catch (dbErr: unknown) {
 		logger.error("Failed to write dead letter entry", { error: String(dbErr) });
 	}
+}
+
+export interface ReplayResult {
+	ok: boolean;
+	error?: string;
+}
+
+/**
+ * Re-forward a previously failed webhook delivery stored in the dead-letter
+ * table. Uses the merchant's webhook_secret to sign the event (same as the
+ * original forward). Marks the dead-letter row as replayed on success.
+ *
+ * @param id dead_letter_events.id
+ */
+export async function replayDeadLetter(id: string): Promise<ReplayResult> {
+	const db = getDb();
+
+	const result = await db.execute({
+		sql: "SELECT * FROM dead_letter_events WHERE id = ?",
+		args: [id],
+	});
+	if (result.rows.length === 0) {
+		return { ok: false, error: "Dead letter not found" };
+	}
+	const row = result.rows[0] as Record<string, unknown>;
+
+	const orderId = row.order_id != null ? String(row.order_id) : "";
+	if (!orderId) {
+		return { ok: false, error: "Dead letter has no order" };
+	}
+
+	const order = await getOrderById(orderId);
+	if (!order) {
+		return { ok: false, error: "Order not found" };
+	}
+
+	// Signing secret lives on the merchant row — never logged.
+	const merchant = await db.execute({
+		sql: "SELECT webhook_secret FROM merchants WHERE id = ?",
+		args: [order.merchant_id],
+	});
+	if (merchant.rows.length === 0) {
+		return { ok: false, error: "Merchant not found" };
+	}
+	const webhookSecret = String(
+		(merchant.rows[0] as Record<string, unknown>).webhook_secret ?? "",
+	);
+	if (!webhookSecret) {
+		return { ok: false, error: "No webhook secret for merchant" };
+	}
+
+	let stored: { event?: NormalizedPaymentEvent };
+	try {
+		stored = JSON.parse(String(row.event_data ?? "{}")) as {
+			event?: NormalizedPaymentEvent;
+		};
+	} catch {
+		return { ok: false, error: "Invalid event data in dead letter" };
+	}
+	if (!stored.event) {
+		return { ok: false, error: "Missing event in dead letter" };
+	}
+
+	const forward = await forwardEvent(stored.event, order, webhookSecret);
+	if (!forward.success) {
+		logger.error("Replay failed", {
+			id,
+			order_id: order.id,
+			statusCode: forward.statusCode,
+		});
+		return {
+			ok: false,
+			error: `Re-forward failed (HTTP ${forward.statusCode})`,
+		};
+	}
+
+	await db.execute({
+		sql: "UPDATE dead_letter_events SET replayed_at = datetime('now') WHERE id = ?",
+		args: [id],
+	});
+
+	logger.info("Dead letter replayed", { id, order_id: order.id });
+	return { ok: true };
 }

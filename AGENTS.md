@@ -17,10 +17,10 @@ Full details: `~/.1ai/core/PROCESS.md` (auto-injected by hooks)
 
 ## This repo
 
-Payment gateway **aggregator** — unified API for creating payments across 10 gateways and routing callbacks to owning projects.
+Payment gateway **aggregator** — unified API for creating payments across 12 gateways and routing callbacks to owning projects.
 Stack: TypeScript / Hono / LibSQL (SQLite)
 Domain: Payment creation, webhook aggregation, signature verification, order routing, callback forwarding
-Gateways: midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal
+Gateways: midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183
 
 Engineering rules are enforced by machine-level loaders when `setup-dev.sh` has been run:
 - Claude Code: SessionStart hook injects `~/.1ai/core/RULES.md` + enforcement table
@@ -99,7 +99,10 @@ Do NOT add the rules repo as a git submodule. Update rules centrally, then run/s
 ```
 src/
 ├── schemas.ts       # Zod schemas (source of truth for validation + OpenAPI)
-├── config/          # Environment, database
+├── app.ts           # OpenAPIHono app factory — middleware, routes, OpenAPI spec
+├── config/          # Environment, database, migrations
+├── dashboard/       # Merchant portal UI (index.html)
+├── landing/         # Public landing page (index.html + favicon.svg)
 ├── gateways/        # Gateway implementations (Provider pattern)
 │   ├── base.ts      # Abstract PaymentGateway interface + types
 │   ├── midtrans.ts  # Midtrans — SHA-512 signature
@@ -112,18 +115,37 @@ src/
 │   ├── telegram-stars/    # Telegram Stars (XTR)
 │   ├── telegram-payments/ # Telegram Payments (multi-currency)
 │   ├── paypal/      # PayPal — webhook signature
+│   ├── x402/        # On-chain USDC micropayments (HTTP 402)
+│   ├── erc8183/     # Agentic commerce escrow (evaluator attestation)
 │   └── index.ts     # Gateway registry (add gateway = implement + register)
 ├── middleware/       # Rate limiting, auth
+│   ├── auth.ts       # API key auth for /api/* routes
+│   ├── admin-auth.ts # Admin auth (X-Admin-Key header)
+│   ├── rate-limit.ts # Rate limiting — per-merchant plan tiers
+│   └── metrics.ts    # Prometheus metrics handler (/metrics)
 ├── routes/          # Hono route handlers (OpenAPIHono + createRoute)
 │   ├── webhook.ts   # /webhook/:gateway (callback receiver)
 │   ├── payment.ts   # /api/payments, /api/gateways
+│   ├── refund.ts    # /api/refunds (create + list)
+│   ├── merchant.ts  # /api/merchants (CRUD + API key rotation)
+│   ├── admin.ts     # /api/admin/merchants (X-Admin-Key protected)
+│   ├── register.ts  # /api/register (merchant self-registration)
 │   └── health.ts    # /health
 ├── services/        # Business logic
 │   ├── order.service.ts      # Order CRUD + routing
 │   ├── forwarder.service.ts  # Forward events to projects (async, 3-retry)
-│   └── gateway.service.ts    # Gateway registry + methods listing
+│   ├── gateway.service.ts    # Gateway registry + methods listing
+│   ├── refund.service.ts     # Refund CRUD + processing
+│   ├── nexus-config.ts       # Nexus product config (Scalev variant → tier mapping)
+│   ├── nexus-fulfillment.ts  # Nexus fulfillment (payment → Telegram invite delivery)
+│   └── nexus-cron.ts         # Nexus cron — subscription expiry maintenance (6-hourly)
 ├── utils/           # Crypto, logger, errors
-└── index.ts         # Entry point — OpenAPIHono + Swagger UI
+└── index.ts         # Entry point — Bun server (graceful shutdown, nexus cron)
+packages/
+└── sdk/             # TypeScript merchant SDK
+tests/
+├── unit/            # Unit tests (gateway signatures, services, schemas)
+└── integration/     # API flow tests (payment, refund, register)
 ```
 
 ## Commands
