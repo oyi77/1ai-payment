@@ -54,6 +54,7 @@ export async function forwardEvent(
 	const signature = signPayload(payload, webhookSecret);
 
 	let lastError: Error | null = null;
+	let lastStatus: number | null = null;
 
 	for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
 		try {
@@ -80,6 +81,7 @@ export async function forwardEvent(
 			lastError = new Error(
 				`HTTP ${response.status}: ${await response.text().catch(() => "unknown")}`,
 			);
+			lastStatus = response.status;
 		} catch (err: unknown) {
 			lastError = err instanceof Error ? err : new Error(String(err));
 		}
@@ -106,7 +108,7 @@ export async function forwardEvent(
 		MAX_RETRIES,
 	);
 	await markForwarded(order.id, 0, MAX_RETRIES);
-	return { success: false, statusCode: 0, attempts: MAX_RETRIES };
+	return { success: false, statusCode: lastStatus ?? 0, attempts: MAX_RETRIES };
 }
 function sleep(ms: number): Promise<void> {
 	const { promise, resolve } = Promise.withResolvers<void>();
