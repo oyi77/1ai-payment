@@ -15,6 +15,7 @@ import { IPaymuGateway } from "./ipaymu";
 import { MidtransGateway } from "./midtrans";
 import { NowPaymentsGateway } from "./nowpayments";
 import { PayPalGateway } from "./paypal";
+import { SaweriaGateway } from "./saweria";
 import { ScalevGateway } from "./scalev";
 import { TelegramPaymentsGateway } from "./telegram-payments";
 import { TelegramStarsGateway } from "./telegram-stars";
@@ -44,6 +45,7 @@ const registry: Record<string, PaymentGateway> = {
 	paypal: new PayPalGateway(),
 	x402: new X402Gateway(),
 	erc8183: new ERC8183Gateway(),
+	saweria: new SaweriaGateway(),
 };
 
 // Snapshot of production gateways so tests can register fakes and restore.

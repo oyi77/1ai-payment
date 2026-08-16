@@ -100,7 +100,8 @@ export class ScalevGateway implements PaymentGateway {
 		if (!config.SCALEV_STORE_ID) {
 			throw new GatewayError("scalev", "SCALEV_STORE_ID not configured");
 		}
-		if (!config.SCALEV_VARIANT_ID) {
+		const variantOverride = params.metadata?.variant_id;
+		if (!config.SCALEV_VARIANT_ID && !variantOverride) {
 			throw new GatewayError(
 				"scalev",
 				"SCALEV_VARIANT_ID not configured (need a product variant from Scalev dashboard)",
@@ -113,7 +114,7 @@ export class ScalevGateway implements PaymentGateway {
 		const items: ScalevCheckoutItem[] = [
 			{
 				type: "variant",
-				variant_id: Number(config.SCALEV_VARIANT_ID),
+				variant_id: Number(variantOverride ?? config.SCALEV_VARIANT_ID),
 				quantity: 1,
 			},
 		];

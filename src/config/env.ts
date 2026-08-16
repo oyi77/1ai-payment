@@ -75,6 +75,10 @@ export interface Config {
 	ERC8183_TOKEN_ADDRESS: string;
 	ERC8183_WALLET_ADDRESS: string;
 	ERC8183_EVALUATOR_ADDRESS: string;
+	// Saweria (Indonesia — anonymized donations)
+	SAWERIA_USERNAME: string; // Saweria username slug
+	SAWERIA_USER_ID: string; // Saweria user ID (UUID)
+	SAWERIA_ENVIRONMENT: "sandbox" | "production";
 
 	// Logging
 	LOG_LEVEL: "debug" | "info" | "warn" | "error";
@@ -191,6 +195,12 @@ export function getConfig(): Config {
 		ERC8183_TOKEN_ADDRESS: optional("ERC8183_TOKEN_ADDRESS"),
 		ERC8183_WALLET_ADDRESS: optional("ERC8183_WALLET_ADDRESS"),
 		ERC8183_EVALUATOR_ADDRESS: optional("ERC8183_EVALUATOR_ADDRESS"),
+		SAWERIA_USERNAME: optional("SAWERIA_USERNAME"),
+		SAWERIA_USER_ID: optional("SAWERIA_USER_ID"),
+		SAWERIA_ENVIRONMENT: optional(
+			"SAWERIA_ENVIRONMENT",
+			"sandbox",
+		) as Config["SAWERIA_ENVIRONMENT"],
 		LOG_LEVEL: optional("LOG_LEVEL", "info") as Config["LOG_LEVEL"],
 		NEXUS_TELEGRAM_CHANNEL_ID: optional("NEXUS_TELEGRAM_CHANNEL_ID"),
 		NEXUS_TELEGRAM_BOT_TOKEN: optional("NEXUS_TELEGRAM_BOT_TOKEN"),
@@ -277,6 +287,12 @@ export function getGatewayConfig(gateway: string) {
 				network: config.ERC8183_NETWORK,
 				tokenAddress: config.ERC8183_TOKEN_ADDRESS,
 				walletAddress: config.ERC8183_WALLET_ADDRESS,
+			};
+		case "saweria":
+			return {
+				username: config.SAWERIA_USERNAME,
+				userId: config.SAWERIA_USER_ID,
+				environment: config.SAWERIA_ENVIRONMENT,
 			};
 		default:
 			throw new Error(`Unknown gateway: ${gateway}`);

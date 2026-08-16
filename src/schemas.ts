@@ -27,6 +27,7 @@ export const GATEWAY_NAMES = [
 	"paypal",
 	"x402",
 	"erc8183",
+	"saweria",
 ] as const;
 
 export const gatewayNameSchema = z.enum(GATEWAY_NAMES).openapi({
