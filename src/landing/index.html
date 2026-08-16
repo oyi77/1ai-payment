@@ -634,6 +634,14 @@ section { scroll-margin-top:80px; }
           <option value="paypal">paypal — Global checkout</option>
           <option value="tripay">tripay — QR, VA, Convenience Store</option>
           <option value="telegram_stars">telegram_stars — XTR micropayments</option>
+          <option value="duitku">duitku — VA, QR, e-Wallet (IDR)</option>
+          <option value="ipaymu">ipaymu — QRIS, VA (IDR)</option>
+          <option value="scalev">scalev — e-Wallet, Nexus variant (IDR)</option>
+          <option value="nowpayments">nowpayments — Crypto (BTC/USDT/ETH)</option>
+          <option value="x402">x402 — On-chain USDC micropayments</option>
+          <option value="erc8183">erc8183 — Agentic escrow (USDC)</option>
+          <option value="telegram_payments">telegram_payments — Multi-currency invoices</option>
+          <option value="saweria">saweria — Donation stream (IDR)</option>
         </select>
         <div class="pane active" id="previewRequest"><code id="requestCode"></code></div>
         <div class="pane" id="previewResponse"><code id="responseCode"></code></div>
@@ -1001,6 +1009,214 @@ x-api-key: 1pay_...
   "gateway": "telegram_stars",
   "status": "pending",
   "payment_url": "https://t.me/...",
+  "created_at": "2026-07-05T10:00:00.000Z",
+  "updated_at": "2026-07-05T10:00:00.000Z"
+}`,
+  },
+  duitku: {
+    request: `POST /api/payments HTTP/1.1
+Content-Type: application/json
+x-api-key: 1pay_...
+
+{
+  "amount": 120000,
+  "currency": "IDR",
+  "gateway": "duitku",
+  "payment_method": "virtual_account",
+  "callback_url": "https://mystore.com/payment/callback",
+  "metadata": { "order_id": "ORD-2026-006" }
+}`,
+    response: `HTTP/1.1 201 Created
+
+{
+  "id": "pay_dui_pqr678",
+  "amount": 120000,
+  "currency": "IDR",
+  "gateway": "duitku",
+  "status": "pending",
+  "payment_url": "https://api.duitku.com/...",
+  "created_at": "2026-07-05T10:00:00.000Z",
+  "updated_at": "2026-07-05T10:00:00.000Z"
+}`,
+  },
+  ipaymu: {
+    request: `POST /api/payments HTTP/1.1
+Content-Type: application/json
+x-api-key: 1pay_...
+
+{
+  "amount": 75000,
+  "currency": "IDR",
+  "gateway": "ipaymu",
+  "payment_method": "qris",
+  "callback_url": "https://mystore.com/payment/callback",
+  "metadata": { "order_id": "ORD-2026-007" }
+}`,
+    response: `HTTP/1.1 201 Created
+
+{
+  "id": "pay_ipm_stu901",
+  "amount": 75000,
+  "currency": "IDR",
+  "gateway": "ipaymu",
+  "status": "pending",
+  "payment_url": "https://ipaymu.com/checkout/...",
+  "created_at": "2026-07-05T10:00:00.000Z",
+  "updated_at": "2026-07-05T10:00:00.000Z"
+}`,
+  },
+  scalev: {
+    request: `POST /api/payments HTTP/1.1
+Content-Type: application/json
+x-api-key: 1pay_...
+
+{
+  "amount": 99000,
+  "currency": "IDR",
+  "gateway": "scalev",
+  "payment_method": "e_wallet",
+  "callback_url": "https://mystore.com/payment/callback",
+  "metadata": { "order_id": "ORD-2026-008", "product_tier": "nexus_basic" }
+}`,
+    response: `HTTP/1.1 201 Created
+
+{
+  "id": "pay_scv_vwx234",
+  "amount": 99000,
+  "currency": "IDR",
+  "gateway": "scalev",
+  "status": "pending",
+  "payment_url": "https://scalev.id/checkout/...",
+  "created_at": "2026-07-05T10:00:00.000Z",
+  "updated_at": "2026-07-05T10:00:00.000Z"
+}`,
+  },
+  nowpayments: {
+    request: `POST /api/payments HTTP/1.1
+Content-Type: application/json
+x-api-key: 1pay_...
+
+{
+  "amount": 25,
+  "currency": "USDT",
+  "gateway": "nowpayments",
+  "payment_method": "crypto",
+  "callback_url": "https://mystore.com/payment/callback",
+  "metadata": { "order_id": "ORD-2026-009" }
+}`,
+    response: `HTTP/1.1 201 Created
+
+{
+  "id": "pay_np_yz012",
+  "amount": 25,
+  "currency": "USDT",
+  "gateway": "nowpayments",
+  "status": "pending",
+  "payment_url": "https://nowpayments.io/...",
+  "created_at": "2026-07-05T10:00:00.000Z",
+  "updated_at": "2026-07-05T10:00:00.000Z"
+}`,
+  },
+  x402: {
+    request: `POST /api/payments HTTP/1.1
+Content-Type: application/json
+x-api-key: 1pay_...
+
+{
+  "amount": 0.5,
+  "currency": "USDC",
+  "gateway": "x402",
+  "payment_method": "x402_facilitator",
+  "callback_url": "https://mystore.com/payment/callback",
+  "metadata": { "order_id": "ORD-2026-010" }
+}`,
+    response: `HTTP/1.1 201 Created
+
+{
+  "id": "pay_x42_abc345",
+  "amount": 0.5,
+  "currency": "USDC",
+  "gateway": "x402",
+  "status": "pending",
+  "payment_url": "https://facilitator.example/x402/...",
+  "created_at": "2026-07-05T10:00:00.000Z",
+  "updated_at": "2026-07-05T10:00:00.000Z"
+}`,
+  },
+  erc8183: {
+    request: `POST /api/payments HTTP/1.1
+Content-Type: application/json
+x-api-key: 1pay_...
+
+{
+  "amount": 1.2,
+  "currency": "USDC",
+  "gateway": "erc8183",
+  "payment_method": "erc8183_escrow",
+  "callback_url": "https://mystore.com/payment/callback",
+  "metadata": { "order_id": "ORD-2026-011", "evaluator": "0xEval..." }
+}`,
+    response: `HTTP/1.1 201 Created
+
+{
+  "id": "pay_e83_def678",
+  "amount": 1.2,
+  "currency": "USDC",
+  "gateway": "erc8183",
+  "status": "pending",
+  "payment_url": "https://erc8183.example/escrow/...",
+  "created_at": "2026-07-05T10:00:00.000Z",
+  "updated_at": "2026-07-05T10:00:00.000Z"
+}`,
+  },
+  telegram_payments: {
+    request: `POST /api/payments HTTP/1.1
+Content-Type: application/json
+x-api-key: 1pay_...
+
+{
+  "amount": 9.99,
+  "currency": "EUR",
+  "gateway": "telegram_payments",
+  "payment_method": "telegram_invoice",
+  "callback_url": "https://mystore.com/payment/callback",
+  "metadata": { "order_id": "ORD-2026-012" }
+}`,
+    response: `HTTP/1.1 201 Created
+
+{
+  "id": "pay_tp_ghi901",
+  "amount": 9.99,
+  "currency": "EUR",
+  "gateway": "telegram_payments",
+  "status": "pending",
+  "payment_url": "https://t.me/invoice/...",
+  "created_at": "2026-07-05T10:00:00.000Z",
+  "updated_at": "2026-07-05T10:00:00.000Z"
+}`,
+  },
+  saweria: {
+    request: `POST /api/payments HTTP/1.1
+Content-Type: application/json
+x-api-key: 1pay_...
+
+{
+  "amount": 50000,
+  "currency": "IDR",
+  "gateway": "saweria",
+  "payment_method": "donation",
+  "callback_url": "https://mystore.com/payment/callback",
+  "metadata": { "order_id": "ORD-2026-013" }
+}`,
+    response: `HTTP/1.1 201 Created
+
+{
+  "id": "pay_saw_jkl234",
+  "amount": 50000,
+  "currency": "IDR",
+  "gateway": "saweria",
+  "status": "pending",
+  "payment_url": "https://saweria.co/...",
   "created_at": "2026-07-05T10:00:00.000Z",
   "updated_at": "2026-07-05T10:00:00.000Z"
 }`,
