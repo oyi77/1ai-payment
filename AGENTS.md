@@ -17,10 +17,10 @@ Full details: `~/.1ai/core/PROCESS.md` (auto-injected by hooks)
 
 ## This repo
 
-Payment gateway **aggregator** — unified API for creating payments across 12 gateways and routing callbacks to owning projects.
+Payment gateway **aggregator** — unified API for creating payments across 13 gateways and routing callbacks to owning projects.
 Stack: TypeScript / Hono / LibSQL (SQLite)
 Domain: Payment creation, webhook aggregation, signature verification, order routing, callback forwarding
-Gateways: midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183
+Gateways: midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria
 
 Engineering rules are enforced by machine-level loaders when `setup-dev.sh` has been run:
 - Claude Code: SessionStart hook injects `~/.1ai/core/RULES.md` + enforcement table

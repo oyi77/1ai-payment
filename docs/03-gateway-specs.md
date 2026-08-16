@@ -96,7 +96,7 @@ interface RefundResult {
 
 ### Webhook Routing (shared)
 
-All gateways share one receiver. For every entry in `GATEWAY_NAMES` (`src/schemas.ts` — 12 gateways) the route `POST /webhook/{gateway}` is auto-registered in `src/routes/webhook.ts`, and all headers are lowercased before the gateway handler runs. The shared flow is:
+All 13 gateways follow the same PaymentGateway
 
 1. **Verify** — the raw request body is read as text before parsing, so HMAC gateways verify over the exact received bytes: nowpayments, tripay, and scalev implement `verifySignatureRaw` and are verified over the unmodified body; all others use `gateway.verifySignature(body, headers)`. Reject with 401 if invalid.
 2. **Normalize** — `gateway.normalizeEvent(body, null)` → `NormalizedPaymentEvent`.

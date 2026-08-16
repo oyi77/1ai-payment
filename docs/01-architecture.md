@@ -322,7 +322,7 @@ cancelled→cancelled; x402 status comes from the cached on-chain verification
 
 ### 6. Signature Verification (Per Gateway)
 
-All 12 gateways are verified before any state change. HMAC/MAC comparisons
+All 13 gateways are normalized into a single NormalizedPaymentEvent
 use timing-safe comparison (`crypto.timingSafeEqual`).
 
 | Gateway | Algorithm | Where the signature lives | Notes |
@@ -396,7 +396,7 @@ CREATE TABLE orders (
   project_id TEXT NOT NULL,          -- owning merchant id (backwards-compat)
   project_order_id TEXT,             -- merchant's internal order ID (optional)
   callback_url TEXT NOT NULL,        -- where to forward events
-  gateway TEXT NOT NULL,             -- one of the 12 gateways
+Selecting one of the 13 gateways
   gateway_reference TEXT,            -- gateway's transaction/reference ID
   amount INTEGER NOT NULL,           -- amount in smallest currency unit
   currency TEXT DEFAULT 'IDR',

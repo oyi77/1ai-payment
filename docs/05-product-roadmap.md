@@ -23,7 +23,7 @@ Merchant portal dashboard (/dashboard)
 TypeScript SDK (@1ai/payment)
 Prometheus metrics (/metrics)
 Webhook events + dead-letter tracking
-12 gateways (incl. x402 micropayments, erc8183 escrow)
+13 gateways
 Nexus: Scalev direct-checkout fulfillment + Telegram delivery cron
 No billing, no fee computation, no webhook-secret rotation yet
 ```
@@ -31,7 +31,7 @@ No billing, no fee computation, no webhook-secret rotation yet
 **What works:** Payment creation, webhook processing, signature verification
 (timing-safe), per-merchant idempotent lookups, forwarding with merchant
 `webhook_secret` + 3-retry backoff, transaction history, refunds, webhook
-delivery logs, merchant registration/CRUD, dashboard, SDK, metrics, 12 gateways,
+13 gateways
 auto-generated OpenAPI docs (`/doc`, `/reference`).
 
 ---

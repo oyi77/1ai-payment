@@ -12,7 +12,7 @@ Status of this document: audited against `src/` on 2026-08-01. Every code fact b
 
 Phase 0 (Foundation) is **complete**. The in-repo pieces of Phase 5 (Commercialization) are **partially complete**. Phases 1–4 depend on consumer repos (1ai-content, 1sub) and remain open.
 
-**Gateway coverage:** 12 gateways registered in `src/gateways/index.ts` — midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183.
+13 gateways registered (midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria)
 
 **Verification:**
 - `bun test` — 315 pass / 0 fail (24 files, 625 expect calls)
@@ -60,9 +60,9 @@ Phase 0 (Foundation) is **complete**. The in-repo pieces of Phase 5 (Commerciali
 1. Register 1ai-payment in gateway dashboards (webhook URLs) — external ops work, still open
 2. Create a test order via `POST /api/payments` with sandbox credentials
 3. Verify full flow: create → pay → callback → forward
-4. Test all 12 gateways individually
+all 13 gateways
 
-**In-repo coverage already shipped (verified):** per-gateway signature verification (401 on failure), event normalization, and the forwarded event format are covered by unit tests on all 12 gateways plus integration tests (payment flow, register, refund). What remains is live sandbox verification with real gateway credentials and the 1ai-content migration.
+all 13 gateways
 
 **Acceptance:**
 - End-to-end flow works for all gateways in sandbox

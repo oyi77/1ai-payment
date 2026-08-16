@@ -2,7 +2,7 @@
 
 ## What is 1ai-payment?
 
-1ai-payment is a **payment gateway aggregation service** for the 1ai-ecosystem. It provides a unified API for creating payments across 12 gateways (Midtrans, Tripay, Duitku, NOWPayments, iPaymu, Scalev, Xendit, Telegram Stars, Telegram Payments, PayPal, x402, ERC-8183), aggregates gateway callbacks into a normalized event, and forwards them to the owning merchant's callback URL with signature verification.
+Unified API for creating payments across 13 gateways (midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria)
 
 It also operates a **multi-tenant merchant platform**: any merchant can self-register, manage per-merchant API keys and per-gateway credentials, and control which gateways are enabled. One subsystem — **Nexus** — implements direct-to-customer fulfillment: Scalev checkout callbacks create subscription records and issue Telegram channel invites without any owning project in between.
 
@@ -57,7 +57,7 @@ Scalev callbacks additionally trigger the Nexus fulfillment path (product varian
 - Payment status check (`GET /api/payments/:id`)
 - Gateway and payment-method listing (`GET /api/gateways`, `GET /api/gateways/:gateway/methods`)
 - Audit lists: transactions (`GET /api/transactions`) and webhook deliveries (`GET /api/webhook-deliveries`)
-- Webhook receiver for all 12 gateways with mandatory, timing-safe signature verification (x402 payments verified on-chain via RPC; ERC-8183 callbacks require a valid evaluator attestation signature)
+All 13 gateways are normalized
 - Merchant platform: self-registration, merchant CRUD, API-key rotation, gateway credential management (encrypted at rest), per-gateway enable/disable
 - Refunds (`POST /api/refunds`) — full and partial; cumulative guard ensures the sum of non-failed refunds never exceeds the order amount; a full refund marks the order `refunded`; gateway-supported refunds processed automatically, others recorded as pending manual handling
 - Event forwarding to merchant callbacks — async, 3 retries with backoff, dead-letter queue with replay (`replayDeadLetter`)

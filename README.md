@@ -2,7 +2,7 @@
 
 Payment gateway **aggregator** microservice for the 1ai-ecosystem.
 
-**Purpose:** Unified API for creating payments across 12 gateways and routing callbacks to the correct project.
+**Purpose:** Unified API for creating payments across 13 gateways and routing callbacks to the correct project.
 
 ## Problem
 

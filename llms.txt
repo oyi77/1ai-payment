@@ -3,7 +3,7 @@
 > Machine-readable index for LLM context injection. Payment gateway aggregation microservice for 1ai-ecosystem.
 
 ## Core
-- src/schemas.ts: Zod schemas — source of truth for validation + OpenAPI spec generation (12 gateways)
+Unified API for creating payments across 13 gateways
 - docs/00-overview.md: System overview, problem statement, design principles, scope
 - docs/01-architecture.md: Architecture diagrams, data flow, database schema, deployment
 - docs/02-api-reference.md: API contracts, request/response schemas, authentication
@@ -13,7 +13,7 @@
 
 - src/index.ts: Entry point — Bun.serve, DB init, nexus cron startup, graceful shutdown (SIGTERM/SIGINT)
 - src/app.ts: OpenAPIHono app factory — CORS, rate limits, mounts /api + /webhook + /health + /metrics, OpenAPI JSON at GET /doc, Swagger UI at GET /reference, static / (landing) + /dashboard
-- src/config/env.ts: Environment configuration (100% externalized, no hardcoded values; 12 gateways + nexus)
+Supports 13 gateways + Nexus (Scalev variant → tier)
 - src/config/database.ts: LibSQL/SQLite initialization, schema creation, default merchant seed, migrations
 - src/config/migrations.ts: Versioned migration runner (append-only, tracked in _migrations table)
 
@@ -30,7 +30,7 @@
 - src/gateways/paypal/: PayPal — webhook signature verification API, createPayment via orders API
 - src/gateways/x402/: x402 — on-chain USDC micropayments (HTTP 402), payment requirements + RPC tx verification
 - src/gateways/erc8183/: ERC-8183 — agentic commerce escrow, attestation-based fund release
-- src/gateways/index.ts: Gateway registry — 12 gateways (getGateway, getGatewayNames, isGatewayConfigured)
+across 13 gateways
 
 - src/routes/webhook.ts: POST /webhook/:gateway — verify → normalize → order lookup → dedupe (UNIQUE) → update status → async forward; returns 200 immediately
 - src/routes/payment.ts: POST /api/payments (idempotency key), GET /api/payments/:id, GET /api/gateways, GET /api/gateways/:gateway/methods, GET /api/transactions, GET /api/webhook-deliveries — OpenAPIHono + createRoute
