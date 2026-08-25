@@ -202,6 +202,8 @@ paymentRoutes.openapi(createPaymentRoute, async (c) => {
 			customerName: body.customer?.name,
 			customerEmail: body.customer?.email,
 			metadata: order.metadata as Record<string, unknown> | undefined,
+			successUrl: body.success_url,
+			cancelUrl: body.cancel_url,
 		});
 		endTimer();
 

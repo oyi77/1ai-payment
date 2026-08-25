@@ -72,14 +72,16 @@ export class NowPaymentsGateway implements PaymentGateway {
 		const amount =
 			params.currency === "IDR" ? params.amount : params.amount / 100;
 
+		const publicBase = config.PUBLIC_BASE_URL.replace(/\/$/, "");
 		const body = {
 			price_amount: amount,
 			price_currency: params.currency.toLowerCase(),
 			order_id: params.orderId,
 			order_description: "Payment",
-			ipn_callback_url: "https://pay.1ai.dev/webhook/nowpayments",
-			success_url: "https://example.com/payment/finish",
-			cancel_url: "https://example.com/payment/cancel",
+			ipn_callback_url: `${publicBase}/webhook/nowpayments`,
+			success_url:
+				params.successUrl ?? `${publicBase}/payment/finish`,
+			cancel_url: params.cancelUrl ?? `${publicBase}/payment/cancel`,
 		};
 
 		const response = await fetch(`${baseUrl}/v1/invoice`, {

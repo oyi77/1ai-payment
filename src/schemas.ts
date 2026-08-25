@@ -79,6 +79,17 @@ export const createPaymentBodySchema = z
 			description: "Client-generated unique key to prevent duplicate orders",
 			example: "order-usr123-1720180000",
 		}),
+		success_url: z
+			.string()
+			.url()
+			.optional()
+			.openapi({
+				description:
+					"Where to redirect the buyer after payment completes",
+			}),
+		cancel_url: z.string().url().optional().openapi({
+			description: "Where to redirect the buyer after cancelling",
+		}),
 		project_order_id: z.string().optional().openapi({
 			description:
 				"Your application's own order/invoice ID for cross-reference",

@@ -10,7 +10,9 @@ export interface Config {
 	DATABASE_PATH: string;
 	API_KEY: string;
 	ENCRYPTION_KEY: string;
-	CORS_ORIGIN: string;
+	/** Public base URL of this service — used for gateway callback/redirect URLs. */
+	PUBLIC_BASE_URL: string;
+CORS_ORIGIN: string;
 	ADMIN_API_KEY: string;
 
 	// Midtrans
@@ -122,6 +124,7 @@ export function getConfig(): Config {
 
 	cachedConfig = {
 		PORT: Number(optional("PORT", "3100")),
+		PUBLIC_BASE_URL: optional("PUBLIC_BASE_URL", "https://pay.berkahkarya.org"),
 		NODE_ENV: nodeEnv,
 		REQUIRE_HTTPS: bool("REQUIRE_HTTPS", nodeEnv === "production"),
 		DATABASE_PATH: optional("DATABASE_PATH", "./data/payment.db"),

@@ -33,6 +33,10 @@ export interface CreatePaymentParams {
 	customerName?: string;
 	customerEmail?: string;
 	metadata?: Record<string, unknown>;
+	/** Where to send the buyer after payment completes (gateway-hosted redirect). */
+	successUrl?: string;
+	/** Where to send the buyer after cancelling. */
+	cancelUrl?: string;
 }
 
 export interface CreatePaymentResult {
