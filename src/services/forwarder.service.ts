@@ -8,11 +8,10 @@
 import { getDb } from "../config/database";
 import type { NormalizedPaymentEvent } from "../gateways/base";
 import { forwardFailuresCounter } from "../middleware/metrics";
-import { signPayload } from "../utils/crypto";
-import { generateEventId } from "../utils/crypto";
 import { getOrderById, markForwarded } from "./order.service";
 import type { Order } from "./order.service";
-
+import { logger } from "../utils/logger";
+import { signPayload, generateEventId } from "../utils/crypto";
 interface ForwardResult {
 	success: boolean;
 	statusCode: number;
@@ -116,15 +115,6 @@ function sleep(ms: number): Promise<void> {
 	return promise;
 }
 
-// Inline logger to avoid circular dependency
-const logger = {
-	error: (msg: string, data?: Record<string, unknown>) => {
-		console.error(`[Forwarder] ${msg}`, data ? JSON.stringify(data) : "");
-	},
-	info: (msg: string, data?: Record<string, unknown>) => {
-		console.log(`[Forwarder] ${msg}`, data ? JSON.stringify(data) : "");
-	},
-};
 
 async function writeDeadLetter(
 	order: Order,
