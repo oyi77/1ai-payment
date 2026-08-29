@@ -91,7 +91,11 @@ refundRoutes.openapi(createRefundRoute, async (c) => {
 			return c.json(
 				{
 					success: false as const,
-					error: { code: err.code || "REFUND_ERROR", message: err.message },
+					error: {
+						code: err.code || "REFUND_ERROR",
+						// Redact upstream/internal detail from caller; full text stays in logs.
+						message: "Gateway refund error, please retry or contact support",
+					},
 				},
 				statusCode as 400 | 404,
 			);

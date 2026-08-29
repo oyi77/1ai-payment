@@ -249,7 +249,11 @@ paymentRoutes.openapi(createPaymentRoute, async (c) => {
 			return c.json(
 				{
 					success: false as const,
-					error: { code: "GATEWAY_ERROR", message: err.message },
+					error: {
+						code: "GATEWAY_ERROR",
+						// Redact upstream/internal detail from caller; full text stays in the ops log above.
+						message: "Gateway error, please retry or contact support",
+					},
 				},
 				502,
 			);
