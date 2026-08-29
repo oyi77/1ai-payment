@@ -79,8 +79,7 @@ export class NowPaymentsGateway implements PaymentGateway {
 			order_id: params.orderId,
 			order_description: "Payment",
 			ipn_callback_url: `${publicBase}/webhook/nowpayments`,
-			success_url:
-				params.successUrl ?? `${publicBase}/payment/finish`,
+			success_url: params.successUrl ?? `${publicBase}/payment/finish`,
 			cancel_url: params.cancelUrl ?? `${publicBase}/payment/cancel`,
 		};
 

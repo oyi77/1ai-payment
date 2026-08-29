@@ -12,7 +12,7 @@ export interface Config {
 	ENCRYPTION_KEY: string;
 	/** Public base URL of this service — used for gateway callback/redirect URLs. */
 	PUBLIC_BASE_URL: string;
-CORS_ORIGIN: string;
+	CORS_ORIGIN: string;
 	ADMIN_API_KEY: string;
 
 	// Midtrans
