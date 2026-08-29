@@ -3,8 +3,13 @@
  *
  * Covers status mapping, event normalization, and signature verification.
  */
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test, beforeAll } from 'bun:test';
+import crypto from 'crypto';
 import { MidtransGateway } from '../../src/gateways/midtrans';
+
+beforeAll(() => {
+  process.env.MIDTRANS_SERVER_KEY = 'test_server_key';
+});
 
 function makePayload(overrides: Record<string, unknown> = {}) {
   return {
@@ -96,4 +101,35 @@ describe('MidtransGateway.normalizeEvent', () => {
     expect(event.status).toBe('pending');
   });
 
+});
+
+describe('MidtransGateway.verifySignature', () => {
+  test('valid SHA-512 signature_key passes', () => {
+    const body = makePayload();
+    const expected = crypto
+      .createHash('sha512')
+      .update(`${body.order_id}${body.status_code}${body.gross_amount}test_server_key`)
+      .digest('hex');
+    expect(gateway.verifySignature({ ...body, signature_key: expected }, {})).toBe(true);
+  });
+
+  test('tampered gross_amount fails', () => {
+    const body = makePayload();
+    const expected = crypto
+      .createHash('sha512')
+      .update(`${body.order_id}${body.status_code}${body.gross_amount}test_server_key`)
+      .digest('hex');
+    expect(
+      gateway.verifySignature({ ...body, signature_key: expected, gross_amount: '999999' }, {}),
+    ).toBe(false);
+  });
+
+  test('invalid signature_key fails', () => {
+    expect(gateway.verifySignature(makePayload({ signature_key: 'deadbeef' }), {})).toBe(false);
+  });
+
+  test('missing signature_key returns false', () => {
+    const { signature_key, ...rest } = makePayload();
+    expect(gateway.verifySignature(rest, {})).toBe(false);
+  });
 });
