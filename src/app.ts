@@ -33,6 +33,13 @@ const app = new OpenAPIHono({ defaultHook });
 // Middleware
 app.use("*", cors({ origin: getConfig().CORS_ORIGIN }));
 
+// Pre-auth IP abuse guard — runs BEFORE auth so unauthenticated floods
+// (wrong/missing API key, webhook brute attempts) cannot bypass rate
+// limiting. Keys by client IP (merchantId is not set yet). The post-auth
+// per-merchant limiter below still enforces plan tiers for authed traffic.
+app.use("/api/*", rateLimitMiddleware({ windowMs: 60_000, max: 60 }));
+app.use("/webhook/*", rateLimitMiddleware({ windowMs: 60_000, max: 120 }));
+
 // Merchant auth BEFORE rate limiting: the limiter keys by merchantId (set by
 // auth) so plans apply per-merchant, not per-IP. Applied per-prefix because
 // Hono <4.13 rejects array-form app.use([...]) with "handler is an instance
@@ -47,8 +54,9 @@ app.use("/api/merchants/*", authMiddleware);
 
 // Stricter rate limit for registration (5 req per hour per IP)
 app.use("/api/register", rateLimitMiddleware({ windowMs: 3_600_000, max: 5 }));
+// Post-auth per-merchant tiering (free=30/pro=120/enterprise=600) — keys by
+// merchantId set by authMiddleware above; falls back to IP keying (unauth).
 app.use("/api/*", rateLimitMiddleware({ windowMs: 60_000, max: 60 }));
-app.use("/webhook/*", rateLimitMiddleware({ windowMs: 60_000, max: 120 }));
 
 // Metrics — admin auth required
 app.get("/metrics", adminAuthMiddleware(), metricsHandler);
@@ -104,6 +112,20 @@ app.onError((err, c) => {
 				error: { code: err.code, message: err.message },
 			},
 			err.statusCode as ContentfulStatusCode,
+		);
+	}
+	// Body parse failures (c.req.json() throws a standard Error, not the module-local
+	// `SyntaxError` const re-exported above) and unknown RPC/route errors surface here.
+	if (
+		err instanceof globalThis.SyntaxError ||
+		(err instanceof Error && /JSON|parse|body/i.test(err.message))
+	) {
+		return c.json(
+			{
+				success: false as const,
+				error: { code: "BAD_REQUEST", message: "Invalid request body" },
+			},
+			400,
 		);
 	}
 	logger.error("Unhandled error", { error: err });

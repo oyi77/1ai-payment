@@ -85,7 +85,6 @@ export function rateLimitMiddleware(options: RateLimitOptions) {
 		// Key by merchant if available, else by IP
 		const key = merchantId || getClientIp(c);
 
-		// Use plan-based limit if available, else use configured max
 		const planLimit = merchantPlan ? PLAN_LIMITS[merchantPlan] : undefined;
 		const maxLimit = planLimit ?? options.max;
 
