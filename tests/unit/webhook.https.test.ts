@@ -77,6 +77,7 @@ describe("REQUIRE_HTTPS config", () => {
 	test("defaults to true when NODE_ENV is production", () => {
 		process.env.NODE_ENV = "production";
 		delete process.env.REQUIRE_HTTPS;
+		process.env.CORS_ORIGIN = "http://localhost:3100";
 		resetConfigCache();
 		expect(getConfig().REQUIRE_HTTPS).toBe(true);
 	});
@@ -96,10 +97,10 @@ describe("REQUIRE_HTTPS config", () => {
 			expect(getConfig().REQUIRE_HTTPS).toBe(true);
 		}
 	});
-
 	test("explicit false overrides production default", () => {
 		process.env.NODE_ENV = "production";
 		process.env.REQUIRE_HTTPS = "false";
+		process.env.CORS_ORIGIN = "http://localhost:3100";
 		resetConfigCache();
 		expect(getConfig().REQUIRE_HTTPS).toBe(false);
 	});

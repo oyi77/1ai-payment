@@ -122,6 +122,19 @@ export function getConfig(): Config {
 
 	const nodeEnv = optional("NODE_ENV", "development") as Config["NODE_ENV"];
 
+	// CORS origin hardening: in production, a wildcard '*' or empty origin is
+	// rejected. An unrestricted CORS policy on authenticated /api/* routes
+	// enables cross-origin credential/card-data theft. Dev/test may use '*'.
+	const corsOrigin = optional(
+		"CORS_ORIGIN",
+		nodeEnv === "production" ? "" : "*",
+	);
+	if (nodeEnv === "production" && (corsOrigin === "*" || corsOrigin === "")) {
+		throw new Error(
+			"CORS_ORIGIN must be set to a specific origin in production (wildcard '*' or empty is not allowed)",
+		);
+	}
+
 	cachedConfig = {
 		PORT: Number(optional("PORT", "3100")),
 		PUBLIC_BASE_URL: optional("PUBLIC_BASE_URL", "https://pay.berkahkarya.org"),
@@ -130,7 +143,7 @@ export function getConfig(): Config {
 		DATABASE_PATH: optional("DATABASE_PATH", "./data/payment.db"),
 		API_KEY: required("API_KEY"),
 		ENCRYPTION_KEY: required("ENCRYPTION_KEY"),
-		CORS_ORIGIN: optional("CORS_ORIGIN", "*"),
+		CORS_ORIGIN: corsOrigin,
 		ADMIN_API_KEY: required("ADMIN_API_KEY"),
 		MIDTRANS_SERVER_KEY: optional("MIDTRANS_SERVER_KEY"),
 		MIDTRANS_CLIENT_KEY: optional("MIDTRANS_CLIENT_KEY"),

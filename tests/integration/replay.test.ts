@@ -250,7 +250,10 @@ describe("POST /api/webhook-deliveries/{id}/replay", () => {
 		expect(res.status).toBe(502);
 		const body = await res.json();
 		expect(body.error.code).toBe("REPLAY_FAILED");
-		expect(body.error.message).toBe("Re-forward failed (HTTP 500)");
+		// Caller must receive a generic message — internal forward/secret state must NOT leak.
+		expect(body.error.message).toBe("Replay failed, please retry or contact support");
+		expect(body.error.message).not.toContain("HTTP 500");
+		expect(body.error.message).not.toContain("webhook secret");
 		expect(fetchCalls).toBe(3);
 	});
 

@@ -792,12 +792,18 @@ paymentRoutes.openapi(replayWebhookDeliveryRoute, async (c) => {
 
 		const replay = await replayDeadLetter(id);
 		if (!replay.ok) {
+			// Internal detail (DB/forward/secret state) stays in ops log; never leak to caller.
+			logger.warn("Dead letter replay failed", {
+				id,
+				merchant_id: merchantId,
+				error: replay.error,
+			});
 			return c.json(
 				{
 					success: false as const,
 					error: {
 						code: "REPLAY_FAILED",
-						message: replay.error ?? "Replay failed",
+						message: "Replay failed, please retry or contact support",
 					},
 				},
 				502,
