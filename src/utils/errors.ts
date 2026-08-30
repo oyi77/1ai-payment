@@ -55,22 +55,6 @@ export class DuplicateSavedMethodError extends PaymentError {
 	public readonly gateway: string;
 	public readonly gatewayToken: string;
 }
-
-export class NotFoundError extends PaymentError {
-	constructor(resource: string) {
-		super(`${resource} not found`, "NOT_FOUND", 404);
-		this.name = "NotFoundError";
-		this.resource = resource;
-	}
-	public readonly resource: string;
-}
-
-export class ValidationError extends PaymentError {
-	constructor(message: string) {
-		super(message, "VALIDATION_ERROR", 400);
-		this.name = "ValidationError";
-	}
-}
 export class GatewayError extends PaymentError {
 	constructor(
 		gateway: string,

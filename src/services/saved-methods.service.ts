@@ -95,7 +95,7 @@ export async function createSavedMethod(
 		throw err;
 	}
 	// Insert succeeded — the row must exist; re-fetch to return it.
-	const created = await getSavedMethod(merchantId, id);
+	const created = await getSavedMethodById(merchantId, id);
 	if (!created) {
 		throw new DuplicateSavedMethodError(
 			merchantId,
@@ -179,25 +179,6 @@ export async function findByUniqueKey(
 			LIMIT 1
 		`,
 		args: [merchantId, gateway, gateway_token],
-	});
-	const row = result.rows[0] as unknown as SavedMethod | undefined;
-	return row ? rowToSavedMethod(row) : null;
-}
-
-async function getSavedMethod(
-	merchantId: string,
-	id: string,
-): Promise<SavedMethod | null> {
-	const db = getDb();
-	const result = await db.execute({
-		sql: `
-			SELECT id, merchant_id, gateway, method_code, method_name,
-			       gateway_token, masked_identifier, expires_at, created_at
-			FROM saved_payment_methods
-			WHERE merchant_id = ? AND id = ?
-			LIMIT 1
-		`,
-		args: [merchantId, id],
 	});
 	const row = result.rows[0] as unknown as SavedMethod | undefined;
 	return row ? rowToSavedMethod(row) : null;

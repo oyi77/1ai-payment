@@ -23,7 +23,6 @@ import {
 	listSavedMethods,
 	updateSavedMethod,
 } from "../services/saved-methods.service";
-import { NotFoundError } from "../utils/errors";
 
 type MerchantEnv = {
 	Variables: { merchantId: string; merchantName?: string };
