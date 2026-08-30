@@ -26,16 +26,56 @@ export class OrderNotFoundError extends PaymentError {
 		this.name = "OrderNotFoundError";
 	}
 }
-
 export class DuplicateOrderError extends PaymentError {
-	constructor(orderId: string) {
-		super(`Duplicate order: ${orderId}`, "DUPLICATE_ORDER", 409);
+	constructor(idempotencyKey: string) {
+		super(
+			`Duplicate order with idempotency key: ${idempotencyKey}`,
+			"DUPLICATE_ORDER",
+			409,
+		);
 		this.name = "DuplicateOrderError";
+		this.idempotencyKey = idempotencyKey;
 	}
+	public readonly idempotencyKey: string;
 }
 
+export class DuplicateSavedMethodError extends PaymentError {
+	constructor(merchantId: string, gateway: string, gatewayToken: string) {
+		super(
+			`Duplicate saved method for merchant ${merchantId} gateway ${gateway}`,
+			"DUPLICATE_SAVED_METHOD",
+			409,
+		);
+		this.name = "DuplicateSavedMethodError";
+		this.merchantId = merchantId;
+		this.gateway = gateway;
+		this.gatewayToken = gatewayToken;
+	}
+	public readonly merchantId: string;
+	public readonly gateway: string;
+	public readonly gatewayToken: string;
+}
+
+export class NotFoundError extends PaymentError {
+	constructor(resource: string) {
+		super(`${resource} not found`, "NOT_FOUND", 404);
+		this.name = "NotFoundError";
+		this.resource = resource;
+	}
+	public readonly resource: string;
+}
+
+export class ValidationError extends PaymentError {
+	constructor(message: string) {
+		super(message, "VALIDATION_ERROR", 400);
+		this.name = "ValidationError";
+	}
+}
 export class GatewayError extends PaymentError {
-	constructor(gateway: string, details: string) {
+	constructor(
+		gateway: string,
+		public readonly details: string,
+	) {
 		super(`Gateway ${gateway} error: ${details}`, "GATEWAY_ERROR", 502);
 		this.name = "GatewayError";
 	}

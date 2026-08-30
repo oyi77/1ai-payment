@@ -21,6 +21,7 @@ import { merchantRoutes } from "./routes/merchant";
 import { paymentRoutes } from "./routes/payment";
 import { refundRoutes } from "./routes/refund";
 import { registerRoutes } from "./routes/register";
+import { savedMethodsRouter } from "./routes/saved-methods";
 import { webhookRoutes } from "./routes/webhook";
 import { defaultHook } from "./schemas";
 import { PaymentError } from "./utils/errors";
@@ -88,6 +89,7 @@ app.route("/webhook", webhookRoutes);
 app.route("/api", paymentRoutes);
 app.route("/api", merchantRoutes);
 app.route("/api", refundRoutes);
+app.route("/api", savedMethodsRouter);
 
 // Admin routes — protected by adminAuthMiddleware via adminRoutes
 app.route("/api", adminRoutes);

@@ -119,8 +119,46 @@ const MIGRATIONS: Migration[] = [
 			);
 		},
 	},
+	{
+		version: "005",
+		name: "Add idempotency_key to refunds table",
+		run: async (db: Client) => {
+			// refunds.idempotency_key backs the createRefund dedupe guard
+			// (getRefundByIdempotencyKey) but was missing from the 001 schema.
+			await db.execute("ALTER TABLE refunds ADD COLUMN idempotency_key TEXT");
+			await db.execute(
+				"CREATE UNIQUE INDEX IF NOT EXISTS idx_refunds_idempotency ON refunds(merchant_id, idempotency_key) WHERE idempotency_key IS NOT NULL",
+			);
+		},
+	},
+	{
+		version: "006",
+		name: "Add saved_payment_methods table",
+		run: async (db: Client) => {
+			// saved_payment_methods backs the merchant-scoped vault of reusable
+			// gateway tokens (saved cards / e-wallets) so customers can pay
+			// without re-entering details. UNIQUE(merchant_id, gateway, token)
+			// makes createSavedMethod idempotent per merchant.
+			await db.execute(`
+				CREATE TABLE IF NOT EXISTS saved_payment_methods (
+					id TEXT PRIMARY KEY,
+					merchant_id TEXT NOT NULL,
+					gateway TEXT NOT NULL,
+					method_code TEXT NOT NULL,
+					method_name TEXT NOT NULL,
+					gateway_token TEXT NOT NULL,
+					masked_identifier TEXT,
+					expires_at TEXT,
+					created_at TEXT DEFAULT (datetime('now'))
+				);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_methods_unique
+					ON saved_payment_methods(merchant_id, gateway, gateway_token);
+				CREATE INDEX IF NOT EXISTS idx_saved_methods_merchant
+					ON saved_payment_methods(merchant_id);
+			`);
+		},
+	},
 ];
-
 export async function runMigrations(db: Client): Promise<void> {
 	// Ensure the tracking table exists
 	await db.execute(`

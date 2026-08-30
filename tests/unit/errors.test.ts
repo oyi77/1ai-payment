@@ -62,7 +62,7 @@ describe("OrderNotFoundError", () => {
 describe("DuplicateOrderError", () => {
 	test("sets message, code 409", () => {
 		const err = new DuplicateOrderError("ord_dup");
-		expect(err.message).toBe("Duplicate order: ord_dup");
+		expect(err.message).toBe("Duplicate order with idempotency key: ord_dup");
 		expect(err.code).toBe("DUPLICATE_ORDER");
 		expect(err.statusCode).toBe(409);
 		expect(err.name).toBe("DuplicateOrderError");

@@ -233,6 +233,61 @@ export const merchantResponseSchema = z
 	})
 	.openapi("Merchant");
 
+// ── Saved payment method schemas ──────────────────────────────
+// Mirrors SavedMethod from services/saved-methods.service.ts.
+// `gateway_token` is intentionally OMITTED from API responses
+// (AGENTS.md security rule: never expose raw sensitive tokens).
+
+export const savedPaymentMethodSchema = z
+	.object({
+		id: z.string().openapi({ example: "sm_abc123" }),
+		merchant_id: z.string().openapi({ example: "merch_abc123" }),
+		gateway: z.string().openapi({ example: "midtrans" }),
+		method_code: z.string().openapi({ example: "card" }),
+		method_name: z.string().openapi({ example: "BCA Visa" }),
+		masked_identifier: z.string().nullable().openapi({ example: "•••• 4242" }),
+		expires_at: z
+			.string()
+			.nullable()
+			.openapi({ example: "2027-07-06T10:00:00.000Z" }),
+		created_at: z.string().openapi({ example: "2026-07-06T10:00:00.000Z" }),
+	})
+	.openapi("SavedPaymentMethod");
+
+export const createSavedMethodBodySchema = z
+	.object({
+		gateway: gatewayNameSchema,
+		method_code: z.string().min(1).openapi({ example: "card" }),
+		method_name: z.string().min(1).max(128).openapi({ example: "BCA Visa" }),
+		gateway_token: z.string().min(1).openapi({
+			description: "Gateway-issued opaque token/reference (never raw PAN)",
+			example: "tok_secure_abc",
+		}),
+		masked_identifier: z
+			.string()
+			.max(128)
+			.optional()
+			.openapi({ example: "•••• 4242" }),
+		expires_at: z
+			.string()
+			.optional()
+			.openapi({ example: "2027-07-06T10:00:00.000Z" }),
+	})
+	.openapi("CreateSavedMethodBody");
+
+export const savedMethodsListSchema = z
+	.array(savedPaymentMethodSchema)
+	.openapi("SavedPaymentMethodList");
+
+export const savedMethodIdParamsSchema = z
+	.object({
+		methodId: z.string().openapi({
+			param: { name: "methodId", in: "path" },
+			example: "sm_abc123",
+		}),
+	})
+	.openapi("SavedMethodIdParam");
+
 export const createMerchantResponseSchema = z
 	.object({
 		success: z.literal(true),
@@ -378,6 +433,28 @@ export function orderToResponse(order: {
 		metadata: order.metadata,
 		created_at: order.created_at,
 		updated_at: order.updated_at,
+	};
+}
+export function savedMethodToResponse(method: {
+	id: string;
+	merchant_id: string;
+	gateway: string;
+	method_code: string;
+	method_name: string;
+	gateway_token: string;
+	masked_identifier: string | null;
+	expires_at: string | null;
+	created_at: string;
+}) {
+	return {
+		id: method.id,
+		merchant_id: method.merchant_id,
+		gateway: method.gateway,
+		method_code: method.method_code,
+		method_name: method.method_name,
+		masked_identifier: method.masked_identifier,
+		expires_at: method.expires_at,
+		created_at: method.created_at,
 	};
 }
 
