@@ -31,6 +31,7 @@ process.env.XENDIT_API_KEY = 'xendit_test_key';
 process.env.XENDIT_CALLBACK_TOKEN = 'xendit_test_token';
 
 let app: import('hono').Hono;
+let restoreMidtrans: () => void = () => {};
 
 beforeAll(async () => {
   const { initDatabase } = await import('../../src/config/database');
@@ -54,6 +55,11 @@ beforeAll(async () => {
         expiresAt: undefined,
       };
     };
+    // Restore the singleton method in afterAll so the shared gateway registry
+    // is pristine for other test files running in the same process.
+    restoreMidtrans = () => {
+      midtransGw.createPayment = origCreatePayment;
+    };
   }
 
   app.route('/api', paymentRoutes);
@@ -67,6 +73,7 @@ afterEach(() => {
 });
 
 afterAll(() => {
+  restoreMidtrans();
   try { if (existsSync(TEST_DB)) unlinkSync(TEST_DB); } catch {}
 });
 
