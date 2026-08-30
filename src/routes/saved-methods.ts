@@ -1,7 +1,7 @@
 /**
  * Saved payment methods — merchant-scoped vault for reusable gateway tokens.
  * GET/POST /api/saved-methods
- * GET/DELETE /api/saved-methods/:methodId
+ * GET/PATCH/DELETE /api/saved-methods/:methodId
  */
 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
@@ -14,12 +14,14 @@ import {
 	savedMethodToResponse,
 	savedMethodsListSchema,
 	savedPaymentMethodSchema,
+	updateSavedMethodBodySchema,
 } from "../schemas";
 import {
 	createSavedMethod,
 	deleteSavedMethod,
 	getSavedMethodById,
 	listSavedMethods,
+	updateSavedMethod,
 } from "../services/saved-methods.service";
 import { NotFoundError } from "../utils/errors";
 
@@ -133,6 +135,65 @@ router.openapi(
 		const merchantId = c.get("merchantId") ?? "merch_default";
 		const { methodId } = c.req.valid("param");
 		const method = await getSavedMethodById(merchantId, methodId);
+		if (!method) {
+			return c.json(
+				{
+					success: false as const,
+					error: {
+						code: "NOT_FOUND",
+						message: `Saved payment method not found: ${methodId}`,
+					},
+				},
+				404,
+			);
+		}
+		return c.json(
+			{ success: true as const, data: savedMethodToResponse(method) },
+			200,
+		);
+	},
+);
+
+// Update a saved payment method
+router.openapi(
+	createRoute({
+		method: "patch",
+		path: "/saved-methods/{methodId}",
+		request: {
+			params: savedMethodIdParamsSchema,
+			body: {
+				content: {
+					"application/json": {
+						schema: updateSavedMethodBodySchema,
+					},
+				},
+			},
+		},
+		responses: {
+			200: {
+				description: "Saved payment method updated",
+				content: {
+					"application/json": {
+						schema: z.object({
+							success: z.literal(true),
+							data: savedPaymentMethodSchema,
+						}),
+					},
+				},
+			},
+			404: {
+				description: "Saved method not found",
+				content: { "application/json": { schema: errorSchema } },
+			},
+		},
+		tags: ["Saved Methods"],
+		summary: "Update a saved payment method",
+	}),
+	async (c) => {
+		const merchantId = c.get("merchantId") ?? "merch_default";
+		const { methodId } = c.req.valid("param");
+		const body = c.req.valid("json");
+		const method = await updateSavedMethod(merchantId, methodId, body);
 		if (!method) {
 			return c.json(
 				{

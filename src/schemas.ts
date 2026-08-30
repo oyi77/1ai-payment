@@ -287,6 +287,27 @@ export const savedMethodIdParamsSchema = z
 		}),
 	})
 	.openapi("SavedMethodIdParam");
+export const updateSavedMethodBodySchema = z
+	.object({
+		method_name: z
+			.string()
+			.min(1)
+			.max(128)
+			.optional()
+			.openapi({ example: "BCA Visa Updated" }),
+		masked_identifier: z
+			.string()
+			.max(128)
+			.optional()
+			.nullable()
+			.openapi({ example: "•••• 4242" }),
+		expires_at: z
+			.string()
+			.optional()
+			.nullable()
+			.openapi({ example: "2027-07-06T10:00:00.000Z" }),
+	})
+	.openapi("UpdateSavedMethodBody");
 
 export const createMerchantResponseSchema = z
 	.object({

@@ -108,6 +108,48 @@ export async function deleteSavedMethod(
 	});
 	return Number(result.rowsAffected ?? 0);
 }
+/**
+ * Update a saved payment method.
+ * Only mutable fields: method_name, masked_identifier, expires_at.
+ * Returns the updated method or null if not found.
+ */
+export async function updateSavedMethod(
+	merchantId: string,
+	id: string,
+	input: {
+		method_name?: string;
+		masked_identifier?: string | null;
+		expires_at?: string | null;
+	},
+): Promise<SavedMethod | null> {
+	const db = getDb();
+	const updates: string[] = [];
+	const args: (string | null)[] = [];
+
+	if (input.method_name !== undefined) {
+		updates.push("method_name = ?");
+		args.push(input.method_name);
+	}
+	if (input.masked_identifier !== undefined) {
+		updates.push("masked_identifier = ?");
+		args.push(input.masked_identifier);
+	}
+	if (input.expires_at !== undefined) {
+		updates.push("expires_at = ?");
+		args.push(input.expires_at);
+	}
+
+	if (updates.length === 0) {
+		return getSavedMethodById(merchantId, id);
+	}
+
+	args.push(merchantId, id);
+	await db.execute({
+		sql: `UPDATE saved_payment_methods SET ${updates.join(", ")} WHERE merchant_id = ? AND id = ?`,
+		args,
+	});
+	return getSavedMethodById(merchantId, id);
+}
 
 export async function findByUniqueKey(
 	merchantId: string,
