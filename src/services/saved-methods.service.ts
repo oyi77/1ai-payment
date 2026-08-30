@@ -64,24 +64,37 @@ export async function createSavedMethod(
 	if (existing) return existing;
 
 	const id = randomUUID();
-	await db.execute({
-		sql: `
-			INSERT INTO saved_payment_methods
-				(id, merchant_id, gateway, method_code, method_name,
-				 gateway_token, masked_identifier, expires_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		`,
-		args: [
-			id,
+	try {
+		await db.execute({
+			sql: `
+				INSERT INTO saved_payment_methods
+					(id, merchant_id, gateway, method_code, method_name,
+					 gateway_token, masked_identifier, expires_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			`,
+			args: [
+				id,
+				merchantId,
+				input.gateway,
+				input.method_code,
+				input.method_name,
+				input.gateway_token,
+				input.masked_identifier ?? null,
+				input.expires_at ?? null,
+			],
+		});
+	} catch (err: unknown) {
+		// Concurrent duplicate: UNIQUE(merchant_id, gateway, gateway_token) violation.
+		// Re-fetch the existing row and return it (true idempotency).
+		const existing = await findByUniqueKey(
 			merchantId,
 			input.gateway,
-			input.method_code,
-			input.method_name,
 			input.gateway_token,
-			input.masked_identifier ?? null,
-			input.expires_at ?? null,
-		],
-	});
+		);
+		if (existing) return existing;
+		throw err;
+	}
+	// Insert succeeded — the row must exist; re-fetch to return it.
 	const created = await getSavedMethod(merchantId, id);
 	if (!created) {
 		throw new DuplicateSavedMethodError(

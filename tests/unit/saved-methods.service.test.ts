@@ -253,3 +253,74 @@ describe("updateSavedMethod", () => {
 	});
 });
 
+describe("createSavedMethod concurrency (race)", () => {
+	test("parallel duplicate creates converge to one row — no 500", async () => {
+		// Fire two concurrent creates with the SAME unique key. The UNIQUE
+		// constraint makes one INSERT fail; the catch re-fetches the winner.
+		// Both must resolve to the same row id (true idempotency).
+		const input: CreateSavedMethodInput = {
+			gateway: "midtrans",
+			method_code: "card",
+			method_name: "Race Card",
+			gateway_token: "tok_race_1",
+		};
+		const results = await Promise.allSettled([
+			createSavedMethod("merch_race", input),
+			createSavedMethod("merch_race", input),
+		]);
+		for (const r of results) {
+			expect(r.status).toBe("fulfilled");
+		}
+		const ids = results.map((r) => (r.status === "fulfilled" ? r.value.id : ""));
+		expect(ids[0]).toBe(ids[1]);
+		// Exactly one row persisted
+		const all = await listSavedMethods("merch_race");
+		const matching = all.filter((m) => m.gateway_token === "tok_race_1");
+		expect(matching.length).toBe(1);
+	});
+
+	test("DB UNIQUE index rejects raw duplicate insert (the real guard)", async () => {
+		const input: CreateSavedMethodInput = {
+			gateway: "midtrans",
+			method_code: "card",
+			method_name: "Guard Card",
+			gateway_token: "tok_guard_1",
+		};
+		await createSavedMethod("merch_guard", input);
+
+		const db = (await import("../../src/config/database")).getDb();
+
+		// Prove the UNIQUE index actually exists in the schema.
+		const idx = await db.execute(
+			"SELECT name FROM sqlite_master WHERE type='index' AND name='idx_saved_methods_unique'",
+		);
+		expect(idx.rows.length).toBe(1);
+
+		// Raw duplicate insert MUST be rejected by the constraint.
+		let threw = false;
+		try {
+			await db.execute({
+				sql: `
+					INSERT INTO saved_payment_methods
+						(id, merchant_id, gateway, method_code, method_name,
+						 gateway_token, masked_identifier, expires_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+				`,
+				args: [
+					"another-id",
+					"merch_guard",
+					input.gateway,
+					input.method_code,
+					input.method_name,
+					input.gateway_token,
+					null,
+					null,
+				],
+			});
+		} catch {
+			threw = true;
+		}
+		expect(threw).toBe(true);
+	});
+});
+

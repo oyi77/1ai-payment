@@ -139,7 +139,10 @@ const MIGRATIONS: Migration[] = [
 			// gateway tokens (saved cards / e-wallets) so customers can pay
 			// without re-entering details. UNIQUE(merchant_id, gateway, token)
 			// makes createSavedMethod idempotent per merchant.
-			await db.execute(`
+			// NOTE: multi-statement SQL MUST use executeMultiple — libsql execute()
+			// runs only the first statement, which silently skipped the UNIQUE
+			// index below (idempotency race) until this fix.
+			await db.executeMultiple(`
 				CREATE TABLE IF NOT EXISTS saved_payment_methods (
 					id TEXT PRIMARY KEY,
 					merchant_id TEXT NOT NULL,
