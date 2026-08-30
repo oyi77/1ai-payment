@@ -32,6 +32,15 @@ let findByUniqueKey: (
 	gateway: string,
 	gatewayToken: string,
 ) => Promise<SavedMethod | null>;
+let updateSavedMethod: (
+	merchantId: string,
+	id: string,
+	input: {
+		method_name?: string;
+		masked_identifier?: string | null;
+		expires_at?: string | null;
+	},
+) => Promise<SavedMethod | null>;
 
 beforeAll(async () => {
 	await initDatabase(TEST_DB);
@@ -43,6 +52,7 @@ beforeAll(async () => {
 	getSavedMethodById = mod.getSavedMethodById;
 	deleteSavedMethod = mod.deleteSavedMethod;
 	findByUniqueKey = mod.findByUniqueKey;
+	updateSavedMethod = mod.updateSavedMethod;
 });
 
 afterAll(() => {
@@ -189,3 +199,57 @@ describe("listSavedMethods returns all methods", () => {
 		expect(names).toEqual(["First", "Second", "Third"]);
 	});
 });
+
+describe("updateSavedMethod", () => {
+	test("updates method_name", async () => {
+		const created = await createSavedMethod("merch_upd1", baseInput);
+		const updated = await updateSavedMethod("merch_upd1", created.id, { method_name: "Updated Card" });
+		expect(updated).not.toBeNull();
+		expect(updated!.method_name).toBe("Updated Card");
+		// unchanged fields preserved
+		expect(updated!.gateway).toBe("midtrans");
+		expect(updated!.gateway_token).toBe("tok_abc123");
+	});
+
+	test("updates masked_identifier to new value", async () => {
+		const created = await createSavedMethod("merch_upd2", { ...baseInput, gateway_token: "tok_upd2" });
+		const updated = await updateSavedMethod("merch_upd2", created.id, { masked_identifier: "•••• 9999" });
+		expect(updated!.masked_identifier).toBe("•••• 9999");
+	});
+
+	test("clears masked_identifier to null", async () => {
+		const created = await createSavedMethod("merch_upd3", { ...baseInput, gateway_token: "tok_upd3" });
+		const updated = await updateSavedMethod("merch_upd3", created.id, { masked_identifier: null });
+		expect(updated!.masked_identifier).toBeNull();
+	});
+
+	test("updates multiple fields at once", async () => {
+		const created = await createSavedMethod("merch_upd4", { ...baseInput, gateway_token: "tok_upd4" });
+		const updated = await updateSavedMethod("merch_upd4", created.id, {
+			method_name: "Gold Card",
+			expires_at: "2030-01-01T00:00:00.000Z",
+		});
+		expect(updated!.method_name).toBe("Gold Card");
+		expect(updated!.expires_at).toBe("2030-01-01T00:00:00.000Z");
+	});
+
+	test("returns null for non-existent method", async () => {
+		const result = await updateSavedMethod("merch_upd5", "nonexistent", { method_name: "Nope" });
+		expect(result).toBeNull();
+	});
+
+	test("returns null for other merchant's method (isolation)", async () => {
+		const created = await createSavedMethod("merch_upd6_owner", { ...baseInput, gateway_token: "tok_iso" });
+		const result = await updateSavedMethod("merch_upd6_other", created.id, { method_name: "Hacked" });
+		expect(result).toBeNull();
+	});
+
+	test("empty input returns current method unchanged", async () => {
+		const created = await createSavedMethod("merch_upd7", { ...baseInput, gateway_token: "tok_empty" });
+		const updated = await updateSavedMethod("merch_upd7", created.id, {});
+		expect(updated).not.toBeNull();
+		expect(updated!.method_name).toBe("BCA Visa");
+		expect(updated!.masked_identifier).toBe("•••• 4242");
+	});
+});
+
