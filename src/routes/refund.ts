@@ -87,7 +87,15 @@ refundRoutes.openapi(createRefundRoute, async (c) => {
 		return c.json({ success: true as const, data: refund }, 201);
 	} catch (err: unknown) {
 		if (err instanceof GatewayError) {
-			const statusCode = err.message.includes("not found") ? 404 : 400;
+			// 404 for order-existence failures (not found OR cross-merchant) so
+			// attackers cannot distinguish "exists but not mine" from "missing".
+			// Status/amount errors stay 400 — they only fire after ownership
+			// passes, so they leak nothing about other merchants.
+			const statusCode =
+				err.message.includes("not found") ||
+				err.message.includes("does not belong")
+					? 404
+					: 400;
 			return c.json(
 				{
 					success: false as const,
