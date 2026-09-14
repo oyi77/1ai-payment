@@ -1,0 +1,340 @@
+// Payments endpoints -- create + status lookup.
+
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { getDb } from "../../config/database";
+import { authMiddleware } from "../../middleware/auth";
+import {
+	errorsCounter,
+	paymentCreationDuration,
+	paymentsCreatedCounter,
+} from "../../middleware/metrics";
+import {
+	createPaymentBodySchema,
+	defaultHook,
+	errorSchema,
+	gatewayInfoSchema,
+	gatewayNameSchema,
+	orderResponseSchema,
+	orderToResponse,
+	transactionResponseSchema,
+	webhookDeliverySchema,
+} from "../../schemas";
+import { replayDeadLetter } from "../../services/forwarder.service";
+import {
+	getAvailableGateways,
+	getGateway,
+	getGatewayMethods,
+} from "../../services/gateway.service";
+import {
+	type CreateOrderParams,
+	type Order,
+	createOrder,
+	getOrderById,
+	getOrderByIdempotencyKey,
+	listOrders,
+	updateOrderStatus,
+} from "../../services/order.service";
+import { DuplicateOrderError, GatewayError } from "../../utils/errors";
+import { logger } from "../../utils/logger";
+
+type MerchantEnv = {
+	Variables: { merchantId?: string; merchantName?: string };
+};
+export const paymentsRouter = new OpenAPIHono<MerchantEnv>({ defaultHook });
+
+paymentsRouter.use("/*", authMiddleware);
+// ── POST /api/payments ─────────────────────────────────────────
+
+const createPaymentRoute = createRoute({
+	method: "post",
+	path: "/payments",
+	tags: ["Payments"],
+	summary: "Create a payment",
+	description:
+		"Creates an order and calls the chosen gateway to obtain a payment_url. " +
+		"Returns 201 on success, 200 on idempotent hit, 409 on duplicate, 502 on gateway error.",
+	security: [{ ApiKeyAuth: [] }],
+	request: {
+		headers: z.object({
+			"idempotency-key": z.string().optional().openapi({
+				description: "Client-generated unique key to prevent duplicate orders",
+			}),
+		}),
+		body: {
+			content: { "application/json": { schema: createPaymentBodySchema } },
+		},
+	},
+	responses: {
+		201: {
+			description: "Payment created. Redirect end user to `data.payment_url`.",
+			content: {
+				"application/json": {
+					schema: z.object({
+						success: z.literal(true),
+						data: orderResponseSchema,
+					}),
+				},
+			},
+		},
+		200: {
+			description: "Idempotent hit — existing order returned unchanged.",
+			content: {
+				"application/json": {
+					schema: z.object({
+						success: z.literal(true),
+						data: orderResponseSchema,
+					}),
+				},
+			},
+		},
+		400: {
+			description: "Invalid request body.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		401: {
+			description: "Missing or invalid API key.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		409: {
+			description: "Duplicate order conflict.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		502: {
+			description: "Gateway API error.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		500: {
+			description: "Unexpected server error.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+	},
+});
+
+paymentsRouter.openapi(createPaymentRoute, async (c) => {
+	const body = c.req.valid("json");
+	const headerKey = c.req.valid("header")["idempotency-key"];
+	const idempotencyKey = body.idempotency_key ?? headerKey;
+
+	// Check idempotency (scoped to merchant)
+	const merchantId = c.get("merchantId") ?? "merch_default";
+	if (idempotencyKey) {
+		try {
+			const existing = await getOrderByIdempotencyKey(
+				idempotencyKey,
+				merchantId,
+			);
+			if (existing) {
+				return c.json(
+					{ success: true as const, data: orderToResponse(existing) },
+					200,
+				);
+			}
+		} catch {
+			// Ignore — proceed with creation
+		}
+	}
+
+	// Get gateway implementation
+	const gw = getGateway(body.gateway);
+	if (!gw) {
+		return c.json(
+			{
+				success: false as const,
+				error: {
+					code: "INVALID_BODY",
+					message: `Unsupported gateway: ${body.gateway}`,
+				},
+			},
+			400,
+		);
+	}
+
+	// Create order in registry
+	const orderParams: CreateOrderParams = {
+		project_id: merchantId,
+		merchant_id: merchantId,
+		project_order_id: body.project_order_id,
+		callback_url: body.callback_url,
+		gateway: body.gateway,
+		amount: body.amount,
+		currency: body.currency,
+		payment_method: body.payment_method,
+		metadata: body.metadata as Record<string, unknown> | undefined,
+		idempotency_key: idempotencyKey,
+	};
+	let order: Order;
+	try {
+		order = await createOrder(orderParams);
+	} catch (err: unknown) {
+		if (err instanceof DuplicateOrderError) {
+			return c.json(
+				{
+					success: false as const,
+					error: { code: "DUPLICATE_ORDER", message: err.message },
+				},
+				409,
+			);
+		}
+		throw err;
+	}
+	// Create payment via gateway (with latency tracking)
+	const endTimer = paymentCreationDuration.startTimer({
+		gateway: body.gateway,
+	});
+	try {
+		const result = await gw.createPayment({
+			orderId: order.id,
+			amount: body.amount,
+			currency: order.currency,
+			paymentMethod: body.payment_method,
+			customerName: body.customer?.name,
+			customerEmail: body.customer?.email,
+			metadata: order.metadata as Record<string, unknown> | undefined,
+			successUrl: body.success_url,
+			cancelUrl: body.cancel_url,
+		});
+		endTimer();
+
+		// Update order with gateway reference and payment URL
+		await updateOrderStatus(
+			order.id,
+			"pending",
+			result.gatewayReference,
+			result.paymentUrl,
+			body.payment_method,
+		);
+
+		// Re-read to get updated data
+		const updatedOrder = await getOrderById(order.id);
+		if (!updatedOrder) throw new Error("Order disappeared after creation");
+
+		logger.info("Payment created", {
+			order_id: updatedOrder.id,
+			gateway: body.gateway,
+			gateway_reference: result.gatewayReference,
+			amount: body.amount,
+		});
+
+		paymentsCreatedCounter.inc({ gateway: body.gateway, status: "success" });
+		return c.json(
+			{ success: true as const, data: orderToResponse(updatedOrder) },
+			201,
+		);
+	} catch (err: unknown) {
+		endTimer();
+		paymentsCreatedCounter.inc({ gateway: body.gateway, status: "failed" });
+		errorsCounter.inc({ type: "payment_creation" });
+
+		// Mark order as failed if gateway errored
+		await updateOrderStatus(order.id, "failed");
+
+		if (err instanceof GatewayError) {
+			logger.warn("Gateway error during payment creation", {
+				gateway: body.gateway,
+				order_id: order.id,
+				error: err.message,
+			});
+			return c.json(
+				{
+					success: false as const,
+					error: {
+						code: "GATEWAY_ERROR",
+						// Redact upstream/internal detail from caller; full text stays in the ops log above.
+						message: "Gateway error, please retry or contact support",
+					},
+				},
+				502,
+			);
+		}
+
+		throw err;
+	}
+});
+
+// ── GET /api/payments/:id ──────────────────────────────────────
+
+const getPaymentRoute = createRoute({
+	method: "get",
+	path: "/payments/{id}",
+	tags: ["Payments"],
+	summary: "Get payment status",
+	description:
+		"Returns the current status and details of an order by its 1ai-payment ID.",
+	security: [{ ApiKeyAuth: [] }],
+	request: {
+		params: z.object({
+			id: z.string().openapi({
+				description: "1ai-payment order ID",
+				example: "pay_01j2k3l4m5n6",
+			}),
+		}),
+	},
+	responses: {
+		200: {
+			description: "Order found.",
+			content: {
+				"application/json": {
+					schema: z.object({
+						success: z.literal(true),
+						data: orderResponseSchema,
+					}),
+				},
+			},
+		},
+		401: {
+			description: "Missing or invalid API key.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		404: {
+			description: "Order not found.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		500: {
+			description: "Unexpected server error.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+	},
+});
+
+paymentsRouter.openapi(getPaymentRoute, async (c) => {
+	const { id } = c.req.valid("param");
+	const merchantId = c.get("merchantId") ?? "merch_default";
+
+	try {
+		const order = await getOrderById(id);
+		if (!order) {
+			return c.json(
+				{
+					success: false as const,
+					error: { code: "ORDER_NOT_FOUND", message: `Order not found: ${id}` },
+				},
+				404,
+			);
+		}
+		if (order.merchant_id !== merchantId) {
+			return c.json(
+				{
+					success: false as const,
+					error: { code: "ORDER_NOT_FOUND", message: `Order not found: ${id}` },
+				},
+				404,
+			);
+		}
+		return c.json(
+			{ success: true as const, data: orderToResponse(order) },
+			200,
+		);
+	} catch (err: unknown) {
+		logger.error("Error fetching order", {
+			id,
+			error: err instanceof Error ? err.message : String(err),
+		});
+		return c.json(
+			{
+				success: false as const,
+				error: { code: "INTERNAL_ERROR", message: "Failed to fetch order" },
+			},
+			500,
+		);
+	}
+});
