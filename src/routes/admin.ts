@@ -53,7 +53,7 @@ adminRoutes.get("/admin/merchants", async (c) => {
 	}
 });
 
-adminRoutes.patch("/admin/merchants/{id}", async (c) => {
+adminRoutes.patch("/admin/merchants/:id", async (c) => {
 	const db = getDb();
 	const id = c.req.param("id") ?? "";
 

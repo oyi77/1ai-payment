@@ -2,9 +2,10 @@
 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { getDb } from "../../config/database";
+import { MERCHANT_CREDENTIAL_KEYS } from "../../config/env";
 import { authMiddleware } from "../../middleware/auth";
-import { GATEWAY_NAMES } from "../../schemas";
 import {
+	GATEWAY_NAMES,
 	createMerchantBodySchema,
 	createMerchantResponseSchema,
 	defaultHook,
@@ -195,6 +196,34 @@ merchantGatewaysRouter.openapi(setGatewayRoute, async (c) => {
 				error: { code: "NOT_FOUND", message: `Merchant not found: ${id}` },
 			},
 			404,
+		);
+	}
+	const allowed = MERCHANT_CREDENTIAL_KEYS[gateway];
+	if (!allowed) {
+		return c.json(
+			{
+				success: false as const,
+				error: {
+					code: "INVALID_GATEWAY",
+					message: `Gateway '${gateway}' does not accept merchant-owned credentials (uses platform credentials)`,
+				},
+			},
+			400,
+		);
+	}
+	const unknownKeys = Object.keys(body.credentials).filter(
+		(k) => !allowed.includes(k),
+	);
+	if (unknownKeys.length > 0) {
+		return c.json(
+			{
+				success: false as const,
+				error: {
+					code: "INVALID_CREDENTIALS",
+					message: `Unknown credential keys for ${gateway}: ${unknownKeys.join(", ")}. Allowed: ${allowed.join(", ")}`,
+				},
+			},
+			400,
 		);
 	}
 
