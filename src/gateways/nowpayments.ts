@@ -8,7 +8,7 @@
  */
 
 import crypto from "node:crypto";
-import { getConfig } from "../config/env";
+import { getConfig, resolveGatewayConfig } from "../config/env";
 import { GatewayError } from "../utils/errors";
 import { logger } from "../utils/logger";
 import type {
@@ -30,6 +30,12 @@ interface NowPaymentsCallbackPayload {
 	pay_currency: string;
 	payment_status: string;
 	created_at: string;
+}
+
+interface NowPaymentsMerchantConfig {
+	apiKey?: string;
+	ipnSecret?: string;
+	environment?: string;
 }
 
 interface NowPaymentsInvoiceResponse {
@@ -55,24 +61,29 @@ export class NowPaymentsGateway implements PaymentGateway {
 	async createPayment(
 		params: CreatePaymentParams,
 	): Promise<CreatePaymentResult> {
-		const config = getConfig();
-		if (!config.NOWPAYMENTS_API_KEY) {
+		const base = getConfig();
+		const m = params.merchantId
+			? ((await resolveGatewayConfig(
+					"nowpayments",
+					params.merchantId,
+				)) as unknown as NowPaymentsMerchantConfig)
+			: null;
+		const apiKey = m?.apiKey || base.NOWPAYMENTS_API_KEY;
+		if (!apiKey) {
 			throw new GatewayError(
 				"nowpayments",
 				"NOWPAYMENTS_API_KEY not configured",
 			);
 		}
 
-		const baseUrl =
-			config.NOWPAYMENTS_ENVIRONMENT === "production"
-				? PRODUCTION_URL
-				: SANDBOX_URL;
+		const env = m?.environment || base.NOWPAYMENTS_ENVIRONMENT;
+		const baseUrl = env === "production" ? PRODUCTION_URL : SANDBOX_URL;
 
 		// NOWPayments uses major units (e.g., 20.00 USD, not 2000 cents)
 		const amount =
 			params.currency === "IDR" ? params.amount : params.amount / 100;
 
-		const publicBase = config.PUBLIC_BASE_URL.replace(/\/$/, "");
+		const publicBase = base.PUBLIC_BASE_URL.replace(/\/$/, "");
 		const body = {
 			price_amount: amount,
 			price_currency: params.currency.toLowerCase(),
@@ -87,7 +98,7 @@ export class NowPaymentsGateway implements PaymentGateway {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				"x-api-key": config.NOWPAYMENTS_API_KEY,
+				"x-api-key": apiKey,
 			},
 			body: JSON.stringify(body),
 		});

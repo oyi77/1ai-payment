@@ -101,7 +101,13 @@ export function resetConfigCache(): void {
 }
 
 export function getConfig(): Config {
-	// In test mode, always re-read from env to pick up beforeAll changes
+	// In test mode, always re-read from env to pick up beforeAll changes.
+	// NOTE (multitenancy-isolation trap): test files share one process when
+	// run under `bun test` WITHOUT --isolate, so any file-level process.env
+	// mutation leaks into co-running files. Route tests must therefore treat
+	// the app as keyed by whatever ADMIN_API_KEY/API_KEY the CURRENT file
+	// set — which holds as long as each file sets its own keys and does not
+	// read another file's keys. Do not assert against a sibling file's keys.
 	if (cachedConfig && cachedConfig.NODE_ENV !== "test") return cachedConfig;
 
 	const required = (key: string): string => {
@@ -316,13 +322,28 @@ export function getGatewayConfig(gateway: string) {
 }
 
 /**
- * Get gateway config for a specific merchant.
- * Checks merchant_gateways table first, falls back to platform env config.
+ * Merchant credential key contract by gateway. Keys MUST match the camelCase
+ * field names of getGatewayConfig(), so resolution is a plain override-merge
+ * and the SET-credentials route can validate keys at write time.
+ * x402/erc8183/paypal/telegram are platform-credential gateways (treasury
+ * wallets, bot identity) — the SET route rejects merchant creds for them.
  */
-export async function getGatewayConfigForMerchant(
+export const MERCHANT_CREDENTIAL_KEYS: Record<string, string[]> = {
+	midtrans: ["apiKey"],
+	tripay: ["apiKey", "privateKey", "merchantCode"],
+	duitku: ["apiKey", "merchantCode"],
+	nowpayments: ["apiKey", "ipnSecret"],
+	ipaymu: ["apiKey", "vaKey"],
+	scalev: ["storefrontApiKey", "storeId", "variantId", "webhookSecret"],
+	xendit: ["apiKey", "callbackToken"],
+	saweria: ["username", "userId"],
+};
+export async function resolveGatewayConfig(
 	gateway: string,
-	merchantId: string,
-) {
+	merchantId?: string,
+): Promise<Record<string, unknown>> {
+	const platform = getGatewayConfig(gateway) as Record<string, unknown>;
+	if (!merchantId) return platform;
 	const { getDb } = await import("./database");
 	const { decrypt } = await import("../utils/crypto");
 	const db = getDb();
@@ -330,17 +351,26 @@ export async function getGatewayConfigForMerchant(
 		sql: "SELECT credentials, environment FROM merchant_gateways WHERE merchant_id = ? AND gateway = ? AND enabled = 1",
 		args: [merchantId, gateway],
 	});
-
-	if (result.rows.length > 0) {
-		try {
-			return {
-				...JSON.parse(decrypt(result.rows[0].credentials as string)),
-				environment: result.rows[0].environment,
-			};
-		} catch {
-			// Fall through to platform config if decryption fails
-		}
+	if (result.rows.length === 0) return platform;
+	try {
+		return {
+			...platform,
+			...JSON.parse(decrypt(result.rows[0].credentials as string)),
+			environment:
+				(result.rows[0].environment as string) ?? platform.environment,
+		};
+	} catch {
+		return platform;
 	}
+}
 
-	return getGatewayConfig(gateway);
+/**
+ * Get gateway config for a specific merchant.
+ * Checks merchant_gateways table first, falls back to platform env config.
+ */
+export async function getGatewayConfigForMerchant(
+	gateway: string,
+	merchantId: string,
+) {
+	return resolveGatewayConfig(gateway, merchantId);
 }

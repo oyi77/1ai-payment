@@ -7,7 +7,7 @@
  */
 
 import crypto from "node:crypto";
-import { getConfig } from "../config/env";
+import { getConfig, resolveGatewayConfig } from "../config/env";
 import { GatewayError } from "../utils/errors";
 import { logger } from "../utils/logger";
 import type {
@@ -26,6 +26,12 @@ interface IPaymuCallbackPayload {
 	payment_method: string;
 	reference_id: string;
 	signature: string;
+}
+
+interface IPaymuMerchantConfig {
+	apiKey?: string;
+	vaKey?: string;
+	environment?: string;
 }
 
 interface IPaymuCreateResponse {
@@ -51,16 +57,24 @@ export class IPaymuGateway implements PaymentGateway {
 	async createPayment(
 		params: CreatePaymentParams,
 	): Promise<CreatePaymentResult> {
-		const config = getConfig();
-		if (!config.IPAYMU_API_KEY || !config.IPAYMU_VA_KEY) {
+		const base = getConfig();
+		const m = params.merchantId
+			? ((await resolveGatewayConfig(
+					"ipaymu",
+					params.merchantId,
+				)) as unknown as IPaymuMerchantConfig)
+			: null;
+		const apiKey = m?.apiKey || base.IPAYMU_API_KEY;
+		const vaKey = m?.vaKey || base.IPAYMU_VA_KEY;
+		if (!apiKey || !vaKey) {
 			throw new GatewayError(
 				"ipaymu",
 				"IPAYMU_API_KEY or IPAYMU_VA_KEY not configured",
 			);
 		}
 
-		const baseUrl =
-			config.IPAYMU_ENVIRONMENT === "production" ? PRODUCTION_URL : SANDBOX_URL;
+		const env = m?.environment || base.IPAYMU_ENVIRONMENT;
+		const baseUrl = env === "production" ? PRODUCTION_URL : SANDBOX_URL;
 
 		const body = {
 			name: params.customerName || "Customer",
@@ -81,12 +95,10 @@ export class IPaymuGateway implements PaymentGateway {
 			.update(bodyStr)
 			.digest("hex")
 			.toLowerCase();
-		const stringToSign = `POST:${config.IPAYMU_VA_KEY}:${bodyHash}:${config.IPAYMU_API_KEY}`;
+		const stringToSign = `POST:${vaKey}:${bodyHash}:${apiKey}`;
 		const signature = crypto
-			.createHmac("sha256", config.IPAYMU_API_KEY)
-			.update(
-				`POST:${config.IPAYMU_VA_KEY}:${bodyHash}:${config.IPAYMU_API_KEY}`,
-			)
+			.createHmac("sha256", apiKey)
+			.update(`POST:${vaKey}:${bodyHash}:${apiKey}`)
 			.digest("hex")
 			.toLowerCase();
 
@@ -96,7 +108,7 @@ export class IPaymuGateway implements PaymentGateway {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				va: config.IPAYMU_VA_KEY,
+				va: vaKey,
 				signature: signature,
 				timestamp: timestamp,
 			},

@@ -5,7 +5,7 @@
  * Telegram Payments supports multiple providers (Stripe, PayPal, etc.)
  */
 
-import { getConfig } from "../../config/env";
+import { getConfig, resolveGatewayConfig } from "../../config/env";
 import { GatewayError } from "../../utils/errors";
 import { logger } from "../../utils/logger";
 import type { CreatePaymentParams, CreatePaymentResult } from "../base";
@@ -18,9 +18,15 @@ const TELEGRAM_API = "https://api.telegram.org";
 export async function createInvoice(
 	params: CreatePaymentParams,
 ): Promise<CreatePaymentResult> {
-	const config = getConfig();
-
-	if (!config.TELEGRAM_BOT_TOKEN) {
+	const base = getConfig();
+	const m = params.merchantId
+		? ((await resolveGatewayConfig(
+				"telegram_payments",
+				params.merchantId,
+			)) as unknown as { botToken?: string; providerToken?: string })
+		: null;
+	const botToken = m?.botToken || base.TELEGRAM_BOT_TOKEN;
+	if (!botToken) {
 		throw new GatewayError(
 			"telegram_payments",
 			"TELEGRAM_BOT_TOKEN not configured",
@@ -31,7 +37,7 @@ export async function createInvoice(
 	const currency = params.currency || "USD";
 
 	// Create invoice link via Telegram Bot API
-	const apiUrl = `${TELEGRAM_API}/bot${config.TELEGRAM_BOT_TOKEN}/createInvoiceLink`;
+	const apiUrl = `${TELEGRAM_API}/bot${botToken}/createInvoiceLink`;
 
 	const body = {
 		title: params.customerName || "Payment",
@@ -40,7 +46,8 @@ export async function createInvoice(
 			order_id: params.orderId,
 			gateway: "telegram_payments",
 		}),
-		provider_token: config.TELEGRAM_PAYMENT_PROVIDER_TOKEN || "",
+		provider_token:
+			m?.providerToken || base.TELEGRAM_PAYMENT_PROVIDER_TOKEN || "",
 		currency,
 		prices: [
 			{

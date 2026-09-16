@@ -5,7 +5,7 @@
  * Telegram Stars is Telegram's built-in digital currency.
  */
 
-import { getConfig } from "../../config/env";
+import { getConfig, resolveGatewayConfig } from "../../config/env";
 import { GatewayError } from "../../utils/errors";
 import { logger } from "../../utils/logger";
 import type { CreatePaymentParams, CreatePaymentResult } from "../base";
@@ -25,9 +25,16 @@ export interface TelegramStarsPayment {
 export async function createInvoice(
 	params: CreatePaymentParams,
 ): Promise<CreatePaymentResult> {
-	const config = getConfig();
-
-	if (!config.TELEGRAM_BOT_TOKEN) {
+	const base = getConfig();
+	const botToken = params.merchantId
+		? (
+				(await resolveGatewayConfig(
+					"telegram_stars",
+					params.merchantId,
+				)) as unknown as { botToken?: string }
+			).botToken || base.TELEGRAM_BOT_TOKEN
+		: base.TELEGRAM_BOT_TOKEN;
+	if (!botToken) {
 		throw new GatewayError(
 			"telegram_stars",
 			"TELEGRAM_BOT_TOKEN not configured",
@@ -38,7 +45,7 @@ export async function createInvoice(
 	const currency = "XTR";
 
 	// Create invoice link via Telegram Bot API
-	const apiUrl = `${TELEGRAM_API}/bot${config.TELEGRAM_BOT_TOKEN}/createInvoiceLink`;
+	const apiUrl = `${TELEGRAM_API}/bot${botToken}/createInvoiceLink`;
 
 	const body = {
 		title: params.customerName || "Payment",

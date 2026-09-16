@@ -8,7 +8,7 @@
  */
 
 import crypto from "node:crypto";
-import { getConfig } from "../config/env";
+import { getConfig, resolveGatewayConfig } from "../config/env";
 import { GatewayError } from "../utils/errors";
 import { logger } from "../utils/logger";
 import type {
@@ -55,6 +55,12 @@ interface XenditInvoiceResponse {
 	expiry_date: string;
 }
 
+interface XenditMerchantConfig {
+	apiKey?: string;
+	callbackToken?: string;
+	environment?: string;
+}
+
 interface XenditVAResponse {
 	id: string;
 	external_id: string;
@@ -74,13 +80,20 @@ export class XenditGateway implements PaymentGateway {
 	async createPayment(
 		params: CreatePaymentParams,
 	): Promise<CreatePaymentResult> {
-		const config = getConfig();
-		if (!config.XENDIT_API_KEY) {
+		const base = getConfig();
+		const m = params.merchantId
+			? ((await resolveGatewayConfig(
+					"xendit",
+					params.merchantId,
+				)) as unknown as XenditMerchantConfig)
+			: null;
+		const apiKey = m?.apiKey || base.XENDIT_API_KEY;
+		if (!apiKey) {
 			throw new GatewayError("xendit", "XENDIT_API_KEY not configured");
 		}
 
-		const baseUrl =
-			config.XENDIT_ENVIRONMENT === "production" ? PRODUCTION_URL : SANDBOX_URL;
+		const env = m?.environment || base.XENDIT_ENVIRONMENT;
+		const baseUrl = env === "production" ? PRODUCTION_URL : SANDBOX_URL;
 
 		// Determine payment type from paymentMethod
 		const isVA = [
@@ -110,7 +123,7 @@ export class XenditGateway implements PaymentGateway {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					Authorization: `Basic ${Buffer.from(`${config.XENDIT_API_KEY}:`).toString("base64")}`,
+					Authorization: `Basic ${Buffer.from(`${apiKey}:`).toString("base64")}`,
 				},
 				body: JSON.stringify(body),
 			});
@@ -160,7 +173,7 @@ export class XenditGateway implements PaymentGateway {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				Authorization: `Basic ${Buffer.from(`${config.XENDIT_API_KEY}:`).toString("base64")}`,
+				Authorization: `Basic ${Buffer.from(`${apiKey}:`).toString("base64")}`,
 			},
 			body: JSON.stringify(body),
 		});

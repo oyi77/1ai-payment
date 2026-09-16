@@ -14,6 +14,15 @@ import { getConfig } from "../config/env";
 import { sha256Hash, timingSafeCompare } from "../utils/crypto";
 
 export async function authMiddleware(c: Context, next: Next) {
+	// /api/admin/* carries its own adminAuthMiddleware — never merchant-gate it.
+	// Every route sub-app mounts `use("/*", authMiddleware)`; under Hono's
+	// route() composition those behave as /api/* on the main app and fire for
+	// admin requests too (shared test process proved it: admin-only requests
+	// were 401'd with "Invalid or missing API key" before reaching admin auth).
+	if (c.req.path.startsWith("/api/admin/")) {
+		await next();
+		return;
+	}
 	// Idempotency guard — this middleware is mounted at app level AND inside
 	// route sub-apps (payment/merchant/refund). Skip when already authenticated.
 	if (c.get("merchantId")) {

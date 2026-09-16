@@ -37,6 +37,8 @@ export interface CreatePaymentParams {
 	successUrl?: string;
 	/** Where to send the buyer after cancelling. */
 	cancelUrl?: string;
+	/** Owning merchant — gateways resolve per-merchant credentials via getGatewayConfigForMerchant; absent = platform env config. */
+	merchantId?: string;
 }
 
 export interface CreatePaymentResult {
@@ -56,6 +58,16 @@ export interface PaymentMethod {
 	currencies: string[];
 }
 
+/**
+ * Per-call verification/operation options.
+ * merchantId — resolve credentials via resolveGatewayConfig(merchant) first,
+ * falling back to platform env config. Lets stored merchant keys take effect
+ * without changing the sync verify call shape (resolution is async).
+ */
+export interface GatewayVerifyOpts {
+	merchantId?: string;
+}
+
 export interface PaymentGateway {
 	readonly name: string;
 
@@ -69,12 +81,14 @@ export interface PaymentGateway {
 	 * Verify webhook signature. Returns true if valid.
 	 * MUST use timing-safe comparison (crypto.timingSafeEqual).
 	 * May be async (some gateways verify via external API).
+	 * opts.merchantId — verify against the merchant's own stored credentials
+	 * (resolved via resolveGatewayConfig); absent = platform env config.
 	 */
 	verifySignature(
 		body: unknown,
 		headers: Record<string, string>,
+		opts?: GatewayVerifyOpts,
 	): boolean | Promise<boolean>;
-
 	/**
 	 * Verify webhook signature over the RAW request body bytes.
 	 * Optional — gateways whose signature is computed over the raw JSON
@@ -85,6 +99,7 @@ export interface PaymentGateway {
 	verifySignatureRaw?(
 		rawBody: string,
 		headers: Record<string, string>,
+		opts?: GatewayVerifyOpts,
 	): boolean | Promise<boolean>;
 
 	/**
@@ -101,5 +116,9 @@ export interface PaymentGateway {
 	 * Refund a payment. Optional — gateways that don't support refunds
 	 * should throw GatewayError('REFUND_NOT_SUPPORTED').
 	 */
-	refundPayment?(gatewayRef: string, amount: number): Promise<RefundResult>;
+	refundPayment?(
+		gatewayRef: string,
+		amount: number,
+		opts?: GatewayVerifyOpts,
+	): Promise<RefundResult>;
 }

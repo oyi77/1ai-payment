@@ -6,7 +6,7 @@
  * by wallets supporting x402 protocol.
  */
 
-import { getConfig } from "../../config/env";
+import { getConfig, resolveGatewayConfig } from "../../config/env";
 import type {
 	CreatePaymentParams,
 	CreatePaymentResult,
@@ -23,9 +23,8 @@ import {
  * Pick the appropriate payment network for the given amount.
  * Defaults to eip155:8453 (Base) if X402_NETWORK not configured.
  */
-function pickNetwork(amount: number): string {
-	const cfg = getConfig();
-	return cfg.X402_NETWORK || "eip155:8453";
+function pickNetwork(_amount: number): string {
+	return getConfig().X402_NETWORK || "eip155:8453";
 }
 
 /** Convert amount to USDC smallest unit (6 decimals) */
@@ -41,8 +40,20 @@ export async function buildPaymentRequirement(
 ): Promise<CreatePaymentResult> {
 	const network = pickNetwork(params.amount);
 	const cfg = getConfig();
-	const payTo = cfg.X402_WALLET_ADDRESS;
-	const asset = cfg.X402_USDC_ADDRESS || DEFAULT_USDC_ADDRESSES[network] || "";
+	const mCfg = params.merchantId
+		? ((await resolveGatewayConfig("x402", params.merchantId)) as unknown as {
+				walletAddress?: string;
+				usdcAddress?: string;
+				network?: string;
+				rpcUrl?: string;
+			})
+		: null;
+	const payTo = mCfg?.walletAddress || cfg.X402_WALLET_ADDRESS;
+	const asset =
+		mCfg?.usdcAddress ||
+		cfg.X402_USDC_ADDRESS ||
+		DEFAULT_USDC_ADDRESSES[network] ||
+		"";
 	const usdcAmount = toUSDCUnit(params.amount);
 
 	if (!payTo) throw new Error("X402_WALLET_ADDRESS is not configured");

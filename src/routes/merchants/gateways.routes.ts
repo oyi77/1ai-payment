@@ -28,7 +28,9 @@ import { logger } from "../../utils/logger";
 type MerchantEnv = {
 	Variables: { merchantId?: string; merchantName?: string };
 };
-export const merchantGatewaysRouter = new OpenAPIHono<MerchantEnv>({ defaultHook });
+export const merchantGatewaysRouter = new OpenAPIHono<MerchantEnv>({
+	defaultHook,
+});
 
 merchantGatewaysRouter.use("/*", authMiddleware);
 // ── GET /api/merchants/:id/gateways ─────────────────────────────

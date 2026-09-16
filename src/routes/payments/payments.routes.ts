@@ -192,6 +192,7 @@ paymentsRouter.openapi(createPaymentRoute, async (c) => {
 			metadata: order.metadata as Record<string, unknown> | undefined,
 			successUrl: body.success_url,
 			cancelUrl: body.cancel_url,
+			merchantId,
 		});
 		endTimer();
 

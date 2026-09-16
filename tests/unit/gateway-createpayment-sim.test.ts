@@ -170,7 +170,6 @@ describe("gateway createPayment simulations (real charge code)", () => {
 			expect(result.paymentUrl).toBeTruthy();
 		});
 	}
-
 	test("unconfigured gateway throws GatewayError before any HTTP call", async () => {
 		// xendit with a missing key must throw 'not configured'
 		delete process.env.XENDIT_API_KEY;
@@ -179,5 +178,68 @@ describe("gateway createPayment simulations (real charge code)", () => {
 		expect(gw.createPayment(PARAMS)).rejects.toThrow(/not configured/);
 		process.env.XENDIT_API_KEY = "sim-xendit";
 		resetConfigCache();
+	});
+
+	test("merchant key hits the wire: midtrans auth must use stored key, not env", async () => {
+		// Arrange: store merchant credentials in the DB vault
+		const { encrypt } = await import("../../src/utils/crypto");
+		const { getDb } = await import("../../src/config/database");
+		const db = getDb();
+		await db.execute({
+			sql: `INSERT INTO merchant_gateways (id, merchant_id, gateway, credentials, environment, enabled)
+			      VALUES (?, ?, ?, ?, ?, 1)
+			      ON CONFLICT(merchant_id, gateway) DO UPDATE SET credentials = ?, environment = ?, enabled = 1, updated_at = datetime('now')`,
+			args: [
+				"mgw_simmid_midtrans",
+				"merch_wire",
+				"midtrans",
+				encrypt(JSON.stringify({ apiKey: "merchant-only-key-123" })),
+				"sandbox",
+				encrypt(JSON.stringify({ apiKey: "merchant-only-key-123" })),
+				"sandbox",
+			],
+		});
+
+		const captured: Array<{ url: string; auth: string }> = [];
+		const prevFetch = globalThis.fetch;
+		globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+			const headers = new Headers(init?.headers as HeadersInit);
+			captured.push({
+				url: String(input),
+				auth: headers.get("authorization") ?? "",
+			});
+			return sandboxResponse(String(input));
+		}) as typeof fetch;
+		try {
+			const gw = getGateway("midtrans")!;
+			await gw.createPayment({ ...PARAMS, merchantId: "merch_wire" });
+		} finally {
+			globalThis.fetch = prevFetch;
+		}
+		const wireAuth = captured[0]?.auth ?? "";
+		const expected = `Basic ${Buffer.from("merchant-only-key-123:").toString("base64")}`;
+		expect(wireAuth).toBe(expected);
+	});
+
+	test("no stored row falls back to platform key", async () => {
+		const captured: Array<{ url: string; auth: string }> = [];
+		const prevFetch = globalThis.fetch;
+		globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+			const headers = new Headers(init?.headers as HeadersInit);
+			captured.push({
+				url: String(input),
+				auth: headers.get("authorization") ?? "",
+			});
+			return sandboxResponse(String(input));
+		}) as typeof fetch;
+		try {
+			const gw = getGateway("midtrans")!;
+			await gw.createPayment({ ...PARAMS, merchantId: "merch_platform_only" });
+		} finally {
+			globalThis.fetch = prevFetch;
+		}
+		const wireAuth = captured[0]?.auth ?? "";
+		const expected = `Basic ${Buffer.from("sim-midtrans:").toString("base64")}`;
+		expect(wireAuth).toBe(expected);
 	});
 });

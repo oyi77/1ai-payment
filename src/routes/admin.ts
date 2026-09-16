@@ -3,6 +3,9 @@
  *
  * - GET   /api/admin/merchants — list all merchants
  * - PATCH /api/admin/merchants/:id — update merchant plan / active status
+ * - POST  /api/admin/merchants/:id/api-key — reset a merchant's API key
+ *   (account recovery for lost keys: rotate requires the CURRENT key, so
+ *   admins need this escape hatch). Returns the new key once.
  *
  * All routes protected by adminAuthMiddleware (X-Admin-Key header).
  */
@@ -11,6 +14,7 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { getDb } from "../config/database";
 import { adminAuthMiddleware } from "../middleware/admin-auth";
 import { adminMerchantUpdateBodySchema } from "../schemas";
+import { generateApiKey, sha256Hash } from "../utils/crypto";
 import { logger } from "../utils/logger";
 
 export const adminRoutes = new OpenAPIHono();
@@ -128,6 +132,53 @@ adminRoutes.patch("/admin/merchants/{id}", async (c) => {
 			{
 				success: false,
 				error: { code: "INTERNAL_ERROR", message: "Failed to update merchant" },
+			},
+			500,
+		);
+	}
+});
+
+// ── POST /api/admin/merchants/:id/api-key (recovery reset) ───────
+adminRoutes.post("/admin/merchants/:id/api-key", async (c) => {
+	const db = getDb();
+	const id = c.req.param("id") ?? "";
+
+	try {
+		const existing = await db.execute({
+			sql: "SELECT id FROM merchants WHERE id = ?",
+			args: [id],
+		});
+		if (existing.rows.length === 0) {
+			return c.json(
+				{
+					success: false as const,
+					error: { code: "NOT_FOUND", message: `Merchant not found: ${id}` },
+				},
+				404,
+			);
+		}
+
+		const apiKey = generateApiKey();
+		const apiKeyHash = sha256Hash(apiKey);
+		await db.execute({
+			sql: "UPDATE merchants SET api_key_hash = ?, updated_at = datetime('now') WHERE id = ?",
+			args: [apiKeyHash, id],
+		});
+
+		logger.info("Admin reset merchant API key", { merchant_id: id });
+		return c.json({
+			success: true as const,
+			data: { merchant_id: id, api_key: apiKey },
+		});
+	} catch (err) {
+		logger.error("Failed to reset merchant API key", {
+			merchant_id: id,
+			error: err,
+		});
+		return c.json(
+			{
+				success: false as const,
+				error: { code: "INTERNAL_ERROR", message: "Failed to reset API key" },
 			},
 			500,
 		);

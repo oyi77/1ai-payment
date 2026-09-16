@@ -6,8 +6,9 @@
  *   2. Revoke access for expired subscriptions (set status → 'expired')
  *   3. Clean up stale invite links
  *
- * @todo Implement Telegram DM sending for reminders.
- *       Currently logs actions only — needs customer contact channel.
+ * Sends expiry-reminder DMs when NEXUS_TELEGRAM_BOT_TOKEN/TELEGRAM_BOT_TOKEN
+ * is set and the subscription row carries a telegram_chat_id; otherwise
+ * logs only (safe no-token fallback).
  */
 
 import { getDb } from "../config/database";
@@ -50,6 +51,28 @@ async function runNexusMaintenance(): Promise<void> {
  * Mark subscriptions past expires_at as 'expired'.
  * Optionally revoke the Telegram invite link if bot token is configured.
  */
+/**
+ * Send a Telegram DM via Bot API. Throws on API failure so callers can
+ * fall back (log-only). Same fire-safe pattern as revokeTelegramInviteLink.
+ */
+async function sendTelegramMessage(
+	botToken: string,
+	chatId: string,
+	text: string,
+): Promise<void> {
+	const res = await fetch(
+		`https://api.telegram.org/bot${botToken}/sendMessage`,
+		{
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ chat_id: chatId, text }),
+		},
+	);
+	if (!res.ok) {
+		throw new Error(`Telegram sendMessage ${res.status}: ${await res.text()}`);
+	}
+}
+
 async function handleExpiredSubscriptions(): Promise<void> {
 	const db = getDb();
 	const config = getConfig();
@@ -90,10 +113,13 @@ async function handleExpiredSubscriptions(): Promise<void> {
 
 /**
  * Send reminder 48h before expiry.
- * Currently logs only — @todo send via Telegram DM when we have the customer's chat_id.
+ * Sends a real Telegram DM when the subscription row has a telegram_chat_id
+ * AND a bot token is configured; otherwise falls back to log-only.
  */
 async function sendExpiryReminders(): Promise<void> {
 	const db = getDb();
+	const config = getConfig();
+	const botToken = config.NEXUS_TELEGRAM_BOT_TOKEN || config.TELEGRAM_BOT_TOKEN;
 	const now = Date.now();
 	const expiryThreshold = new Date(now + 48 * 60 * 60_000)
 		.toISOString()
@@ -101,7 +127,7 @@ async function sendExpiryReminders(): Promise<void> {
 		.slice(0, 19);
 
 	const result = await db.execute({
-		sql: `SELECT ns.id, ns.tier, ns.expires_at, nc.name, nc.email
+		sql: `SELECT ns.id, ns.tier, ns.expires_at, ns.telegram_chat_id, nc.name, nc.email
           FROM nexus_subscriptions ns
           JOIN nexus_customers nc ON nc.id = ns.customer_id
           WHERE ns.status = 'active'
@@ -120,15 +146,33 @@ async function sendExpiryReminders(): Promise<void> {
 		const customerName = String(row.name ?? "");
 		const tier = String(row.tier);
 		const expiresAt = String(row.expires_at);
+		const chatId = String(row.telegram_chat_id ?? "");
 
-		logger.info("Nexus cron: expiry reminder due", {
-			subId,
-			customerName,
-			tier,
-			expiresAt,
-		});
-
-		// @todo send actual Telegram DM or email
+		if (botToken && chatId) {
+			try {
+				await sendTelegramMessage(
+					botToken,
+					chatId,
+					`Halo ${customerName}! Langganan ${tier} kamu berakhir ${expiresAt}. Perpanjang di https://pay.1ai.dev agar akses tidak terputus.`,
+				);
+				logger.info("Nexus cron: expiry reminder DM sent", {
+					subId,
+					tier,
+				});
+			} catch (err: unknown) {
+				logger.warn("Nexus cron: reminder DM failed, falling back to log", {
+					subId,
+					error: err instanceof Error ? err.message : String(err),
+				});
+			}
+		} else {
+			logger.info("Nexus cron: expiry reminder due", {
+				subId,
+				customerName,
+				tier,
+				expiresAt,
+			});
+		}
 
 		await db.execute({
 			sql: "UPDATE nexus_subscriptions SET reminder_sent_at = ? WHERE id = ?",

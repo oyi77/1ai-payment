@@ -8,7 +8,7 @@
  */
 
 import crypto from "node:crypto";
-import { getConfig } from "../config/env";
+import { getConfig, resolveGatewayConfig } from "../config/env";
 import { GatewayError } from "../utils/errors";
 import { logger } from "../utils/logger";
 import type {
@@ -26,6 +26,13 @@ interface TripayCallbackPayload {
 	status: string;
 	amount: number;
 	payment_method: string;
+}
+
+interface TripayMerchantConfig {
+	apiKey?: string;
+	privateKey?: string;
+	merchantCode?: string;
+	environment?: string;
 }
 
 interface TripayCreateResponse {
@@ -51,13 +58,20 @@ export class TripayGateway implements PaymentGateway {
 	async createPayment(
 		params: CreatePaymentParams,
 	): Promise<CreatePaymentResult> {
-		const config = getConfig();
-		if (!config.TRIPAY_API_KEY) {
+		const base = getConfig();
+		const m = params.merchantId
+			? ((await resolveGatewayConfig(
+					"tripay",
+					params.merchantId,
+				)) as unknown as TripayMerchantConfig)
+			: null;
+		const apiKey = m?.apiKey || base.TRIPAY_API_KEY;
+		if (!apiKey) {
 			throw new GatewayError("tripay", "TRIPAY_API_KEY not configured");
 		}
 
-		const baseUrl =
-			config.TRIPAY_ENVIRONMENT === "production" ? PRODUCTION_URL : SANDBOX_URL;
+		const env = m?.environment || base.TRIPAY_ENVIRONMENT;
+		const baseUrl = env === "production" ? PRODUCTION_URL : SANDBOX_URL;
 
 		const body = {
 			method: params.paymentMethod || "BCA",
@@ -82,7 +96,7 @@ export class TripayGateway implements PaymentGateway {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				Authorization: `Bearer ${config.TRIPAY_API_KEY}`,
+				Authorization: `Bearer ${apiKey}`,
 			},
 			body: JSON.stringify(body),
 		});

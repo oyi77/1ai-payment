@@ -17,7 +17,7 @@
  */
 
 import crypto from "node:crypto";
-import { getConfig } from "../config/env";
+import { getConfig, resolveGatewayConfig } from "../config/env";
 import { GatewayError } from "../utils/errors";
 import { logger } from "../utils/logger";
 import type {
@@ -81,6 +81,14 @@ interface ScalevWebhookPayload {
 	customer_email: string;
 }
 
+interface ScalevMerchantConfig {
+	storefrontApiKey?: string;
+	storeId?: string;
+	variantId?: string;
+	webhookSecret?: string;
+	environment?: string;
+}
+
 const BASE_URL = "https://api.scalev.com";
 
 export class ScalevGateway implements PaymentGateway {
@@ -89,32 +97,41 @@ export class ScalevGateway implements PaymentGateway {
 	async createPayment(
 		params: CreatePaymentParams,
 	): Promise<CreatePaymentResult> {
-		const config = getConfig();
+		const base = getConfig();
+		const m = params.merchantId
+			? ((await resolveGatewayConfig(
+					"scalev",
+					params.merchantId,
+				)) as unknown as ScalevMerchantConfig)
+			: null;
+		const storefrontApiKey =
+			m?.storefrontApiKey || base.SCALEV_STOREFRONT_API_KEY;
+		const storeId = m?.storeId || base.SCALEV_STORE_ID;
+		const variantId = m?.variantId || base.SCALEV_VARIANT_ID;
 
-		if (!config.SCALEV_STOREFRONT_API_KEY) {
+		if (!storefrontApiKey) {
 			throw new GatewayError(
 				"scalev",
 				"SCALEV_STOREFRONT_API_KEY not configured",
 			);
 		}
-		if (!config.SCALEV_STORE_ID) {
+		if (!storeId) {
 			throw new GatewayError("scalev", "SCALEV_STORE_ID not configured");
 		}
 		const variantOverride = params.metadata?.variant_id;
-		if (!config.SCALEV_VARIANT_ID && !variantOverride) {
+		if (!variantId && !variantOverride) {
 			throw new GatewayError(
 				"scalev",
 				"SCALEV_VARIANT_ID not configured (need a product variant from Scalev dashboard)",
 			);
 		}
 
-		const baseUrl =
-			config.SCALEV_ENVIRONMENT === "production" ? BASE_URL : BASE_URL;
+		const baseUrl = BASE_URL;
 
 		const items: ScalevCheckoutItem[] = [
 			{
 				type: "variant",
-				variant_id: Number(variantOverride ?? config.SCALEV_VARIANT_ID),
+				variant_id: Number(variantOverride ?? variantId),
 				quantity: 1,
 			},
 		];
@@ -133,12 +150,12 @@ export class ScalevGateway implements PaymentGateway {
 		};
 
 		const response = await fetch(
-			`${baseUrl}/v3/stores/${config.SCALEV_STORE_ID}/public/checkout`,
+			`${baseUrl}/v3/stores/${storeId}/public/checkout`,
 			{
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					"X-Scalev-Storefront-Api-Key": config.SCALEV_STOREFRONT_API_KEY,
+					"X-Scalev-Storefront-Api-Key": storefrontApiKey,
 				},
 				body: JSON.stringify(body),
 			},

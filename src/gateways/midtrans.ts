@@ -7,7 +7,7 @@
  */
 
 import crypto from "node:crypto";
-import { getConfig } from "../config/env";
+import { getConfig, resolveGatewayConfig } from "../config/env";
 import { GatewayError } from "../utils/errors";
 import { logger } from "../utils/logger";
 import type {
@@ -30,6 +30,11 @@ interface MidtransCallbackPayload {
 	fraud_status?: string;
 }
 
+interface MidtransMerchantConfig {
+	apiKey?: string;
+	environment?: string;
+}
+
 interface MidtransChargeResponse {
 	status_code: string;
 	transaction_id: string;
@@ -50,15 +55,20 @@ export class MidtransGateway implements PaymentGateway {
 	async createPayment(
 		params: CreatePaymentParams,
 	): Promise<CreatePaymentResult> {
-		const config = getConfig();
-		if (!config.MIDTRANS_SERVER_KEY) {
+		const base = getConfig();
+		const m = params.merchantId
+			? ((await resolveGatewayConfig(
+					"midtrans",
+					params.merchantId,
+				)) as unknown as MidtransMerchantConfig)
+			: null;
+		const serverKey = m?.apiKey || base.MIDTRANS_SERVER_KEY;
+		if (!serverKey) {
 			throw new GatewayError("midtrans", "MIDTRANS_SERVER_KEY not configured");
 		}
 
-		const baseUrl =
-			config.MIDTRANS_ENVIRONMENT === "production"
-				? PRODUCTION_URL
-				: SANDBOX_URL;
+		const env = m?.environment || base.MIDTRANS_ENVIRONMENT;
+		const baseUrl = env === "production" ? PRODUCTION_URL : SANDBOX_URL;
 		const paymentType = this.mapPaymentMethod(params.paymentMethod);
 
 		const body: Record<string, unknown> = {
@@ -91,9 +101,7 @@ export class MidtransGateway implements PaymentGateway {
 			body.callbacks = { finish: "https://example.com/payment/finish" };
 		}
 
-		const auth = Buffer.from(`${config.MIDTRANS_SERVER_KEY}:`).toString(
-			"base64",
-		);
+		const auth = Buffer.from(`${serverKey}:`).toString("base64");
 
 		// Use Snap API for QRIS/e-wallet, Core API for bank transfer
 		const endpoint =
@@ -126,7 +134,7 @@ export class MidtransGateway implements PaymentGateway {
 		let paymentUrl = result.redirect_url || "";
 		if (!paymentUrl && result.va_numbers) {
 			// For bank transfer, construct VA page URL
-			paymentUrl = `https://${config.MIDTRANS_ENVIRONMENT === "production" ? "app.midtrans.com" : "app.sandbox.midtrans.com"}/snap/v2/vtweb/${params.orderId}`;
+			paymentUrl = `https://${env === "production" ? "app.midtrans.com" : "app.sandbox.midtrans.com"}/snap/v2/vtweb/${params.orderId}`;
 		}
 
 		return {

@@ -5,7 +5,7 @@
  * Supports PayPal Checkout, Pay Later, and Venmo.
  */
 
-import { getConfig } from "../../config/env";
+import { getConfig, resolveGatewayConfig } from "../../config/env";
 import { GatewayError } from "../../utils/errors";
 import { logger } from "../../utils/logger";
 import type { CreatePaymentParams, CreatePaymentResult } from "../base";
@@ -21,6 +21,13 @@ interface PayPalAccessToken {
 	expires_in: number;
 }
 
+interface PayPalMerchantConfig {
+	clientId?: string;
+	clientSecret?: string;
+	webhookId?: string;
+	environment?: "sandbox" | "production";
+}
+
 interface PayPalOrder {
 	id: string;
 	status: string;
@@ -34,10 +41,15 @@ interface PayPalOrder {
 /**
  * Get PayPal access token
  */
-async function getAccessToken(): Promise<string> {
-	const config = getConfig();
+async function getAccessToken(
+	override?: PayPalMerchantConfig,
+): Promise<string> {
+	const base = getConfig();
+	const clientId = override?.clientId || base.PAYPAL_CLIENT_ID;
+	const clientSecret = override?.clientSecret || base.PAYPAL_CLIENT_SECRET;
+	const env = override?.environment || base.PAYPAL_ENVIRONMENT;
 
-	if (!config.PAYPAL_CLIENT_ID || !config.PAYPAL_CLIENT_SECRET) {
+	if (!clientId || !clientSecret) {
 		throw new GatewayError(
 			"paypal",
 			"PAYPAL_CLIENT_ID or PAYPAL_CLIENT_SECRET not configured",
@@ -45,14 +57,9 @@ async function getAccessToken(): Promise<string> {
 	}
 
 	const baseUrl =
-		config.PAYPAL_ENVIRONMENT === "production"
-			? PAYPAL_API.production
-			: PAYPAL_API.sandbox;
+		env === "production" ? PAYPAL_API.production : PAYPAL_API.sandbox;
 
-	const auth = Buffer.from(
-		`${config.PAYPAL_CLIENT_ID}:${config.PAYPAL_CLIENT_SECRET}`,
-	).toString("base64");
-
+	const auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
 	const response = await fetch(`${baseUrl}/v1/oauth2/token`, {
 		method: "POST",
 		headers: {
@@ -84,14 +91,18 @@ async function getAccessToken(): Promise<string> {
 export async function createOrder(
 	params: CreatePaymentParams,
 ): Promise<CreatePaymentResult> {
-	const config = getConfig();
-
+	const base = getConfig();
+	const m = params.merchantId
+		? ((await resolveGatewayConfig(
+				"paypal",
+				params.merchantId,
+			)) as unknown as PayPalMerchantConfig)
+		: null;
+	const env = m?.environment || base.PAYPAL_ENVIRONMENT;
 	const baseUrl =
-		config.PAYPAL_ENVIRONMENT === "production"
-			? PAYPAL_API.production
-			: PAYPAL_API.sandbox;
+		env === "production" ? PAYPAL_API.production : PAYPAL_API.sandbox;
 
-	const accessToken = await getAccessToken();
+	const accessToken = await getAccessToken(m ?? undefined);
 
 	// Convert amount to decimal (PayPal uses decimal amounts, e.g., 10.00)
 	const amount = (params.amount / 100).toFixed(2);

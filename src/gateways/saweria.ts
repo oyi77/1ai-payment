@@ -1,4 +1,4 @@
-import { getGatewayConfig } from "../config/env";
+import { getGatewayConfig, resolveGatewayConfig } from "../config/env";
 import { GatewayError } from "../utils/errors";
 import { logger } from "../utils/logger";
 import type {
@@ -98,7 +98,12 @@ export class SaweriaGateway implements PaymentGateway {
 	async createPayment(
 		params: CreatePaymentParams,
 	): Promise<CreatePaymentResult> {
-		const cfg = getGatewayConfig("saweria");
+		const cfg = params.merchantId
+			? ((await resolveGatewayConfig(
+					"saweria",
+					params.merchantId,
+				)) as unknown as ReturnType<typeof getGatewayConfig>)
+			: getGatewayConfig("saweria");
 		if (!cfg.username || !cfg.userId) {
 			logger.error("Saweria config missing", { gateway: "saweria" });
 			throw new GatewayError(

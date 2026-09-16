@@ -163,6 +163,7 @@ export async function createRefund(
 			const gatewayRef = await gateway.refundPayment(
 				order.gateway_reference,
 				refundAmount,
+				{ merchantId: order.merchant_id },
 			);
 			gatewayRefundId = gatewayRef.gatewayRefundId;
 		} catch (err) {

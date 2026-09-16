@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { getConfig } from "../../config/env";
+import { getConfig, resolveGatewayConfig } from "../../config/env";
 import type {
 	CreatePaymentParams,
 	CreatePaymentResult,
@@ -22,12 +22,8 @@ function extractEscrowParams(params: CreatePaymentParams): CreateEscrowParams {
 			title: String(meta.job_title || meta.title || "ERC-8183 Escrow"),
 			description: String(meta.job_description || meta.description || ""),
 			budget: String(params.amount),
-			token: String(
-				meta.token_address || getConfig().ERC8183_TOKEN_ADDRESS || "",
-			),
-			network: String(
-				meta.network || getConfig().ERC8183_NETWORK || "eip155:8453",
-			),
+			token: String(meta.token_address || ""),
+			network: String(meta.network || "eip155:8453"),
 			deliverables: String(meta.deliverables || ""),
 		},
 		timeoutMinutes:
@@ -43,6 +39,21 @@ export async function createEscrow(
 	params: CreatePaymentParams,
 ): Promise<CreatePaymentResult> {
 	const escrowParams = extractEscrowParams(params);
+	// Merchant-owned treasury overrides (platform wallets are the fallback)
+	const mCfg = params.merchantId
+		? ((await resolveGatewayConfig(
+				"erc8183",
+				params.merchantId,
+			)) as unknown as {
+				walletAddress?: string;
+				tokenAddress?: string;
+				network?: string;
+				evaluatorAddress?: string;
+			})
+		: null;
+	if (mCfg?.tokenAddress && !escrowParams.job.token)
+		escrowParams.job.token = mCfg.tokenAddress;
+	if (mCfg?.network) escrowParams.job.network = mCfg.network;
 	const escrowId = params.orderId || `escrow-${randomUUID().slice(0, 8)}`;
 
 	const escrow: EscrowEntry = {

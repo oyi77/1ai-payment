@@ -51,6 +51,105 @@ export function isHttpsRequest(url: string, xForwardedProto?: string): boolean {
 	return url.startsWith("https://") || xForwardedProto === "https";
 }
 
+/**
+ * Merchant-key verification fallback. Runs AFTER the platform-key check
+ * fails for the event's owning merchant(s). First True wins.
+ *
+ * Candidate merchants: the order the event resolves to (by gateway
+ * reference, then order id), plus — when the DB lookup found no order —
+ * every merchant with an enabled row for this gateway.
+ */
+async function verifyAgainstMerchantKeys(
+	gateway: {
+		verifySignatureRaw?: (
+			raw: string,
+			h: Record<string, string>,
+			o?: { merchantId?: string },
+		) => boolean | Promise<boolean>;
+		verifySignature: (
+			b: unknown,
+			h: Record<string, string>,
+			o?: { merchantId?: string },
+		) => boolean | Promise<boolean>;
+		normalizeEvent: (
+			b: unknown,
+			m?: Record<string, unknown> | null,
+		) => {
+			order_id: string;
+			gateway_reference: string;
+		};
+	},
+	gatewayName: string,
+	rawBody: string,
+	body: unknown,
+	headers: Record<string, string>,
+): Promise<boolean> {
+	const { getDb } = await import("../config/database");
+	const { getOrderByGatewayRef, getOrderById } = await import(
+		"../services/order.service"
+	);
+	const db = getDb();
+
+	// Resolve candidate events → orders (no metadata yet)
+	let orderId: string | undefined;
+	let gatewayRef: string | undefined;
+	try {
+		const evt = gateway.normalizeEvent(body, null);
+		orderId = evt.order_id;
+		gatewayRef = evt.gateway_reference;
+	} catch {
+		return false;
+	}
+
+	// Collect candidate merchant ids: owning order first, else all enabled
+	// merchant rows for this gateway.
+	const candidates: string[] = [];
+	let order: { merchant_id: string; project_id?: string } | null = null;
+	try {
+		if (gatewayName === "scalev" && orderId) {
+			order = await getOrderById(orderId);
+		}
+		if (!order && gatewayRef) {
+			order = await getOrderByGatewayRef(gatewayRef);
+		}
+		if (!order && orderId) {
+			order = await getOrderById(orderId);
+		}
+	} catch {
+		// fall through: try all merchant rows below
+	}
+	if (order) {
+		candidates.push(order.merchant_id);
+	} else {
+		const rows = await db.execute({
+			sql: "SELECT DISTINCT merchant_id FROM merchant_gateways WHERE gateway = ? AND enabled = 1",
+			args: [gatewayName],
+		});
+		for (const row of rows.rows) {
+			candidates.push(String((row as Record<string, unknown>).merchant_id));
+		}
+	}
+
+	for (const merchantId of candidates) {
+		try {
+			const ok = gateway.verifySignatureRaw
+				? await gateway.verifySignatureRaw(rawBody, headers, { merchantId })
+				: await gateway.verifySignature(body, headers, { merchantId });
+			if (ok) {
+				logger.info(`Webhook ${gatewayName}: merchant-key signature match`, {
+					merchant_id: merchantId,
+				});
+				return true;
+			}
+		} catch (err: unknown) {
+			logger.error(`Webhook ${gatewayName}: merchant-key verification error`, {
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
+	}
+	return false;
+}
+
 for (const gatewayName of GATEWAY_NAMES) {
 	const route = createRoute({
 		method: "post",
@@ -120,12 +219,23 @@ for (const gatewayName of GATEWAY_NAMES) {
 			return c.json({ error: "Invalid JSON" }, 400);
 		}
 
-		// Verify signature
+		// Verify signature — platform keys first (no DB). On fail, retry against
+		// each platform-configured merchant row that could own this event.
+		// Merchant keys are tried; first True wins. Fall closed.
 		let signatureValid = false;
 		try {
 			signatureValid = gateway.verifySignatureRaw
 				? await gateway.verifySignatureRaw(rawBody, headers)
 				: await gateway.verifySignature(body, headers);
+			if (!signatureValid) {
+				signatureValid = await verifyAgainstMerchantKeys(
+					gateway,
+					gatewayName,
+					rawBody,
+					body,
+					headers,
+				);
+			}
 		} catch (err: unknown) {
 			logger.error(`Webhook ${gatewayName}: signature verification error`, {
 				error: err instanceof Error ? err.message : String(err),

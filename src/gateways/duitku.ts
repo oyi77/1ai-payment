@@ -8,7 +8,7 @@
  */
 
 import crypto from "node:crypto";
-import { getConfig } from "../config/env";
+import { getConfig, resolveGatewayConfig } from "../config/env";
 import { GatewayError } from "../utils/errors";
 import { logger } from "../utils/logger";
 import type {
@@ -27,6 +27,12 @@ interface DuitkuCallbackPayload {
 	resultCode: string;
 	reference: string;
 	signature: string;
+}
+
+interface DuitkuMerchantConfig {
+	apiKey?: string;
+	merchantCode?: string;
+	environment?: string;
 }
 
 interface DuitkuInquiryResponse {
@@ -48,26 +54,32 @@ export class DuitkuGateway implements PaymentGateway {
 	async createPayment(
 		params: CreatePaymentParams,
 	): Promise<CreatePaymentResult> {
-		const config = getConfig();
-		if (!config.DUITKU_API_KEY || !config.DUITKU_MERCHANT_CODE) {
+		const base = getConfig();
+		const m = params.merchantId
+			? ((await resolveGatewayConfig(
+					"duitku",
+					params.merchantId,
+				)) as unknown as DuitkuMerchantConfig)
+			: null;
+		const apiKey = m?.apiKey || base.DUITKU_API_KEY;
+		const merchantCode = m?.merchantCode || base.DUITKU_MERCHANT_CODE;
+		if (!apiKey || !merchantCode) {
 			throw new GatewayError(
 				"duitku",
 				"DUITKU_API_KEY or DUITKU_MERCHANT_CODE not configured",
 			);
 		}
 
-		const baseUrl =
-			config.DUITKU_ENVIRONMENT === "production" ? PRODUCTION_URL : SANDBOX_URL;
+		const env = m?.environment || base.DUITKU_ENVIRONMENT;
+		const baseUrl = env === "production" ? PRODUCTION_URL : SANDBOX_URL;
 
 		const signature = crypto
 			.createHash("md5")
-			.update(
-				`${config.DUITKU_MERCHANT_CODE}${params.orderId}${params.amount}${config.DUITKU_API_KEY}`,
-			)
+			.update(`${merchantCode}${params.orderId}${params.amount}${apiKey}`)
 			.digest("hex");
 
 		const body = {
-			merchantCode: config.DUITKU_MERCHANT_CODE,
+			merchantCode: merchantCode,
 			paymentAmount: params.amount,
 			paymentMethod: params.paymentMethod || "VC",
 			merchantOrderId: params.orderId,

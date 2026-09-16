@@ -124,12 +124,7 @@
       <label for="regName">Business Name</label>
       <input type="text" id="regName" placeholder="My Online Store" />
 
-      <label for="regPlan">Plan</label>
-      <select id="regPlan">
-        <option value="free">Free — 30 req/min, 2.5% fee</option>
-        <option value="pro">Pro — 120 req/min, 2% fee</option>
-        <option value="enterprise">Enterprise — 600 req/min, 1% fee</option>
-      </select>
+      <p class="hint">All new accounts start on <strong>Free</strong> (30 req/min). Upgrades to Pro/Enterprise are handled by sales — contact us to change tiers.</p>
 
       <label for="regCallback">Default Callback URL <span style="color:#4a5568">(optional)</span></label>
       <input type="url" id="regCallback" placeholder="https://my-app.com/payment/callback" />
@@ -359,7 +354,6 @@
     // ── Registration ─────────────────────────────────
     async function register() {
       const name = document.getElementById('regName').value.trim();
-      const plan = document.getElementById('regPlan').value;
       const callbackUrl = document.getElementById('regCallback').value.trim();
       const err = document.getElementById('landingError');
       hideError(err);
@@ -373,7 +367,7 @@
         const res = await fetch(API + '/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, plan, default_callback_url: callbackUrl || undefined }),
+          body: JSON.stringify({ name, default_callback_url: callbackUrl || undefined }),
         });
 
         if (!res.ok) {
