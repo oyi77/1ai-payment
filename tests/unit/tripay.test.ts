@@ -106,23 +106,23 @@ describe('TripayGateway.normalizeEvent', () => {
 
 describe('TripayGateway.verifySignature', () => {
 
-  test('valid HMAC-SHA256 signature passes', () => {
+  test('valid HMAC-SHA256 signature passes', async () => {
     const payload = makePayload();
     const bodyStr = JSON.stringify(payload);
     const sig = crypto
       .createHmac('sha256', 'test_private_key')
       .update(bodyStr)
       .digest('hex');
-    expect(gateway.verifySignature(payload, makeHeaders(sig))).toBe(true);
+    expect(await gateway.verifySignature(payload, makeHeaders(sig))).toBe(true);
   });
 
-  test('invalid signature fails', () => {
+  test('invalid signature fails', async () => {
     const payload = makePayload();
-    expect(gateway.verifySignature(payload, makeHeaders('bad_sig'))).toBe(false);
+    expect(await gateway.verifySignature(payload, makeHeaders('bad_sig'))).toBe(false);
   });
 
-  test('missing header returns false', () => {
+  test('missing header returns false', async () => {
     const payload = makePayload();
-    expect(gateway.verifySignature(payload, {})).toBe(false);
+    expect(await gateway.verifySignature(payload, {})).toBe(false);
   });
 });

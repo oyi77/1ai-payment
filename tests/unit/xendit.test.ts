@@ -96,19 +96,19 @@ describe('XenditGateway.normalizeEvent', () => {
 
 describe('XenditGateway.verifySignature', () => {
 
-  test('valid X-Callback-Token passes', () => {
-    expect(gateway.verifySignature(makeInvoicePayload(), {
+  test('valid X-Callback-Token passes', async () => {
+    expect(await gateway.verifySignature(makeInvoicePayload(), {
       'x-callback-token': 'test_callback_token',
     })).toBe(true);
   });
 
-  test('invalid token fails', () => {
-    expect(gateway.verifySignature(makeInvoicePayload(), {
+  test('invalid token fails', async () => {
+    expect(await gateway.verifySignature(makeInvoicePayload(), {
       'x-callback-token': 'wrong_token',
     })).toBe(false);
   });
 
-  test('missing header returns false', () => {
-    expect(gateway.verifySignature(makeInvoicePayload(), {})).toBe(false);
+  test('missing header returns false', async () => {
+    expect(await gateway.verifySignature(makeInvoicePayload(), {})).toBe(false);
   });
 });

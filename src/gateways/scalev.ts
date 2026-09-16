@@ -23,6 +23,7 @@ import { logger } from "../utils/logger";
 import type {
 	CreatePaymentParams,
 	CreatePaymentResult,
+	GatewayVerifyOpts,
 	NormalizedPaymentEvent,
 	PaymentGateway,
 	PaymentMethod,
@@ -224,17 +225,28 @@ export class ScalevGateway implements PaymentGateway {
 		];
 	}
 
-	verifySignature(body: unknown, headers: Record<string, string>): boolean {
+	async verifySignature(
+		body: unknown,
+		headers: Record<string, string>,
+	): Promise<boolean> {
 		// Signature is HMAC over the raw request body — delegate to raw
 		return this.verifySignatureRaw(JSON.stringify(body), headers);
 	}
 
-	verifySignatureRaw(
+	async verifySignatureRaw(
 		rawBody: string,
 		headers: Record<string, string>,
-	): boolean {
-		const config = getConfig();
-		if (!config.SCALEV_WEBHOOK_SECRET) {
+		opts?: GatewayVerifyOpts,
+	): Promise<boolean> {
+		const base = getConfig();
+		const m = opts?.merchantId
+			? ((await resolveGatewayConfig(
+					"scalev",
+					opts.merchantId,
+				)) as unknown as ScalevMerchantConfig)
+			: null;
+		const webhookSecret = m?.webhookSecret || base.SCALEV_WEBHOOK_SECRET;
+		if (!webhookSecret) {
 			logger.error("SCALEV_WEBHOOK_SECRET not configured");
 			return false;
 		}
@@ -249,7 +261,7 @@ export class ScalevGateway implements PaymentGateway {
 		}
 
 		const expected = crypto
-			.createHmac("sha256", config.SCALEV_WEBHOOK_SECRET)
+			.createHmac("sha256", webhookSecret)
 			.update(rawBody)
 			.digest("hex");
 

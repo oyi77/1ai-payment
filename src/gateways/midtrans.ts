@@ -13,6 +13,7 @@ import { logger } from "../utils/logger";
 import type {
 	CreatePaymentParams,
 	CreatePaymentResult,
+	GatewayVerifyOpts,
 	NormalizedPaymentEvent,
 	PaymentGateway,
 	PaymentMethod,
@@ -160,11 +161,22 @@ export class MidtransGateway implements PaymentGateway {
 		];
 	}
 
-	verifySignature(body: unknown, _headers: Record<string, string>): boolean {
+	async verifySignature(
+		body: unknown,
+		_headers: Record<string, string>,
+		opts?: GatewayVerifyOpts,
+	): Promise<boolean> {
 		const payload = body as MidtransCallbackPayload;
-		const config = getConfig();
+		const base = getConfig();
+		const m = opts?.merchantId
+			? ((await resolveGatewayConfig(
+					"midtrans",
+					opts.merchantId,
+				)) as unknown as MidtransMerchantConfig)
+			: null;
+		const serverKey = m?.apiKey || base.MIDTRANS_SERVER_KEY;
 
-		if (!config.MIDTRANS_SERVER_KEY) {
+		if (!serverKey) {
 			logger.error("MIDTRANS_SERVER_KEY not configured");
 			return false;
 		}
@@ -172,7 +184,7 @@ export class MidtransGateway implements PaymentGateway {
 		const expected = crypto
 			.createHash("sha512")
 			.update(
-				`${payload.order_id}${payload.status_code}${payload.gross_amount}${config.MIDTRANS_SERVER_KEY}`,
+				`${payload.order_id}${payload.status_code}${payload.gross_amount}${serverKey}`,
 			)
 			.digest("hex");
 

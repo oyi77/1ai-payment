@@ -104,32 +104,32 @@ describe('MidtransGateway.normalizeEvent', () => {
 });
 
 describe('MidtransGateway.verifySignature', () => {
-  test('valid SHA-512 signature_key passes', () => {
+  test('valid SHA-512 signature_key passes', async () => {
     const body = makePayload();
     const expected = crypto
       .createHash('sha512')
       .update(`${body.order_id}${body.status_code}${body.gross_amount}test_server_key`)
       .digest('hex');
-    expect(gateway.verifySignature({ ...body, signature_key: expected }, {})).toBe(true);
+    expect(await gateway.verifySignature({ ...body, signature_key: expected }, {})).toBe(true);
   });
 
-  test('tampered gross_amount fails', () => {
+  test('tampered gross_amount fails', async () => {
     const body = makePayload();
     const expected = crypto
       .createHash('sha512')
       .update(`${body.order_id}${body.status_code}${body.gross_amount}test_server_key`)
       .digest('hex');
     expect(
-      gateway.verifySignature({ ...body, signature_key: expected, gross_amount: '999999' }, {}),
+      await gateway.verifySignature({ ...body, signature_key: expected, gross_amount: '999999' }, {}),
     ).toBe(false);
   });
 
-  test('invalid signature_key fails', () => {
-    expect(gateway.verifySignature(makePayload({ signature_key: 'deadbeef' }), {})).toBe(false);
+  test('invalid signature_key fails', async () => {
+    expect(await gateway.verifySignature(makePayload({ signature_key: 'deadbeef' }), {})).toBe(false);
   });
 
-  test('missing signature_key returns false', () => {
+  test('missing signature_key returns false', async () => {
     const { signature_key, ...rest } = makePayload();
-    expect(gateway.verifySignature(rest, {})).toBe(false);
+    expect(await gateway.verifySignature(rest, {})).toBe(false);
   });
 });

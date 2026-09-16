@@ -14,6 +14,7 @@ import { logger } from "../utils/logger";
 import type {
 	CreatePaymentParams,
 	CreatePaymentResult,
+	GatewayVerifyOpts,
 	NormalizedPaymentEvent,
 	PaymentGateway,
 	PaymentMethod,
@@ -138,11 +139,22 @@ export class DuitkuGateway implements PaymentGateway {
 		];
 	}
 
-	verifySignature(body: unknown, _headers: Record<string, string>): boolean {
+	async verifySignature(
+		body: unknown,
+		_headers: Record<string, string>,
+		opts?: GatewayVerifyOpts,
+	): Promise<boolean> {
 		const payload = body as DuitkuCallbackPayload;
-		const config = getConfig();
+		const base = getConfig();
+		const m = opts?.merchantId
+			? ((await resolveGatewayConfig(
+					"duitku",
+					opts.merchantId,
+				)) as unknown as DuitkuMerchantConfig)
+			: null;
+		const apiKey = m?.apiKey || base.DUITKU_API_KEY;
 
-		if (!config.DUITKU_API_KEY) {
+		if (!apiKey) {
 			logger.error("DUITKU_API_KEY not configured");
 			return false;
 		}
@@ -150,7 +162,7 @@ export class DuitkuGateway implements PaymentGateway {
 		const expected = crypto
 			.createHash("md5")
 			.update(
-				`${payload.merchantCode}${payload.amount}${payload.merchantOrderId}${config.DUITKU_API_KEY}`,
+				`${payload.merchantCode}${payload.amount}${payload.merchantOrderId}${apiKey}`,
 			)
 			.digest("hex");
 

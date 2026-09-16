@@ -96,22 +96,22 @@ describe('IPaymuGateway.normalizeEvent', () => {
 
 describe('IPaymuGateway.verifySignature', () => {
 
-  test('valid SHA-256 signature passes', () => {
+  test('valid SHA-256 signature passes', async () => {
     const body = makePayload();
     // SHA256(va_key + order_id + status + amount + api_key)
     const expected = crypto
       .createHash('sha256')
       .update(`test_va_key${body.order_id}${body.status}${body.amount}test_ipaymu_key`)
       .digest('hex');
-    expect(gateway.verifySignature({ ...body, signature: expected }, {})).toBe(true);
+    expect(await gateway.verifySignature({ ...body, signature: expected }, {})).toBe(true);
   });
 
-  test('invalid signature fails', () => {
+  test('invalid signature fails', async () => {
     const body = makePayload({ signature: 'bad_sig' });
-    expect(gateway.verifySignature(body, {})).toBe(false);
+    expect(await gateway.verifySignature(body, {})).toBe(false);
   });
 
-  test('missing signature field returns false', () => {
-    expect(gateway.verifySignature({ order_id: 'x', status: 'x', amount: 'x' }, {})).toBe(false);
+  test('missing signature field returns false', async () => {
+    expect(await gateway.verifySignature({ order_id: 'x', status: 'x', amount: 'x' }, {})).toBe(false);
   });
 });

@@ -113,30 +113,30 @@ describe('DuitkuGateway.normalizeEvent', () => {
 
 describe('DuitkuGateway.verifySignature', () => {
 
-  test('valid signature returns true', () => {
+  test('valid signature returns true', async () => {
     const merchantCode = 'test_merchant';
     const amount = '100000';
     const merchantOrderId = 'pay_abc123';
     const apiKey = 'test_duitku_key';
     const sig = crypto.createHash('md5').update(`${merchantCode}${amount}${merchantOrderId}${apiKey}`).digest('hex');
     const payload = makePayload({ signature: sig });
-    expect(gateway.verifySignature(payload, {})).toBe(true);
+    expect(await gateway.verifySignature(payload, {})).toBe(true);
   });
 
-  test('invalid signature returns false', () => {
+  test('invalid signature returns false', async () => {
     const payload = makePayload({ signature: 'bad_signature_hex' });
-    expect(gateway.verifySignature(payload, {})).toBe(false);
+    expect(await gateway.verifySignature(payload, {})).toBe(false);
   });
 
-  test('malformed payload returns false', () => {
-    expect(gateway.verifySignature({}, {})).toBe(false);
+  test('malformed payload returns false', async () => {
+    expect(await gateway.verifySignature({}, {})).toBe(false);
   });
 
-  test('empty DUITKU_API_KEY returns false', () => {
+  test('empty DUITKU_API_KEY returns false', async () => {
     const prev = process.env.DUITKU_API_KEY;
     process.env.DUITKU_API_KEY = '';
     try {
-      expect(gateway.verifySignature(makePayload(), {})).toBe(false);
+      expect(await gateway.verifySignature(makePayload(), {})).toBe(false);
     } finally {
       process.env.DUITKU_API_KEY = prev;
     }

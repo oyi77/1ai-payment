@@ -96,21 +96,21 @@ describe('ScalevGateway.normalizeEvent', () => {
 
 describe('ScalevGateway.verifySignature', () => {
 
-  test('valid HMAC-SHA256 signature passes', () => {
+  test('valid HMAC-SHA256 signature passes', async () => {
     const body = makePayload();
     const bodyStr = JSON.stringify(body);
     const expected = crypto
       .createHmac('sha256', 'whsec_test')
       .update(bodyStr)
       .digest('hex');
-    expect(gateway.verifySignature(body, { 'x-scalev-signature': expected })).toBe(true);
+    expect(await gateway.verifySignature(body, { 'x-scalev-signature': expected })).toBe(true);
   });
 
-  test('invalid signature fails', () => {
-    expect(gateway.verifySignature(makePayload(), { 'x-scalev-signature': 'bad' })).toBe(false);
+  test('invalid signature fails', async () => {
+    expect(await gateway.verifySignature(makePayload(), { 'x-scalev-signature': 'bad' })).toBe(false);
   });
 
-  test('missing header returns false', () => {
-    expect(gateway.verifySignature(makePayload(), {})).toBe(false);
+  test('missing header returns false', async () => {
+    expect(await gateway.verifySignature(makePayload(), {})).toBe(false);
   });
 });

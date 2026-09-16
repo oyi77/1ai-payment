@@ -138,25 +138,25 @@ describe('NowPaymentsGateway.verifySignature', () => {
     process.env.NOWPAYMENTS_IPN_SECRET = 'test-ipn-secret';
   });
 
-  test('valid signature returns true', () => {
+  test('valid signature returns true', async () => {
     const payload = { payment_id: 'np_1', payment_status: 'finished' };
     const expectedSig = require('crypto')
       .createHmac('sha512', 'test-ipn-secret')
       .update(JSON.stringify(payload))
       .digest('hex');
     const headers = { 'x-now-sig': expectedSig };
-    expect(gateway.verifySignature(payload, headers)).toBe(true);
+    expect(await gateway.verifySignature(payload, headers)).toBe(true);
   });
 
-  test('invalid signature returns false', () => {
+  test('invalid signature returns false', async () => {
     const payload = { payment_id: 'np_1', payment_status: 'finished' };
     const headers = { 'x-now-sig': 'deadbeef' };
-    expect(gateway.verifySignature(payload, headers)).toBe(false);
+    expect(await gateway.verifySignature(payload, headers)).toBe(false);
   });
 
-  test('missing x-now-sig header returns false', () => {
+  test('missing x-now-sig header returns false', async () => {
     const payload = { payment_id: 'np_1', payment_status: 'finished' };
     const headers: Record<string, string> = {};
-    expect(gateway.verifySignature(payload, headers)).toBe(false);
+    expect(await gateway.verifySignature(payload, headers)).toBe(false);
   });
 });

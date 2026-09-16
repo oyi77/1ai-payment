@@ -13,6 +13,7 @@ import { logger } from "../utils/logger";
 import type {
 	CreatePaymentParams,
 	CreatePaymentResult,
+	GatewayVerifyOpts,
 	NormalizedPaymentEvent,
 	PaymentGateway,
 	PaymentMethod,
@@ -163,11 +164,23 @@ export class IPaymuGateway implements PaymentGateway {
 		];
 	}
 
-	verifySignature(body: unknown, _headers: Record<string, string>): boolean {
+	async verifySignature(
+		body: unknown,
+		_headers: Record<string, string>,
+		opts?: GatewayVerifyOpts,
+	): Promise<boolean> {
 		const payload = body as IPaymuCallbackPayload;
-		const config = getConfig();
+		const base = getConfig();
+		const m = opts?.merchantId
+			? ((await resolveGatewayConfig(
+					"ipaymu",
+					opts.merchantId,
+				)) as unknown as IPaymuMerchantConfig)
+			: null;
+		const apiKey = m?.apiKey || base.IPAYMU_API_KEY;
+		const vaKey = m?.vaKey || base.IPAYMU_VA_KEY;
 
-		if (!config.IPAYMU_API_KEY || !config.IPAYMU_VA_KEY) {
+		if (!apiKey || !vaKey) {
 			logger.error("IPAYMU_API_KEY or IPAYMU_VA_KEY not configured");
 			return false;
 		}
@@ -176,7 +189,7 @@ export class IPaymuGateway implements PaymentGateway {
 		const expected = crypto
 			.createHash("sha256")
 			.update(
-				`${config.IPAYMU_VA_KEY}${payload.order_id}${payload.status}${payload.amount}${config.IPAYMU_API_KEY}`,
+				`${vaKey}${payload.order_id}${payload.status}${payload.amount}${apiKey}`,
 			)
 			.digest("hex");
 

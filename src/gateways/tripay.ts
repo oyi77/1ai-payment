@@ -14,6 +14,7 @@ import { logger } from "../utils/logger";
 import type {
 	CreatePaymentParams,
 	CreatePaymentResult,
+	GatewayVerifyOpts,
 	NormalizedPaymentEvent,
 	PaymentGateway,
 	PaymentMethod,
@@ -143,18 +144,29 @@ export class TripayGateway implements PaymentGateway {
 		];
 	}
 
-	verifySignature(body: unknown, headers: Record<string, string>): boolean {
+	async verifySignature(
+		body: unknown,
+		headers: Record<string, string>,
+	): Promise<boolean> {
 		// Signature is HMAC over the raw request body — delegate to raw
 		return this.verifySignatureRaw(JSON.stringify(body), headers);
 	}
 
-	verifySignatureRaw(
+	async verifySignatureRaw(
 		rawBody: string,
 		headers: Record<string, string>,
-	): boolean {
-		const config = getConfig();
+		opts?: GatewayVerifyOpts,
+	): Promise<boolean> {
+		const base = getConfig();
+		const m = opts?.merchantId
+			? ((await resolveGatewayConfig(
+					"tripay",
+					opts.merchantId,
+				)) as unknown as TripayMerchantConfig)
+			: null;
+		const privateKey = m?.privateKey || base.TRIPAY_PRIVATE_KEY;
 
-		if (!config.TRIPAY_PRIVATE_KEY) {
+		if (!privateKey) {
 			logger.error("TRIPAY_PRIVATE_KEY not configured");
 			return false;
 		}
@@ -166,7 +178,7 @@ export class TripayGateway implements PaymentGateway {
 		}
 
 		const expected = crypto
-			.createHmac("sha256", config.TRIPAY_PRIVATE_KEY)
+			.createHmac("sha256", privateKey)
 			.update(rawBody)
 			.digest("hex");
 

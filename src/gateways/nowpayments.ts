@@ -14,6 +14,7 @@ import { logger } from "../utils/logger";
 import type {
 	CreatePaymentParams,
 	CreatePaymentResult,
+	GatewayVerifyOpts,
 	NormalizedPaymentEvent,
 	PaymentGateway,
 	PaymentMethod,
@@ -135,18 +136,29 @@ export class NowPaymentsGateway implements PaymentGateway {
 		];
 	}
 
-	verifySignature(body: unknown, headers: Record<string, string>): boolean {
+	async verifySignature(
+		body: unknown,
+		headers: Record<string, string>,
+	): Promise<boolean> {
 		// Signature is HMAC over the raw request body — delegate to raw
 		return this.verifySignatureRaw(JSON.stringify(body), headers);
 	}
 
-	verifySignatureRaw(
+	async verifySignatureRaw(
 		rawBody: string,
 		headers: Record<string, string>,
-	): boolean {
-		const config = getConfig();
+		opts?: GatewayVerifyOpts,
+	): Promise<boolean> {
+		const base = getConfig();
+		const m = opts?.merchantId
+			? ((await resolveGatewayConfig(
+					"nowpayments",
+					opts.merchantId,
+				)) as unknown as NowPaymentsMerchantConfig)
+			: null;
+		const ipnSecret = m?.ipnSecret || base.NOWPAYMENTS_IPN_SECRET;
 
-		if (!config.NOWPAYMENTS_IPN_SECRET) {
+		if (!ipnSecret) {
 			logger.error("NOWPAYMENTS_IPN_SECRET not configured");
 			return false;
 		}
@@ -158,7 +170,7 @@ export class NowPaymentsGateway implements PaymentGateway {
 		}
 
 		const expected = crypto
-			.createHmac("sha512", config.NOWPAYMENTS_IPN_SECRET)
+			.createHmac("sha512", ipnSecret)
 			.update(rawBody)
 			.digest("hex");
 

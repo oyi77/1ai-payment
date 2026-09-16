@@ -14,6 +14,7 @@ import { logger } from "../utils/logger";
 import type {
 	CreatePaymentParams,
 	CreatePaymentResult,
+	GatewayVerifyOpts,
 	NormalizedPaymentEvent,
 	PaymentGateway,
 	PaymentMethod,
@@ -233,10 +234,21 @@ export class XenditGateway implements PaymentGateway {
 		];
 	}
 
-	verifySignature(body: unknown, headers: Record<string, string>): boolean {
-		const config = getConfig();
+	async verifySignature(
+		body: unknown,
+		headers: Record<string, string>,
+		opts?: GatewayVerifyOpts,
+	): Promise<boolean> {
+		const base = getConfig();
+		const m = opts?.merchantId
+			? ((await resolveGatewayConfig(
+					"xendit",
+					opts.merchantId,
+				)) as unknown as XenditMerchantConfig)
+			: null;
+		const callbackToken = m?.callbackToken || base.XENDIT_CALLBACK_TOKEN;
 
-		if (!config.XENDIT_CALLBACK_TOKEN) {
+		if (!callbackToken) {
 			logger.error("XENDIT_CALLBACK_TOKEN not configured");
 			return false;
 		}
@@ -250,7 +262,7 @@ export class XenditGateway implements PaymentGateway {
 		try {
 			return crypto.timingSafeEqual(
 				Buffer.from(token),
-				Buffer.from(config.XENDIT_CALLBACK_TOKEN),
+				Buffer.from(callbackToken),
 			);
 		} catch {
 			return false;
