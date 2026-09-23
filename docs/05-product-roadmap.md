@@ -450,7 +450,7 @@ user to manually paste the key into the Authorize dialog. The original goal
 **Gap:** package is unpublished/private (intentional — `"private": true`).
 SDK tests exist at `packages/sdk/tests/index.test.ts` (`bun test`, mocked fetch).
 
-**Verified:** `bun run typecheck` passes; SDK methods mirror the REST API surface.
+**Verified:** `bun run typecheck` passes; SDK covers payment ops (create/get/list/refund/gateways/deliveries). Merchant self-service (GET/PATCH merchants, key rotation), saved-methods CRUD, and delivery replay are dashboard/API-only by design — not SDK scope.
 
 **Rollback:** Remove package.
 
