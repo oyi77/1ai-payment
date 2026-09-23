@@ -94,6 +94,10 @@ const createPaymentRoute = createRoute({
 			description: "Missing or invalid API key.",
 			content: { "application/json": { schema: errorSchema } },
 		},
+		403: {
+			description: "Gateway disabled for this merchant.",
+			content: { "application/json": { schema: errorSchema } },
+		},
 		409: {
 			description: "Duplicate order conflict.",
 			content: { "application/json": { schema: errorSchema } },
@@ -143,6 +147,34 @@ paymentsRouter.openapi(createPaymentRoute, async (c) => {
 			},
 			400,
 		);
+	}
+
+	// Explicit opt-out wins over platform fallback: a merchant row with
+	// enabled=0 means "this gateway is off for me" (set via PATCH
+	// /merchants/:id/gateways/:gateway). No row = never configured =
+	// platform credentials apply as before. Checked BEFORE createOrder so
+	// a disabled gateway leaves no failed order behind.
+	try {
+		const gwRow = await getDb().execute({
+			sql: "SELECT enabled FROM merchant_gateways WHERE merchant_id = ? AND gateway = ?",
+			args: [merchantId, body.gateway],
+		});
+		if (gwRow.rows.length > 0 && !gwRow.rows[0].enabled) {
+			return c.json(
+				{
+					success: false as const,
+					error: {
+						code: "GATEWAY_DISABLED",
+						message: `Gateway disabled for this merchant: ${body.gateway}`,
+					},
+				},
+				403,
+			);
+		}
+	} catch {
+		// DB read failure must not silently allow a disabled gateway —
+		// fall through to onError (500), never to payment creation.
+		throw new Error("Failed to check gateway status");
 	}
 
 	// Create order in registry
