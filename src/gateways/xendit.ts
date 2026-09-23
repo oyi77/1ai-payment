@@ -141,7 +141,8 @@ export class XenditGateway implements PaymentGateway {
 
 			// For VA, payment_url is the VA number displayed to user
 			const vaNumber = result.account_number;
-			const paymentUrl = `https://pay.1ai.dev/virtual-account?va=${vaNumber}&bank=${result.bank_code}`;
+			const publicBase = base.PUBLIC_BASE_URL.replace(/\/$/, "");
+			const paymentUrl = `${publicBase}/payment/virtual-account?va=${vaNumber}&bank=${result.bank_code}`;
 
 			return {
 				gatewayReference: result.id,

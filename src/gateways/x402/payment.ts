@@ -74,7 +74,7 @@ export async function buildPaymentRequirement(
 	const paymentRequirement: X402PaymentRequirement = {
 		x402Version: X402_VERSION,
 		resource: {
-			url: `https://pay.berkahkarya.org/api/payments/${params.orderId}/status`,
+			url: `${cfg.PUBLIC_BASE_URL.replace(/\/$/, "")}/api/payments/${params.orderId}/status`,
 			description: `Payment of ${params.amount} USDC`,
 		},
 		accepts,
