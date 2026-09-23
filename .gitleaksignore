@@ -1,0 +1,39 @@
+# False-positive fixtures: test ENCRYPTION_KEY dummy hex, 1pay_test_* keys,
+# README/docs curl placeholders (your-api-key/wrongkey), .env.example placeholder.
+# Live secrets live in gitignored .env + data/*.db* (never committed).
+.env.example:generic-api-key:19
+README.md:curl-auth-header:103
+README.md:curl-auth-header:147
+docs/evidence/curl/gate6-payments.md:curl-auth-header:33
+tests/integration/erc8183.webhook.test.ts:generic-api-key:42
+tests/integration/idempotency-failloud.test.ts:generic-api-key:22
+tests/integration/payment-flow.test.ts:generic-api-key:22
+tests/integration/refund.test.ts:generic-api-key:17
+tests/integration/refund.test.ts:generic-api-key:19
+tests/integration/register.test.ts:generic-api-key:21
+tests/integration/replay.test.ts:generic-api-key:31
+tests/integration/x402.webhook.test.ts:generic-api-key:47
+tests/unit/admin-manage.test.ts:generic-api-key:22
+tests/unit/admin-reset-key.test.ts:generic-api-key:21
+tests/unit/cors.test.ts:generic-api-key:21
+tests/unit/crypto.test.ts:generic-api-key:13
+tests/unit/erc8183.test.ts:generic-api-key:18
+tests/unit/forwarder.service.test.ts:generic-api-key:30
+tests/unit/gateway-createpayment-sim.test.ts:generic-api-key:20
+tests/unit/gateway-creds-contract.test.ts:generic-api-key:22
+tests/unit/gateway-routes.test.ts:generic-api-key:20
+tests/unit/get-order-routes.scoping.test.ts:generic-api-key:20
+tests/unit/lifecycle-simulation.test.ts:generic-api-key:25
+tests/unit/list-routes.scoping.test.ts:generic-api-key:21
+tests/unit/merchant-routes.scoping.test.ts:generic-api-key:21
+tests/unit/merchant-verify.test.ts:generic-api-key:30
+tests/unit/middleware/auth.test.ts:generic-api-key:20
+tests/unit/midtrans.test.ts:generic-api-key:19
+tests/unit/order.service.test.ts:generic-api-key:20
+tests/unit/refund.gateway.test.ts:generic-api-key:27
+tests/unit/refund.routes.scoping.test.ts:generic-api-key:21
+tests/unit/refund.service.test.ts:generic-api-key:17
+tests/unit/replay-routes.scoping.test.ts:generic-api-key:21
+tests/unit/saved-methods.routes.test.ts:generic-api-key:19
+tests/unit/saved-methods.service.test.ts:generic-api-key:17
+tests/unit/schemas.test.ts:generic-api-key:83
