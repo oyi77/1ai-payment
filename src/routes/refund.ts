@@ -82,6 +82,7 @@ refundRoutes.openapi(createRefundRoute, async (c) => {
 			merchant_id: merchantId,
 			amount: body.amount,
 			reason: body.reason,
+			idempotency_key: body.idempotency_key,
 		});
 
 		return c.json({ success: true as const, data: refund }, 201);

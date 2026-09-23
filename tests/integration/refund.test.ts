@@ -22,6 +22,7 @@ let app: import('hono').Hono;
 let seededMerchantId: string;
 let refundableOrderId: string;
 let pendingOrderId: string;
+let partialOrderId: string;
 
 function authHeaders(): Record<string, string> {
   return { 'X-API-Key': TEST_API_KEY, 'Content-Type': 'application/json' };
@@ -62,6 +63,13 @@ beforeAll(async () => {
           VALUES (?, ?, 'midtrans', 25000, 'pending', 'https://example.com/callback', datetime('now'), datetime('now'))`,
     args: [pendingOrderId, seededMerchantId],
   });
+  // Seed a fresh order for the idempotency test (untouched by other tests)
+  partialOrderId = generateOrderId();
+  await db.execute({
+    sql: `INSERT INTO orders (id, project_id, gateway, amount, status, callback_url, created_at, updated_at)
+          VALUES (?, ?, 'midtrans', 50000, 'success', 'https://example.com/callback', datetime('now'), datetime('now'))`,
+    args: [partialOrderId, seededMerchantId],
+  });
 
   // Build test app
   app = new Hono();
@@ -89,6 +97,25 @@ describe('POST /api/refunds', () => {
     expect(data.status).toBe('pending');
     expect(data.amount).toBe(50000);
     expect(data.order_id).toBe(refundableOrderId);
+  });
+  test('same idempotency_key twice returns the same refund (idempotent hit)', async () => {
+    const key = `refund-idem-${Date.now()}`;
+    const first = await app.request('/api/refunds', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ order_id: partialOrderId, amount: 10000, idempotency_key: key }),
+    });
+    expect(first.status).toBe(201);
+    const firstBody = await first.json() as Record<string, unknown>;
+    const firstData = firstBody.data as Record<string, unknown>;
+    const second = await app.request('/api/refunds', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ order_id: partialOrderId, amount: 10000, idempotency_key: key }),
+    });
+    expect(second.status).toBe(201);
+    const secondBody = await second.json() as Record<string, unknown>;
+    expect((secondBody.data as Record<string, unknown>).id).toBe(firstData.id);
   });
 
   test('returns 400 for missing order_id', async () => {

@@ -351,6 +351,11 @@ export const createRefundBodySchema = z
 			.max(500)
 			.optional()
 			.openapi({ example: "Customer request" }),
+		idempotency_key: z.string().optional().openapi({
+			description:
+				"Client-generated unique key to prevent duplicate refunds on retry",
+			example: "refund-usr123-1720180000",
+		}),
 	})
 	.openapi("CreateRefundBody");
 

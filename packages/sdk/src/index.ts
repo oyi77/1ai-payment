@@ -196,9 +196,9 @@ export class OneAIPayment {
     return this.request('GET', `/api/transactions${qs ? `?${qs}` : ''}`);
   }
 
-  /** Create a refund for an order. */
-  async refund(orderId: string, amount?: number, reason?: string): Promise<Refund> {
-    return this.request<Refund>('POST', '/api/refunds', { order_id: orderId, amount, reason });
+  /** Create a refund for an order. Pass idempotency_key to make retries safe. */
+  async refund(orderId: string, amount?: number, reason?: string, idempotency_key?: string): Promise<Refund> {
+    return this.request<Refund>('POST', '/api/refunds', { order_id: orderId, amount, reason, idempotency_key });
   }
 
   /** List refunds. */
