@@ -279,13 +279,8 @@
         <!-- Gateways -->
         <div id="dGateways" class="hidden">
           <h1>Gateway Configuration</h1>
-          <p style="color:#94a3b8;font-size:14px;margin-bottom:16px">Configure your own gateway credentials or use platform-shared ones.</p>
-          <div class="table-wrap">
-            <table><thead><tr><th>Gateway</th><th>Environment</th><th>Status</th><th>Actions</th></tr></thead><tbody id="gwTable"></tbody></table>
-          </div>
-          <div class="warning-box" style="margin-top:16px">
-            ℹ️ To configure gateway credentials, use the <a href="/reference" target="_blank">API</a> — <code>PUT /api/merchants/:id/gateways/:gateway</code>
-          </div>
+          <p style="color:#94a3b8;font-size:14px;margin-bottom:16px">Use your own credentials or fall back to platform-shared ones. Secrets are encrypted at rest and never shown back — saving replaces the full set.</p>
+          <div id="gwList"></div>
         </div>
 
         <!-- Settings -->
@@ -294,9 +289,14 @@
           <div class="settings-group">
             <h3>Account</h3>
             <div class="settings-row"><span class="key">Merchant ID</span><span class="val mono" id="setMerchantId">-</span></div>
-            <div class="settings-row"><span class="key">Name</span><span class="val" id="setName">-</span></div>
             <div class="settings-row"><span class="key">Plan</span><span class="val" id="setPlan">-</span></div>
-            <div class="settings-row"><span class="key">Callback URL</span><span class="val" id="setCallback">-</span></div>
+            <label>Business name</label>
+            <input id="setNameInput" placeholder="My Store" />
+            <label>Default callback URL</label>
+            <input id="setCallbackInput" placeholder="https://my-app.com/callback" />
+            <button class="btn btn-primary btn-small" onclick="saveSettings()">Save changes</button>
+            <div class="error-msg" id="settingsError"></div>
+            <div class="success-msg hidden" id="settingsOk">Saved.</div>
           </div>
           <div class="settings-group">
             <h3>API Key</h3>
@@ -505,24 +505,112 @@ const order = await payment.create({
       document.getElementById('refundTable').innerHTML = rows || '<tr><td colspan="6" style="color:#64748b">No refunds yet</td></tr>';
     }
 
+    const GW_FIELDS = {
+      midtrans: [["apiKey", "Server Key"]],
+      tripay: [["apiKey", "API Key"], ["privateKey", "Private Key"], ["merchantCode", "Merchant Code"]],
+      duitku: [["apiKey", "API Key"], ["merchantCode", "Merchant Code"]],
+      nowpayments: [["apiKey", "API Key"], ["ipnSecret", "IPN Secret"]],
+      ipaymu: [["apiKey", "API Key"], ["vaKey", "VA Key"]],
+      scalev: [["storefrontApiKey", "Storefront API Key"], ["storeId", "Store ID"], ["variantId", "Variant ID"], ["webhookSecret", "Webhook Secret"]],
+      xendit: [["apiKey", "API Key"], ["callbackToken", "Callback Token"]],
+      saweria: [["username", "Username"], ["userId", "User ID"]],
+    };
+
+    async function merchantId() {
+      const merchants = await api('GET', '/api/merchants');
+      return merchants && merchants.success && merchants.data && merchants.data.length > 0 ? merchants.data[0].id : null;
+    }
+
     async function loadGateways() {
-      const data = await api('GET', '/api/gateways');
-      if (!data || !data.success || !data.data) return;
-      const gwList = data.data;
-      document.getElementById('gwTable').innerHTML = gwList.map(g =>
-        `<tr><td>${escapeHtml(g.gateway)}</td><td>${(g.currencies || []).map(c => escapeHtml(c)).join(', ')}</td><td><span class="badge ${g.enabled ? 'success' : 'pending'}">${g.enabled ? 'Available' : 'Configured'}</span></td><td><a href="/reference" target="_blank" style="font-size:12px">Configure →</a></td></tr>`
-      ).join('');
+      const mid = await merchantId();
+      if (!mid) return;
+      const [plat, owned] = await Promise.all([
+        api('GET', '/api/gateways'),
+        api('GET', '/api/merchants/' + mid + '/gateways'),
+      ]);
+      if (!plat || !plat.success) return;
+      const ownMap = {};
+      if (owned && owned.success) (owned.data || []).forEach(o => { ownMap[o.gateway] = o; });
+      document.getElementById('gwList').innerHTML = plat.data.map(g => {
+        const fields = GW_FIELDS[g.gateway];
+        const own = ownMap[g.gateway];
+        if (!fields) {
+          return '<div class="settings-group"><h3>' + escapeHtml(g.gateway) + '</h3>'
+            + '<p style="font-size:13px;color:#94a3b8">Platform-managed credentials (shared). Status: <span class="badge ' + (g.enabled ? 'success' : 'pending') + '">' + (g.enabled ? 'Available' : 'Not configured') + '</span></p></div>';
+        }
+        const inputs = fields.map(([k, label]) =>
+          '<label>' + escapeHtml(label) + (own ? ' <span style="color:#22c55e">(set)</span>' : '') + '</label>'
+          + '<input type="password" id="gw-' + g.gateway + '-' + k + '" placeholder="' + (own ? 'leave blank to keep' : escapeHtml(label)) + '" autocomplete="off" />'
+        ).join('');
+        return '<div class="settings-group"><h3>' + escapeHtml(g.gateway) + '</h3>'
+          + '<div style="margin-bottom:12px"><span class="badge ' + (own ? (own.enabled ? 'success' : 'pending') : 'pending') + '">' + (own ? (own.enabled ? 'Own credentials' : 'Disabled') : 'Platform shared') + '</span>'
+          + '<span style="font-size:12px;color:#64748b;margin-left:8px">' + (g.currencies || []).map(c => escapeHtml(c)).join(', ') + '</span></div>'
+          + inputs
+          + '<label>Environment</label><select id="gw-' + g.gateway + '-env"><option value="sandbox"' + (own && own.environment === 'sandbox' ? ' selected' : '') + '>sandbox</option><option value="production"' + (own && own.environment === 'production' ? ' selected' : '') + '>production</option></select>'
+          + '<div style="display:flex;gap:8px;margin-top:4px"><button class="btn btn-primary btn-small" onclick="saveGw(\'' + g.gateway + '\')">Save</button>'
+          + (own ? '<button class="btn btn-secondary btn-small" onclick="toggleGw(\'' + g.gateway + '\', ' + (own.enabled ? 'false' : 'true') + ')">' + (own.enabled ? 'Disable' : 'Enable') + '</button><button class="btn btn-secondary btn-small" onclick="removeGw(\'' + g.gateway + '\')">Remove</button>' : '')
+          + '</div><div class="error-msg" id="gwerr-' + g.gateway + '"></div></div>';
+      }).join('');
+    }
+
+    async function saveGw(gateway) {
+      const mid = await merchantId();
+      if (!mid) return;
+      const err = document.getElementById('gwerr-' + gateway);
+      hideError(err);
+      const creds = {};
+      for (const [k] of GW_FIELDS[gateway]) {
+        const v = document.getElementById('gw-' + gateway + '-' + k).value.trim();
+        if (!v) { showError(err, 'Fill all credential fields (paste full set — secrets are never shown back).'); return; }
+        creds[k] = v;
+      }
+      const env = document.getElementById('gw-' + gateway + '-env').value;
+      const res = await api('PUT', '/api/merchants/' + mid + '/gateways/' + gateway, { credentials: creds, environment: env });
+      if (!res || !res.success) { showError(err, (res && res.error && res.error.message) || 'Save failed.'); return; }
+      loadGateways();
+    }
+
+    async function toggleGw(gateway, enabled) {
+      const mid = await merchantId();
+      if (!mid) return;
+      await api('PATCH', '/api/merchants/' + mid + '/gateways/' + gateway, { enabled });
+      loadGateways();
+    }
+
+    async function removeGw(gateway) {
+      if (!confirm('Remove your ' + gateway + ' credentials? Falls back to platform-shared credentials.')) return;
+      const mid = await merchantId();
+      if (!mid) return;
+      await api('DELETE', '/api/merchants/' + mid + '/gateways/' + gateway);
+      loadGateways();
     }
 
     async function loadSettings() {
-      // Try to get merchant info from API
       const merchants = await api('GET', '/api/merchants');
       const m = merchants && merchants.success && merchants.data && merchants.data.length > 0 ? merchants.data[0] : null;
       document.getElementById('setMerchantId').textContent = m ? m.id : '—';
-      document.getElementById('setName').textContent = m ? m.name : 'Merchant not found';
+      document.getElementById('setNameInput').value = m ? m.name : '';
       document.getElementById('setPlan').textContent = m ? m.plan : 'free';
-      document.getElementById('setCallback').textContent = m ? (m.default_callback_url || 'Not set') : '—';
+      document.getElementById('setCallbackInput').value = m ? (m.default_callback_url || '') : '';
       document.getElementById('dashPlan').textContent = m ? m.plan : 'free';
+    }
+
+    async function saveSettings() {
+      const merchants = await api('GET', '/api/merchants');
+      if (!merchants || !merchants.data || merchants.data.length === 0) return;
+      const id = merchants.data[0].id;
+      const err = document.getElementById('settingsError');
+      hideError(err);
+      document.getElementById('settingsOk').classList.add('hidden');
+      const body = {};
+      const name = document.getElementById('setNameInput').value.trim();
+      const cb = document.getElementById('setCallbackInput').value.trim();
+      if (name) body.name = name;
+      if (cb) body.default_callback_url = cb;
+      const res = await api('PATCH', '/api/merchants/' + id, body);
+      if (!res || !res.success) { showError(err, (res && res.error && res.error.message) || 'Save failed.'); return; }
+      document.getElementById('settingsOk').classList.remove('hidden');
+      loadSettings();
     }
 
     async function rotateKey() {
