@@ -164,3 +164,33 @@ describe("GET /api/webhook-deliveries (scoping)", () => {
 		expect(res.status).toBe(401);
 	});
 });
+
+describe("list pagination boundaries", () => {
+	test("rejects limit=0 and limit>100 on transactions (400)", async () => {
+		for (const q of ["limit=0", "limit=101", "limit=99999", "limit=-5"]) {
+			const res = await app.request(`/api/transactions?${q}`, {
+				headers: { "X-API-Key": merchantAKey },
+			});
+			expect(res.status).toBe(400);
+		}
+	});
+
+	test("rejects negative offset on transactions (400)", async () => {
+		const res = await app.request("/api/transactions?offset=-1", {
+			headers: { "X-API-Key": merchantAKey },
+		});
+		expect(res.status).toBe(400);
+	});
+
+	test("rejects out-of-range limit on refunds and webhook-deliveries (400)", async () => {
+		for (const path of [
+			"/api/refunds?limit=101",
+			"/api/webhook-deliveries?limit=0",
+		]) {
+			const res = await app.request(path, {
+				headers: { "X-API-Key": merchantAKey },
+			});
+			expect(res.status).toBe(400);
+		}
+	});
+});
