@@ -64,6 +64,45 @@ describe("isHttpsRequest", () => {
 			isHttpsRequest("https://api.example.com/webhook/midtrans", "http"),
 		).toBe(true);
 	});
+
+	test("accepts chained X-Forwarded-Proto containing https", () => {
+		expect(
+			isHttpsRequest(
+				"http://localhost:3100/webhook/midtrans",
+				"https, http",
+			),
+		).toBe(true);
+	});
+
+	test("accepts CF-Visitor https scheme behind Cloudflare", () => {
+		expect(
+			isHttpsRequest(
+				"http://localhost:3100/webhook/midtrans",
+				undefined,
+				'{"scheme":"https"}',
+			),
+		).toBe(true);
+	});
+
+	test("rejects CF-Visitor http scheme", () => {
+		expect(
+			isHttpsRequest(
+				"http://localhost:3100/webhook/midtrans",
+				undefined,
+				'{"scheme":"http"}',
+			),
+		).toBe(false);
+	});
+
+	test("rejects malformed CF-Visitor header", () => {
+		expect(
+			isHttpsRequest(
+				"http://localhost:3100/webhook/midtrans",
+				undefined,
+				"not-json",
+			),
+		).toBe(false);
+	});
 });
 
 describe("REQUIRE_HTTPS config", () => {

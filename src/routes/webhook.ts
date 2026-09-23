@@ -45,10 +45,33 @@ const errorJson = {
 
 /**
  * Determine whether an incoming webhook request was transported over TLS.
- * A trusted reverse proxy signals this via the X-Forwarded-Proto header.
+ * Behind Cloudflare the app sees plain HTTP, so the edge signal decides:
+ * X-Forwarded-Proto (may be a comma-chained list — any "https" wins) or
+ * Cloudflare's own CF-Visitor: {"scheme":"https"} header.
  */
-export function isHttpsRequest(url: string, xForwardedProto?: string): boolean {
-	return url.startsWith("https://") || xForwardedProto === "https";
+export function isHttpsRequest(
+	url: string,
+	xForwardedProto?: string,
+	cfVisitor?: string,
+): boolean {
+	if (url.startsWith("https://")) return true;
+	if (xForwardedProto?.split(",").some((p) => p.trim() === "https"))
+		return true;
+	if (cfVisitor) {
+		try {
+			const parsed: unknown = JSON.parse(cfVisitor);
+			if (
+				parsed !== null &&
+				typeof parsed === "object" &&
+				"scheme" in parsed &&
+				parsed.scheme === "https"
+			)
+				return true;
+		} catch {
+			// malformed header — fall through to false
+		}
+	}
+	return false;
 }
 
 /**
@@ -202,7 +225,11 @@ for (const gatewayName of GATEWAY_NAMES) {
 		// HTTPS enforcement (configurable; defaults to production-only)
 		if (
 			getConfig().REQUIRE_HTTPS &&
-			!isHttpsRequest(c.req.url, headers["x-forwarded-proto"])
+			!isHttpsRequest(
+				c.req.url,
+				headers["x-forwarded-proto"],
+				headers["cf-visitor"],
+			)
 		) {
 			logger.warn(`Webhook ${gatewayName}: non-HTTPS request rejected`);
 			return c.json({ error: "HTTPS required" }, 400);
