@@ -85,14 +85,14 @@ Auth:
 | Duitku | `duitku` | IDR | MD5 |
 | NOWPayments | `nowpayments` | USD, EUR, multi-crypto | HMAC-SHA512 |
 | iPaymu | `ipaymu` | IDR | SHA-256 |
-| Scalev | `scalev` | IDR | HMAC-SHA256 |
+| Scalev | `scalev` | IDR | HMAC-SHA256 — parked (quota exhausted, hidden from UI) |
 | Xendit | `xendit` | IDR | X-Callback-Token |
 | Telegram Stars | `telegram_stars` | XTR | Telegram Bot API |
 | Telegram Payments | `telegram_payments` | USD, EUR, GBP, IDR | Telegram Bot API |
 | PayPal | `paypal` | USD, EUR, GBP, CAD, AUD | PayPal Verification API (SHA256withRSA) |
 | x402 | `x402` | USD (USDC) | On-chain tx verification via RPC |
 | ERC-8183 | `erc8183` | USD | Escrow attestation signature |
-
+| Saweria | `saweria` | IDR | Reconciliation (unsigned, order-id match) |
 ### Create Payment
 
 ```bash
