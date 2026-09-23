@@ -281,6 +281,8 @@
             <input id="refundAmount" type="number" min="1" placeholder="full amount" />
             <label>Reason (optional)</label>
             <input id="refundReason" placeholder="customer request" />
+            <label>Idempotency key (optional — safe retry)</label>
+            <input id="refundKey" placeholder="auto-generated if blank" />
             <button class="btn btn-primary btn-small" onclick="createRefund()">Create refund</button>
             <div class="error-msg" id="refundError"></div>
           </div>
@@ -378,15 +380,26 @@
     const STATUS_BADGE = { success: 'success', pending: 'pending', failed: 'failed' };
     function badgeClass(status) { return STATUS_BADGE[status] || 'pending'; }
 
+    // In-flight dedup: concurrent identical requests (e.g. double-clicked
+    // buttons) collapse into one flight. Sequential clicks still work.
+    const inflight = new Map();
     async function api(method, path, body) {
-      try {
-        const res = await fetch(API + path, { method, headers: headers(), body: body ? JSON.stringify(body) : undefined });
-        const data = await res.json().catch(() => null);
-        if (res.status === 401) { logout(); return null; }
-        return data;
-      } catch (e) {
-        return null;
-      }
+      const key = method + ' ' + path + ' ' + (body ? JSON.stringify(body) : '');
+      if (inflight.has(key)) return inflight.get(key);
+      const p = (async () => {
+        try {
+          const res = await fetch(API + path, { method, headers: headers(), body: body ? JSON.stringify(body) : undefined });
+          const data = await res.json().catch(() => null);
+          if (res.status === 401) { logout(); return null; }
+          return data;
+        } catch (e) {
+          return null;
+        } finally {
+          inflight.delete(key);
+        }
+      })();
+      inflight.set(key, p);
+      return p;
     }
 
     function showPage(id) {
@@ -563,12 +576,18 @@ const order = await payment.create({
       if (amt) body.amount = Number(amt);
       const reason = document.getElementById('refundReason').value.trim();
       if (reason) body.reason = reason;
+      let key = document.getElementById('refundKey').value.trim();
+      if (!key) {
+        key = 'refund-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+        document.getElementById('refundKey').value = key;
+      }
+      body.idempotency_key = key;
       const res = await api('POST', '/api/refunds', body);
       if (!res || !res.success) { showError(err, (res && res.error && res.error.message) || 'Create failed.'); return; }
       document.getElementById('refundOrderId').value = '';
       document.getElementById('refundAmount').value = '';
       document.getElementById('refundReason').value = '';
-      loadRefunds();
+      document.getElementById('refundKey').value = '';
     }
 
     async function loadMethods() {
