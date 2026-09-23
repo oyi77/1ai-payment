@@ -61,7 +61,9 @@ On first start the SQLite database is created and schema migrations run automati
 | `/api/gateways/:gateway/methods` | GET | API key | List payment methods for a gateway |
 | `/api/transactions` | GET | API key | List transactions (status/gateway/date filters, paginated) |
 | `/api/webhook-deliveries` | GET | API key | List webhook deliveries + forward status |
-| `/api/refunds` | POST / GET | API key | Create / list refunds |
+| `/api/webhook-deliveries/:id/replay` | POST | API key | Replay a dead-lettered delivery |
+| `/api/saved-methods` | GET / POST | API key | List / vault reusable gateway tokens |
+| `/api/saved-methods/:methodId` | GET / PATCH / DELETE | API key | Get / update / remove a saved method |
 | `/api/merchants` | POST / GET | API key | Create / list merchants |
 | `/api/merchants/:id` | GET / PATCH | API key | Get / update merchant |
 | `/api/merchants/:id/api-key` | POST | API key | Rotate merchant API key |

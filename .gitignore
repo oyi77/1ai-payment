@@ -16,6 +16,7 @@ data/
 # Build
 dist/
 build/
+*.tgz
 
 # IDE
 .vscode/
