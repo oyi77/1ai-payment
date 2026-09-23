@@ -8,8 +8,8 @@
  *   a) `items[0].variant_name` (if Scalev includes items array)
  *   b) `notes.variant` (if sent in checkout request)
  *
- * @todo verify real Scalev webhook payload structure with 1 test order
- *       and update variant name keys accordingly.
+ * NOTE (ops): Scalev integration is parked — quota exhausted, dashboard form
+ * removed. Variant keys below are best-effort until a real test order exists.
  */
 
 import { getConfig } from "../config/env";
