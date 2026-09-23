@@ -121,13 +121,13 @@ describe('request serialization', () => {
     });
   });
 
-  test('register is a POST without X-API-Key requirement being enforced client-side', async () => {
+  test('register sends only name/callback — plan is not accepted (server hardcodes free)', async () => {
     mockFetch({ success: true, data: { merchant: {}, api_key: '1pay_merchant' } });
     const c = client();
-    await c.register({ name: 'Store', plan: 'pro' });
+    await c.register({ name: 'Store', default_callback_url: 'https://x.com/cb' });
     const init = calls[0].init!;
     expect(init.method).toBe('POST');
-    expect(JSON.parse(String(init.body))).toEqual({ name: 'Store', plan: 'pro' });
+    expect(JSON.parse(String(init.body))).toEqual({ name: 'Store', default_callback_url: 'https://x.com/cb' });
   });
 });
 

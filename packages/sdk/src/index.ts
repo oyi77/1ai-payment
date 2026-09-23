@@ -144,11 +144,15 @@ export class OneAIPayment {
     return data.data as T;
   }
 
-  /** Register a new merchant. Public endpoint — no API key required. */
+  /**
+   * Register a new merchant. Public endpoint — no API key required.
+   * All accounts start on the free tier; plan upgrades are assigned by
+   * the platform admin (there is no self-upgrade — passing `plan` would
+   * be silently stripped by server validation, so it is not accepted here).
+   */
   async register(params: {
     name: string;
     default_callback_url?: string;
-    plan?: string;
   }): Promise<{ merchant: Merchant; api_key: string }> {
     return this.request('POST', '/api/register', params);
   }
