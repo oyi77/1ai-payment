@@ -115,8 +115,8 @@ export const orderResponseSchema = z
 			.string()
 			.nullable()
 			.openapi({ example: "https://sandbox.midtrans.com/pay/abc123" }),
-		fee: z.number().openapi({ example: 2500 }),
-		net: z.number().openapi({ example: 97500 }),
+		fee: z.number().openapi({ example: 0 }),
+		net: z.number().openapi({ example: 100000 }),
 		metadata: z
 			.record(z.string(), z.unknown())
 			.nullable()
@@ -378,8 +378,8 @@ export const transactionResponseSchema = z
 		amount: z.number().openapi({ example: 100000 }),
 		currency: z.string().openapi({ example: "IDR" }),
 		payment_method: z.string().nullable().openapi({ example: "qris" }),
-		fee: z.number().openapi({ example: 2500 }),
-		net: z.number().openapi({ example: 97500 }),
+		fee: z.number().openapi({ example: 0 }),
+		net: z.number().openapi({ example: 100000 }),
 		created_at: z.string().openapi({ example: "2026-07-06T10:00:00.000Z" }),
 	})
 	.openapi("Transaction");

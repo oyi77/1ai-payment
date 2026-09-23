@@ -207,8 +207,8 @@ Idempotency-Key: <unique_key>    # Optional (alternative to body idempotency_key
     currency: string;
     payment_method: string | null;
     payment_url: string | null;    // Redirect the user here
-    fee: number;
-    net: number;
+    fee: number;                   // Platform fee — currently always 0 (no fee computation yet)
+    net: number;                   // amount - fee (currently equals amount)
     metadata: Record<string, unknown> | null;
     created_at: string;            // ISO timestamp
     updated_at: string;            // ISO timestamp
