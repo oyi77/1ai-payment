@@ -25,6 +25,8 @@ export interface CreatePaymentParams {
   currency?: string;
   payment_method?: string;
   callback_url: string;
+  successUrl?: string;
+  cancelUrl?: string;
   idempotency_key?: string;
   project_order_id?: string;
   customer?: { name?: string; email?: string };
@@ -40,6 +42,8 @@ export interface Order {
   currency: string;
   payment_method: string | null;
   payment_url: string | null;
+  fee: number;
+  net: number;
   metadata: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
