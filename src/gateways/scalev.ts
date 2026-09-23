@@ -1,6 +1,10 @@
 /**
  * Scalev payment gateway implementation.
  *
+ * PARKED (ops, 2026-09-23): owner quota exhausted — hidden from landing/
+ * dashboard user surfaces. Code stays wired (registry, webhook, nexus,
+ * merchant-creds contract) so existing credentials keep resolving.
+ *
  * IMPORTANT: Scalev is a HEADLESS COMMERCE PLATFORM, not a simple payment gateway.
  * It requires:
  * 1. A Scalev store with products/variants configured

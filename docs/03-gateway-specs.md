@@ -570,6 +570,8 @@ IPAYMU_ENVIRONMENT=sandbox|production
 
 ## Scalev
 
+> PARKED (ops, 2026-09-23): owner quota exhausted — hidden from landing/dashboard user surfaces. Code stays wired (registry, webhook, nexus, merchant-creds contract) so existing credentials keep resolving.
+
 Scalev is integrated as a **headless-commerce checkout**: the storefront API creates a checkout order for a pre-configured product variant, and the 1ai-payment order ID round-trips through the `notes` field.
 
 ### Payment Creation
