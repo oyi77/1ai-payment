@@ -4,11 +4,11 @@
  * isolation, and gateway_token non-leak at the HTTP boundary.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { rmSync } from "node:fs";
-import { sha256Hash } from "../../src/utils/crypto";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { resetConfigCache } from "../../src/config/env";
+import { sha256Hash } from "../../src/utils/crypto";
 
 const TEST_DB = join(tmpdir(), `1pay-sm-route-${Date.now()}.db`);
 
@@ -20,9 +20,9 @@ process.env.ENCRYPTION_KEY =
 	"f0bbe8000253a9997331287d3ebdadd3854720a049233b18a37dd401b61b4c6f";
 resetConfigCache();
 
-import { initDatabase, getDb } from "../../src/config/database";
 import type { Client } from "@libsql/client";
 import type { app as AppType } from "../../src/app";
+import { getDb, initDatabase } from "../../src/config/database";
 
 let app: typeof AppType;
 let db: Client;
@@ -69,7 +69,10 @@ describe("POST /api/saved-methods (route)", () => {
 	test("creates method and returns 201 with NO gateway_token", async () => {
 		const res = await app.request("/api/saved-methods", {
 			method: "POST",
-			headers: { "X-API-Key": merchantAKey, "Content-Type": "application/json" },
+			headers: {
+				"X-API-Key": merchantAKey,
+				"Content-Type": "application/json",
+			},
 			body: JSON.stringify(VALID_BODY),
 		});
 		expect(res.status).toBe(201);
@@ -102,7 +105,10 @@ describe("POST /api/saved-methods (route)", () => {
 	test("returns 400 for invalid gateway", async () => {
 		const res = await app.request("/api/saved-methods", {
 			method: "POST",
-			headers: { "X-API-Key": merchantAKey, "Content-Type": "application/json" },
+			headers: {
+				"X-API-Key": merchantAKey,
+				"Content-Type": "application/json",
+			},
 			body: JSON.stringify({ ...VALID_BODY, gateway: "nope" }),
 		});
 		expect(res.status).toBe(400);
@@ -111,12 +117,18 @@ describe("POST /api/saved-methods (route)", () => {
 	test("idempotent: same key+gateway+token returns same id on 201", async () => {
 		const res1 = await app.request("/api/saved-methods", {
 			method: "POST",
-			headers: { "X-API-Key": merchantAKey, "Content-Type": "application/json" },
+			headers: {
+				"X-API-Key": merchantAKey,
+				"Content-Type": "application/json",
+			},
 			body: JSON.stringify({ ...VALID_BODY, gateway_token: "tok_idem" }),
 		});
 		const res2 = await app.request("/api/saved-methods", {
 			method: "POST",
-			headers: { "X-API-Key": merchantAKey, "Content-Type": "application/json" },
+			headers: {
+				"X-API-Key": merchantAKey,
+				"Content-Type": "application/json",
+			},
 			body: JSON.stringify({ ...VALID_BODY, gateway_token: "tok_idem" }),
 		});
 		expect(res1.status).toBe(201);
@@ -134,17 +146,24 @@ describe("GET /api/saved-methods (route)", () => {
 		});
 		expect(res.status).toBe(200);
 		const body = await res.json();
-		expect(Array.isArray(body)).toBe(true);
+		expect(body.success).toBe(true);
+		expect(Array.isArray(body.data)).toBe(true);
 		// None of A's methods leak B's token
-		expect(JSON.stringify(body)).not.toContain("tok_route_secret_b");
+		expect(JSON.stringify(body.data)).not.toContain("tok_route_secret_b");
 	});
 
 	test("GET single returns 404 for other merchant's method (isolation)", async () => {
 		// Create a method as B
 		const bRes = await app.request("/api/saved-methods", {
 			method: "POST",
-			headers: { "X-API-Key": merchantBKey, "Content-Type": "application/json" },
-			body: JSON.stringify({ ...VALID_BODY, gateway_token: "tok_route_secret_b" }),
+			headers: {
+				"X-API-Key": merchantBKey,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				...VALID_BODY,
+				gateway_token: "tok_route_secret_b",
+			}),
 		});
 		const bBody = await bRes.json();
 		const bMethodId = bBody.data.id;
@@ -167,14 +186,20 @@ describe("PATCH /api/saved-methods/:methodId (route)", () => {
 	test("updates own method", async () => {
 		const createRes = await app.request("/api/saved-methods", {
 			method: "POST",
-			headers: { "X-API-Key": merchantAKey, "Content-Type": "application/json" },
+			headers: {
+				"X-API-Key": merchantAKey,
+				"Content-Type": "application/json",
+			},
 			body: JSON.stringify({ ...VALID_BODY, gateway_token: "tok_patch_route" }),
 		});
 		const { data } = await createRes.json();
 
 		const res = await app.request(`/api/saved-methods/${data.id}`, {
 			method: "PATCH",
-			headers: { "X-API-Key": merchantAKey, "Content-Type": "application/json" },
+			headers: {
+				"X-API-Key": merchantAKey,
+				"Content-Type": "application/json",
+			},
 			body: JSON.stringify({ method_name: "Renamed" }),
 		});
 		expect(res.status).toBe(200);
@@ -185,14 +210,20 @@ describe("PATCH /api/saved-methods/:methodId (route)", () => {
 	test("returns 404 patching other merchant's method", async () => {
 		const createRes = await app.request("/api/saved-methods", {
 			method: "POST",
-			headers: { "X-API-Key": merchantBKey, "Content-Type": "application/json" },
+			headers: {
+				"X-API-Key": merchantBKey,
+				"Content-Type": "application/json",
+			},
 			body: JSON.stringify({ ...VALID_BODY, gateway_token: "tok_patch_b" }),
 		});
 		const { data } = await createRes.json();
 
 		const res = await app.request(`/api/saved-methods/${data.id}`, {
 			method: "PATCH",
-			headers: { "X-API-Key": merchantAKey, "Content-Type": "application/json" },
+			headers: {
+				"X-API-Key": merchantAKey,
+				"Content-Type": "application/json",
+			},
 			body: JSON.stringify({ method_name: "Hacked" }),
 		});
 		expect(res.status).toBe(404);
@@ -203,7 +234,10 @@ describe("DELETE /api/saved-methods/:methodId (route)", () => {
 	test("deletes own method (204)", async () => {
 		const createRes = await app.request("/api/saved-methods", {
 			method: "POST",
-			headers: { "X-API-Key": merchantAKey, "Content-Type": "application/json" },
+			headers: {
+				"X-API-Key": merchantAKey,
+				"Content-Type": "application/json",
+			},
 			body: JSON.stringify({ ...VALID_BODY, gateway_token: "tok_del_route" }),
 		});
 		const { data } = await createRes.json();
@@ -224,7 +258,10 @@ describe("DELETE /api/saved-methods/:methodId (route)", () => {
 	test("cannot delete other merchant's method (404)", async () => {
 		const createRes = await app.request("/api/saved-methods", {
 			method: "POST",
-			headers: { "X-API-Key": merchantBKey, "Content-Type": "application/json" },
+			headers: {
+				"X-API-Key": merchantBKey,
+				"Content-Type": "application/json",
+			},
 			body: JSON.stringify({ ...VALID_BODY, gateway_token: "tok_del_b" }),
 		});
 		const { data } = await createRes.json();

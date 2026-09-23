@@ -4,11 +4,11 @@
 import { describe, expect, test } from "bun:test";
 import {
 	createSavedMethodBodySchema,
-	savedPaymentMethodSchema,
+	savedMethodIdParamsSchema,
 	savedMethodToResponse,
 	savedMethodsListSchema,
+	savedPaymentMethodSchema,
 	updateSavedMethodBodySchema,
-	savedMethodIdParamsSchema,
 } from "../../src/schemas";
 
 describe("createSavedMethodBodySchema", () => {
@@ -62,7 +62,9 @@ describe("createSavedMethodBodySchema", () => {
 
 describe("updateSavedMethodBodySchema", () => {
 	test("accepts partial update (single field)", () => {
-		const r = updateSavedMethodBodySchema.safeParse({ method_name: "New Name" });
+		const r = updateSavedMethodBodySchema.safeParse({
+			method_name: "New Name",
+		});
 		expect(r.success).toBe(true);
 	});
 
@@ -107,24 +109,27 @@ describe("savedPaymentMethodSchema (response)", () => {
 });
 
 describe("savedMethodsListSchema", () => {
-	test("accepts array of saved methods", () => {
-		const r = savedMethodsListSchema.safeParse([
-			{
-				id: "sm_1",
-				merchant_id: "merch_1",
-				gateway: "midtrans",
-				method_code: "card",
-				method_name: "A",
-				masked_identifier: null,
-				expires_at: null,
-				created_at: "2026-08-30T00:00:00.000Z",
-			},
-		]);
+	test("accepts envelope with array of saved methods", () => {
+		const r = savedMethodsListSchema.safeParse({
+			success: true,
+			data: [
+				{
+					id: "sm_1",
+					merchant_id: "merch_1",
+					gateway: "midtrans",
+					method_code: "card",
+					method_name: "A",
+					masked_identifier: null,
+					expires_at: null,
+					created_at: "2026-08-30T00:00:00.000Z",
+				},
+			],
+		});
 		expect(r.success).toBe(true);
 	});
 
-	test("rejects non-array", () => {
-		const r = savedMethodsListSchema.safeParse({});
+	test("rejects bare array (no envelope)", () => {
+		const r = savedMethodsListSchema.safeParse([]);
 		expect(r.success).toBe(false);
 	});
 });

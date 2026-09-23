@@ -9,12 +9,12 @@
  * Midtrans sandbox protocol (charge + webhook). No real network calls.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { rmSync } from "node:fs";
 import crypto from "node:crypto";
-import { sha256Hash } from "../../src/utils/crypto";
+import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { resetConfigCache } from "../../src/config/env";
+import { sha256Hash } from "../../src/utils/crypto";
 
 const TEST_DB = join(tmpdir(), `1pay-sim-${Date.now()}.db`);
 
@@ -28,9 +28,9 @@ process.env.MIDTRANS_SERVER_KEY = "sim-server-key-123";
 process.env.MIDTRANS_ENVIRONMENT = "sandbox";
 resetConfigCache();
 
-import { initDatabase, getDb } from "../../src/config/database";
 import type { Client } from "@libsql/client";
 import type { app as AppType } from "../../src/app";
+import { getDb, initDatabase } from "../../src/config/database";
 
 let app: typeof AppType;
 let db: Client;
@@ -56,8 +56,9 @@ beforeAll(async () => {
 		// Charge call (Core API /v2/charge or Snap /snap/v1/transactions)
 		if (url.includes("midtrans.com")) {
 			const body = JSON.parse(String(init?.body ?? "{}"));
-			const orderIdFromBody = (body.transaction_details as { order_id?: string })
-				?.order_id;
+			const orderIdFromBody = (
+				body.transaction_details as { order_id?: string }
+			)?.order_id;
 			const payload = {
 				status_code: "201",
 				transaction_id: `sim-trx-${orderIdFromBody}`,
@@ -208,7 +209,11 @@ describe("Full lifecycle simulation (real code, stubbed transport)", () => {
 			headers: { "X-API-Key": apiKey },
 		});
 		const list = await listRes.json();
-		expect(list.some((m: { method_name: string }) => m.method_name === "Sim Card")).toBe(true);
+		expect(
+			list.data.some(
+				(m: { method_name: string }) => m.method_name === "Sim Card",
+			),
+		).toBe(true);
 	});
 });
 

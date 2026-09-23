@@ -278,7 +278,7 @@ export const createSavedMethodBodySchema = z
 	.openapi("CreateSavedMethodBody");
 
 export const savedMethodsListSchema = z
-	.array(savedPaymentMethodSchema)
+	.object({ success: z.literal(true), data: z.array(savedPaymentMethodSchema) })
 	.openapi("SavedPaymentMethodList");
 
 export const savedMethodIdParamsSchema = z

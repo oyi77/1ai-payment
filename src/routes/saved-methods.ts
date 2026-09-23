@@ -52,7 +52,10 @@ router.openapi(
 	async (c) => {
 		const merchantId = c.get("merchantId") ?? "merch_default";
 		const methods = await listSavedMethods(merchantId);
-		return c.json(methods.map(savedMethodToResponse));
+		return c.json({
+			success: true as const,
+			data: methods.map(savedMethodToResponse),
+		});
 	},
 );
 

@@ -592,8 +592,8 @@ const order = await payment.create({
 
     async function loadMethods() {
       const data = await api('GET', '/api/saved-methods');
-      if (!data) return;
-      const methods = Array.isArray(data) ? data : (data.data || []);
+      if (!data || !data.success) return;
+      const methods = data.data || [];
       document.getElementById('methodsTable').innerHTML = methods.map(m =>
         `<tr><td class="mono">${escapeHtml(m.id)}</td><td>${escapeHtml(m.gateway)}</td><td>${escapeHtml(m.method_name || m.method_code || '-')}${m.masked_identifier ? ' (' + escapeHtml(m.masked_identifier) + ')' : ''}</td><td>${m.created_at ? new Date(m.created_at).toLocaleDateString() : '-'}</td><td><button class="btn btn-secondary btn-small" onclick="deleteMethod('${encodeURIComponent(m.id)}')">Delete</button></td></tr>`
       ).join('') || '<tr><td colspan="5" style="color:#64748b">No saved methods</td></tr>';
