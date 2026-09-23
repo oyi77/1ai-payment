@@ -9,6 +9,7 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
+import { secureHeaders } from "hono/secure-headers";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { getConfig } from "./config/env";
 import { adminAuthMiddleware } from "./middleware/admin-auth";
@@ -32,6 +33,7 @@ export { config };
 const app = new OpenAPIHono({ defaultHook });
 
 // Middleware
+app.use("*", secureHeaders());
 app.use("*", cors({ origin: getConfig().CORS_ORIGIN }));
 
 // Pre-auth IP abuse guard — runs BEFORE auth so unauthenticated floods
