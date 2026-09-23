@@ -10,6 +10,7 @@
  */
 
 import type { Context, Next } from "hono";
+import { getConfig } from "../config/env";
 
 interface RateLimitOptions {
 	windowMs: number;
@@ -39,8 +40,8 @@ const PLAN_LIMITS: Record<string, number> = {
  *   that reached the same middleware instance without an identifiable key).
  */
 function getClientIp(c: Context): string {
-	const trustProxy = (process.env.TRUST_PROXY ?? "").toLowerCase();
-	if (["1", "true", "yes"].includes(trustProxy)) {
+	const trustProxy = getConfig().TRUST_PROXY;
+	if (trustProxy) {
 		const forwarded = c.req.header("X-Forwarded-For");
 		if (forwarded) {
 			const firstHop = forwarded.split(",")[0]?.trim();

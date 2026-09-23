@@ -84,6 +84,10 @@ export interface Config {
 
 	// Logging
 	LOG_LEVEL: "debug" | "info" | "warn" | "error";
+	/** Honor leftmost X-Forwarded-For hop for client-IP rate limiting. Default false: prefer CF-Connecting-IP. Enable only behind a non-Cloudflare proxy you control. */
+	TRUST_PROXY: boolean;
+	/** Legacy alias for ERC8183_EVALUATOR_ADDRESS — ADDRESS wins when both set. */
+	ERC8183_EVALUATOR_PUBLIC_KEY: string;
 
 	// Nexus — 1ai-product delivery (Telegram invite)
 	NEXUS_TELEGRAM_CHANNEL_ID: string;
@@ -224,6 +228,8 @@ export function getConfig(): Config {
 			"sandbox",
 		) as Config["SAWERIA_ENVIRONMENT"],
 		LOG_LEVEL: optional("LOG_LEVEL", "info") as Config["LOG_LEVEL"],
+		TRUST_PROXY: bool("TRUST_PROXY", false),
+		ERC8183_EVALUATOR_PUBLIC_KEY: optional("ERC8183_EVALUATOR_PUBLIC_KEY"),
 		NEXUS_TELEGRAM_CHANNEL_ID: optional("NEXUS_TELEGRAM_CHANNEL_ID"),
 		NEXUS_TELEGRAM_BOT_TOKEN: optional("NEXUS_TELEGRAM_BOT_TOKEN"),
 		NEXUS_VARIANT_MAP: optional("NEXUS_VARIANT_MAP", "{}"),

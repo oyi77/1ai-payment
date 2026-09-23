@@ -75,7 +75,8 @@ function getEvaluatorAddress(): string | undefined {
 	const cfg = getConfig();
 	const evaluator =
 		cfg.ERC8183_EVALUATOR_ADDRESS ||
-		(process.env.ERC8183_EVALUATOR_PUBLIC_KEY ?? undefined);
+		cfg.ERC8183_EVALUATOR_PUBLIC_KEY ||
+		undefined;
 	if (!evaluator || !isAddress(evaluator)) return undefined;
 	return evaluator.toLowerCase();
 }
