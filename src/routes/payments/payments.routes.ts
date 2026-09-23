@@ -118,19 +118,16 @@ paymentsRouter.openapi(createPaymentRoute, async (c) => {
 	// Check idempotency (scoped to merchant)
 	const merchantId = c.get("merchantId") ?? "merch_default";
 	if (idempotencyKey) {
-		try {
-			const existing = await getOrderByIdempotencyKey(
-				idempotencyKey,
-				merchantId,
+		// No silent catch: a DB failure here must 500 via onError, never
+		// silently proceed to create a possible duplicate (issue #4).
+		// The UNIQUE(idempotency_key) constraint + DuplicateOrderError below
+		// is the atomic backstop for the check-then-insert race.
+		const existing = await getOrderByIdempotencyKey(idempotencyKey, merchantId);
+		if (existing) {
+			return c.json(
+				{ success: true as const, data: orderToResponse(existing) },
+				200,
 			);
-			if (existing) {
-				return c.json(
-					{ success: true as const, data: orderToResponse(existing) },
-					200,
-				);
-			}
-		} catch {
-			// Ignore — proceed with creation
 		}
 	}
 
