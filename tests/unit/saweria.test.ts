@@ -144,7 +144,7 @@ describe("SaweriaGateway.createPayment guards", () => {
         currency: "USD",
         paymentMethod: "qris",
         customerName: "Anon",
-        customerEmail: "anonymous@1ai.dev",
+        customerEmail: "anonymous@example.com",
         metadata: {},
       })
     ).toThrow();

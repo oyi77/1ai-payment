@@ -19,7 +19,7 @@ process.env.NODE_ENV = "test";
 process.env.ADMIN_API_KEY = "test-admin-key-gwsim";
 process.env.ENCRYPTION_KEY =
 	"f0bbe8000253a9997331287d3ebdadd3854720a049233b18a37dd401b61b4c6f";
-process.env.PUBLIC_BASE_URL = "https://pay.1ai.dev";
+process.env.PUBLIC_BASE_URL = "https://pay.berkahkarya.org";
 
 // Gateway credentials
 process.env.MIDTRANS_SERVER_KEY = "sim-midtrans";
@@ -268,15 +268,15 @@ describe("gateway createPayment simulations (real charge code)", () => {
 		expect(
 			(JSON.parse(duitkuEntry?.[1] ?? "{}") as Record<string, unknown>)
 				.callbackUrl,
-		).toBe("https://pay.1ai.dev/webhook/duitku");
+		).toBe("https://pay.berkahkarya.org/webhook/duitku");
 		expect(
 			(JSON.parse(tripayEntry?.[1] ?? "{}") as Record<string, unknown>)
 				.callback_url,
-		).toBe("https://pay.1ai.dev/webhook/tripay");
+		).toBe("https://pay.berkahkarya.org/webhook/tripay");
 		expect(
 			(JSON.parse(ipaymuEntry?.[1] ?? "{}") as Record<string, unknown>)
 				.notifyUrl,
-		).toBe("https://pay.1ai.dev/webhook/ipaymu");
+		).toBe("https://pay.berkahkarya.org/webhook/ipaymu");
 		for (const body of Object.values(bodies)) {
 			expect(body).not.toContain("example.com/payment");
 		}
