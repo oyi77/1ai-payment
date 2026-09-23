@@ -102,6 +102,24 @@ describe('request serialization', () => {
       callback_url: 'https://my-app.com/callback',
     });
   });
+  test('create maps camelCase redirect URLs to snake_case wire keys', async () => {
+    mockFetch({ success: true, data: {} });
+    const c = client();
+    await c.create({
+      gateway: 'midtrans',
+      amount: 100000,
+      callback_url: 'https://my-app.com/callback',
+      successUrl: 'https://my-app.com/ok',
+      cancelUrl: 'https://my-app.com/no',
+    });
+    expect(JSON.parse(String(calls[0].init!.body))).toEqual({
+      gateway: 'midtrans',
+      amount: 100000,
+      callback_url: 'https://my-app.com/callback',
+      success_url: 'https://my-app.com/ok',
+      cancel_url: 'https://my-app.com/no',
+    });
+  });
 
   test('register is a POST without X-API-Key requirement being enforced client-side', async () => {
     mockFetch({ success: true, data: { merchant: {}, api_key: '1pay_merchant' } });

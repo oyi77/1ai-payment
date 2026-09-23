@@ -155,7 +155,16 @@ export class OneAIPayment {
 
   /** Create a payment and get a payment URL to redirect the user to. */
   async create(params: CreatePaymentParams): Promise<Order> {
-    return this.request<Order>('POST', '/api/payments', params);
+    // Wire contract is snake_case (success_url/cancel_url); the TS surface
+    // stays camelCase. Zod strips unknown keys, so sending camel would
+    // silently drop the merchant's redirect URLs (server falls back to
+    // PUBLIC_BASE_URL defaults instead).
+    const { successUrl, cancelUrl, ...rest } = params;
+    return this.request<Order>('POST', '/api/payments', {
+      ...rest,
+      ...(successUrl !== undefined ? { success_url: successUrl } : {}),
+      ...(cancelUrl !== undefined ? { cancel_url: cancelUrl } : {}),
+    });
   }
 
   /** Get payment status by order ID. */
