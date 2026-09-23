@@ -595,7 +595,7 @@ const order = await payment.create({
       if (!data) return;
       const methods = Array.isArray(data) ? data : (data.data || []);
       document.getElementById('methodsTable').innerHTML = methods.map(m =>
-        `<tr><td class="mono">${escapeHtml(m.id)}</td><td>${escapeHtml(m.gateway)}</td><td>${escapeHtml(m.method_name || m.method_code || '-')}${m.masked_identifier ? ' (' + escapeHtml(m.masked_identifier) + ')' : ''}</td><td>${m.created_at ? new Date(m.created_at).toLocaleDateString() : '-'}</td><td><button class="btn btn-secondary btn-small" onclick="deleteMethod('${escapeHtml(m.id)}')">Delete</button></td></tr>`
+        `<tr><td class="mono">${escapeHtml(m.id)}</td><td>${escapeHtml(m.gateway)}</td><td>${escapeHtml(m.method_name || m.method_code || '-')}${m.masked_identifier ? ' (' + escapeHtml(m.masked_identifier) + ')' : ''}</td><td>${m.created_at ? new Date(m.created_at).toLocaleDateString() : '-'}</td><td><button class="btn btn-secondary btn-small" onclick="deleteMethod('${encodeURIComponent(m.id)}')">Delete</button></td></tr>`
       ).join('') || '<tr><td colspan="5" style="color:#64748b">No saved methods</td></tr>';
     }
     async function deleteMethod(id) {
@@ -633,7 +633,7 @@ const order = await payment.create({
       if (!data || !data.success || !data.data) return;
       const items = data.data.deliveries || [];
       document.getElementById('deliveriesTable').innerHTML = items.map(d =>
-        `<tr><td class="mono">${escapeHtml(d.id)}</td><td class="mono">${escapeHtml(d.order_id || '-')}</td><td>${escapeHtml(d.gateway)}</td><td><span class="badge ${d.signature_valid ? 'success' : 'failed'}">${d.signature_valid ? 'valid' : 'invalid'}</span></td><td>${d.created_at ? new Date(d.created_at).toLocaleString() : '-'}</td><td><button class="btn btn-secondary btn-small" onclick="replayDelivery('${escapeHtml(d.id)}')">Replay</button></td></tr>`
+        `<tr><td class="mono">${escapeHtml(d.id)}</td><td class="mono">${escapeHtml(d.order_id || '-')}</td><td>${escapeHtml(d.gateway)}</td><td><span class="badge ${d.signature_valid ? 'success' : 'failed'}">${d.signature_valid ? 'valid' : 'invalid'}</span></td><td>${d.created_at ? new Date(d.created_at).toLocaleString() : '-'}</td><td><button class="btn btn-secondary btn-small" onclick="replayDelivery('${encodeURIComponent(d.id)}')">Replay</button></td></tr>`
       ).join('') || '<tr><td colspan="6" style="color:#64748b">No deliveries</td></tr>';
     }
 
