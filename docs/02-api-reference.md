@@ -178,11 +178,13 @@ Idempotency-Key: <unique_key>    # Optional (alternative to body idempotency_key
 ```typescript
 {
   gateway: 'midtrans' | 'tripay' | 'duitku' | 'nowpayments' | 'ipaymu' | 'scalev'
-         | 'xendit' | 'telegram_stars' | 'telegram_payments' | 'paypal' | 'x402' | 'erc8183';
+         | 'xendit' | 'telegram_stars' | 'telegram_payments' | 'paypal' | 'x402' | 'erc8183' | 'saweria';
   amount: number;                  // Integer, positive, in smallest currency unit (IDR = full Rupiah)
   currency?: string;               // Default: 'IDR'
   payment_method?: string;         // Gateway-specific method code (e.g. 'qris', 'bca_va', 'gopay')
   callback_url: string;            // REQUIRED — URL the normalized event is forwarded to
+  success_url?: string;            // Where to redirect the buyer after payment completes (else platform default)
+  cancel_url?: string;             // Where to redirect the buyer after cancelling (else platform default)
   idempotency_key?: string;        // Client-generated key; body field OR Idempotency-Key header
   project_order_id?: string;       // Your own order/invoice ID, passed through to callbacks
   customer?: {
@@ -190,7 +192,6 @@ Idempotency-Key: <unique_key>    # Optional (alternative to body idempotency_key
     email?: string;                // Must be a valid email if provided
   };
   metadata?: Record<string, unknown>;  // Arbitrary metadata, preserved through the full lifecycle
-}
 ```
 
 **Response (201):**
@@ -206,10 +207,11 @@ Idempotency-Key: <unique_key>    # Optional (alternative to body idempotency_key
     currency: string;
     payment_method: string | null;
     payment_url: string | null;    // Redirect the user here
+    fee: number;
+    net: number;
     metadata: Record<string, unknown> | null;
     created_at: string;            // ISO timestamp
     updated_at: string;            // ISO timestamp
-  }
 }
 ```
 
