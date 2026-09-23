@@ -165,8 +165,12 @@ export class XenditGateway implements PaymentGateway {
 					price: params.amount,
 				},
 			],
-			success_redirect_url: "https://example.com/payment/finish",
-			failure_redirect_url: "https://example.com/payment/cancel",
+			success_redirect_url:
+				params.successUrl ??
+				`${base.PUBLIC_BASE_URL.replace(/\/$/, "")}/payment/finish`,
+			failure_redirect_url:
+				params.cancelUrl ??
+				`${base.PUBLIC_BASE_URL.replace(/\/$/, "")}/payment/cancel`,
 			currency: params.currency || "IDR",
 		};
 

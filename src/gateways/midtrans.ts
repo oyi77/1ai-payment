@@ -99,7 +99,10 @@ export class MidtransGateway implements PaymentGateway {
 			paymentType === "gopay" ||
 			paymentType === "shopeepay"
 		) {
-			body.callbacks = { finish: "https://example.com/payment/finish" };
+			const publicBase = base.PUBLIC_BASE_URL.replace(/\/$/, "");
+			body.callbacks = {
+				finish: params.successUrl ?? `${publicBase}/payment/finish`,
+			};
 		}
 
 		const auth = Buffer.from(`${serverKey}:`).toString("base64");

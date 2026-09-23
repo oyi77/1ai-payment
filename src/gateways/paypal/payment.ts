@@ -129,8 +129,12 @@ export async function createOrder(
 					landing_page: "LOGIN",
 					shipping_preference: "NO_SHIPPING",
 					user_action: "PAY_NOW",
-					return_url: "https://example.com/payment/success",
-					cancel_url: "https://example.com/payment/cancel",
+					return_url:
+						params.successUrl ??
+						`${base.PUBLIC_BASE_URL.replace(/\/$/, "")}/payment/success`,
+					cancel_url:
+						params.cancelUrl ??
+						`${base.PUBLIC_BASE_URL.replace(/\/$/, "")}/payment/cancel`,
 				},
 			},
 		},
