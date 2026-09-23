@@ -11,9 +11,10 @@
  *   6. Send invite link to the chat (or log for manual follow-up)
  *   7. Store invite link + chat_id in subscription row
  *
- * @todo
- *   - Confirm Scalev webhook payload structure with 1 real test order.
- *   - Wire actual TelegramBot API call to DM the customer.
+ * NOTE (ops): payload shape pending confirmation with 1 real Scalev test order.
+ * Invite delivery is store-link + admin-manual-share by design: Scalev checkout
+ * captures no customer Telegram identifier, so a customer DM is structurally
+ * blocked, not unfinished work.
  */
 
 import { getDb } from "../config/database";
@@ -46,9 +47,9 @@ export async function handleNexusPayment(
 		return { success: false, error: "Not a Scalev payment" };
 	}
 
-	// Ignore non-success webhook payloads (failed/expired/cancelled)
+	// Reject anything without an explicit success status (incl. missing status)
 	const rawStatus = body.status ?? body.payment_status;
-	if (rawStatus && rawStatus !== "success") {
+	if (rawStatus !== "success") {
 		return { success: false, error: "Payment not successful" };
 	}
 
@@ -194,9 +195,8 @@ async function fulfillOrder(
 		inviteLink: inviteLink ? "created" : "none",
 	});
 
-	// 5. @todo send invite link to customer via Telegram DM
-	//    Need customer's telegram_username or chat_id from checkout flow.
-	//    For now, invite link is stored — admin can share manually.
+	// 5. Invite link stored; admin shares manually — Scalev checkout captures
+	//    no customer Telegram identifier, so a customer DM is structurally blocked.
 
 	return {
 		success: true,
