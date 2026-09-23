@@ -129,7 +129,7 @@ export class SaweriaGateway implements PaymentGateway {
 			currency: "IDR",
 			customer_info: {
 				first_name: params.customerName || "Anon",
-				email: params.customerEmail || "anonymous@1ai.dev",
+				email: params.customerEmail || "anonymous@example.com",
 				phone: "",
 			},
 		};

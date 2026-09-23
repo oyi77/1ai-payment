@@ -6,7 +6,7 @@
 http://localhost:3100
 ```
 
-Production: `https://pay.1ai.dev` (behind Cloudflare)
+Production: `https://pay.berkahkarya.org` (behind Cloudflare)
 
 The port is configurable via the `PORT` environment variable (default `3100`).
 
@@ -880,7 +880,7 @@ Published as `@1ai/payment` (TypeScript, built to `dist/`). Provides typed wrapp
 ```typescript
 import { OneAIPayment, APIError } from '@1ai/payment';
 
-const payment = new OneAIPayment({ apiKey: '1pay_xxxxx', baseUrl: 'https://pay.1ai.dev' });
+const payment = new OneAIPayment({ apiKey: '1pay_xxxxx', baseUrl: 'https://pay.berkahkarya.org' });
 ```
 
 - `apiKey` — required; sent as `X-API-Key` on every request.
@@ -902,4 +902,4 @@ const payment = new OneAIPayment({ apiKey: '1pay_xxxxx', baseUrl: 'https://pay.1
 | `listWebhookDeliveries(params?)` | `GET /api/webhook-deliveries` | `{ deliveries, total }` |
 | `register(params)` | `POST /api/register` (public, no API key needed) | `{ merchant, api_key }` |
 
-`CreatePaymentParams` fields: `gateway`, `amount`, `callback_url` (required); `currency?`, `payment_method?`, `idempotency_key?`, `project_order_id?`, `customer?`, `metadata?` (optional).
+`CreatePaymentParams` fields: `gateway`, `amount`, `callback_url` (required); `currency?`, `payment_method?`, `success_url?`, `cancel_url?`, `idempotency_key?`, `project_order_id?`, `customer?`, `metadata?` (optional).

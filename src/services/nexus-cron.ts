@@ -150,10 +150,11 @@ async function sendExpiryReminders(): Promise<void> {
 
 		if (botToken && chatId) {
 			try {
+				const publicBase = getConfig().PUBLIC_BASE_URL.replace(/\/$/, "");
 				await sendTelegramMessage(
 					botToken,
 					chatId,
-					`Halo ${customerName}! Langganan ${tier} kamu berakhir ${expiresAt}. Perpanjang di https://pay.1ai.dev agar akses tidak terputus.`,
+					`Halo ${customerName}! Langganan ${tier} kamu berakhir ${expiresAt}. Perpanjang di ${publicBase} agar akses tidak terputus.`,
 				);
 				logger.info("Nexus cron: expiry reminder DM sent", {
 					subId,

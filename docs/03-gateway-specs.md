@@ -234,7 +234,7 @@ Authorization: Bearer TRIPAY_API_KEY
       "quantity": 1
     }
   ],
-  "callback_url": "https://pay.1ai.dev/webhook/tripay",
+  "callback_url": "https://pay.berkahkarya.org/webhook/tripay",
   "return_url": "https://example.com/payment/finish",
   "expired_time": 1720166400
 }
@@ -322,7 +322,7 @@ POST https://passport.duitku.com/webapi/api/merchant/v2/inquiry     // productio
   "productDetails": "Credits",
   "customerVaName": "John",
   "email": "john@example.com",
-  "callbackUrl": "https://pay.1ai.dev/webhook/duitku",
+  "callbackUrl": "https://pay.berkahkarya.org/webhook/duitku",
   "returnUrl": "https://example.com/payment/finish",
   "signature": "abc123...",
   "expiryPeriod": 60
@@ -403,7 +403,7 @@ x-api-key: NOWPAYMENTS_API_KEY
   "price_currency": "USD",
   "order_id": "pay_xxx",
   "order_description": "Credits",
-  "ipn_callback_url": "https://pay.1ai.dev/webhook/nowpayments",
+  "ipn_callback_url": "https://pay.berkahkarya.org/webhook/nowpayments",
   "success_url": "https://example.com/payment/finish",
   "cancel_url": "https://example.com/payment/cancel"
 }
@@ -496,7 +496,7 @@ Where `bodyHash` = lowercase hex SHA-256 of the JSON request body, and the resul
   "phone": "",
   "email": "john@example.com",
   "amount": 100000,
-  "notifyUrl": "https://pay.1ai.dev/webhook/ipaymu",
+  "notifyUrl": "https://pay.berkahkarya.org/webhook/ipaymu",
   "returnUrl": "https://example.com/payment/finish",
   "cancelUrl": "https://example.com/payment/cancel",
   "referenceId": "pay_xxx",
