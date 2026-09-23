@@ -173,8 +173,27 @@ export async function createRefund(
 		}
 		throw err;
 	}
+	// Post-insert re-verification (parallel-race guard): two refunds with
+	// different (or no) idempotency keys can both pass the pre-check above,
+	// then both INSERT. Re-sum after our own insert commits — at least one
+	// loser always sees the over-total and fails closed here, before any
+	// gateway call. Single-threaded behavior unchanged (re-sum == pre-check).
+	const postTotal = (
+		await getRefundsByOrder(params.order_id, params.merchant_id)
+	)
+		.filter((r) => r.status !== "failed")
+		.reduce((sum, r) => sum + r.amount, 0);
+	if (postTotal > order.amount) {
+		await db.execute({
+			sql: "UPDATE refunds SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+			args: [id],
+		});
+		throw new GatewayError(
+			"",
+			`Total refunds ${postTotal} would exceed order amount ${order.amount}`,
+		);
+	}
 
-	// Attempt gateway-level refund if the gateway supports it
 	const gateway = getGateway(order.gateway);
 	let gatewayRefundId: string | null = null;
 	let gatewayErr: unknown = null;

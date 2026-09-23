@@ -150,7 +150,27 @@ describe("createRefund", () => {
 		const status = (result.rows[0] as Record<string, unknown>).status;
 		expect(status).toBe("success");
 	});
-});
+
+	test("parallel distinct keys over total: at least one fails closed, non-failed total never exceeds", async () => {
+		const orderId = await createSuccessOrder({ amount: 10000 });
+		const mk = (suffix: string) => ({
+			order_id: orderId,
+			merchant_id: "merch_refund",
+			amount: 6000,
+			idempotency_key: `refund-cumrace-${Date.now()}-${suffix}-${Math.random()}`,
+		});
+		const [a, b] = await Promise.allSettled([
+			createRefund(mk("a")),
+			createRefund(mk("b")),
+		]);
+		const rejected = [a, b].filter((r) => r.status === "rejected");
+		expect(rejected.length).toBeGreaterThanOrEqual(1);
+		const rows = await db.execute({
+			sql: "SELECT COALESCE(SUM(amount), 0) AS total FROM refunds WHERE order_id = ? AND status != 'failed'",
+			args: [orderId],
+		});
+		expect(Number((rows.rows[0] as Record<string, unknown>).total)).toBeLessThanOrEqual(10000);
+	});
 
 	test("parallel same key: single row, both callers get the winner (atomic backstop)", async () => {
 		const orderId = await createSuccessOrder({ amount: 40000 });
@@ -169,6 +189,7 @@ describe("createRefund", () => {
 		});
 		expect(Number((rows.rows[0] as Record<string, unknown>).n)).toBe(1);
 	});
+});
 
 describe("getRefundById", () => {
 	test("returns null for non-existent refund", async () => {
