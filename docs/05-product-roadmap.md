@@ -494,7 +494,7 @@ Shipped items the roadmap did not plan (audited — all present in code):
 | Prometheus metrics | `GET /metrics` (`src/middleware/metrics.ts`) | Counters + `payment_creation_duration_seconds` histogram; admin auth required (`X-Admin-Key`) |
 | Webhook events + dead letters | `webhook_events`, `dead_letter_events` (`src/config/database.ts`) | Dedup + audit + failed-forward queue |
 | Gateways 11–12 | `x402` (micropayments), `erc8183` (agentic-commerce escrow) | Registry: 12 total |
-| Nexus (1ai-product delivery) | `src/services/nexus-fulfillment.ts`, `nexus-cron.ts` | Scalev direct-checkout fulfillment + Telegram invite delivery; 6h maintenance cron; `nexus_customers` / `nexus_subscriptions` |
+| Nexus (1ai-product delivery) | `src/services/nexus-fulfillment.ts`, `nexus-cron.ts` | Scalev direct-checkout fulfillment + Telegram invite delivery; 6h maintenance cron; `nexus_customers` / `nexus_subscriptions` — PARKED (Scalev quota exhausted, live tables empty) |
 
 ## Future Work / Backlog
 

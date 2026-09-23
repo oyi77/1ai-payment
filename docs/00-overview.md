@@ -16,14 +16,14 @@ Payment gateways have fragmented APIs, different callback formats, and single ca
 
 | Project | Payment Need | Status |
 |---------|--------------|--------|
-| Nexus (1ai-product) | Direct checkout (Scalev) for Telegram bot / signal channel / terminal products; subscription delivery via channel invites | **Connected** — fulfillment wired into code (webhook → subscription → Telegram invite) |
+| Nexus (1ai-product) | Direct checkout (Scalev) for Telegram bot / signal channel / terminal products; subscription delivery via channel invites | **Parked** — fulfillment code wired (webhook → subscription → Telegram invite) but Scalev quota exhausted; live tables empty |
 | 1ai-content | Credit top-up, subscriptions | Planned — documented, no code integration yet |
 | 1sub | Subscription sharing platform | Planned |
 | 1ai-affiliate | Commission payouts | Planned — payout capability is also out of scope |
 | Future projects | Various | TBD |
 
 Without 1ai-payment, each project would need:
-- Gateway-specific SDK integration (12 implementations per project at current gateway count)
+- Gateway-specific SDK integration (13 implementations per project at current gateway count)
 - Its own merchant account per gateway
 - Duplicated payment code across projects (DRY violation)
 - Separate callback URL registration per project
