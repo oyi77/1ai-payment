@@ -152,6 +152,24 @@ describe("createRefund", () => {
 	});
 });
 
+	test("parallel same key: single row, both callers get the winner (atomic backstop)", async () => {
+		const orderId = await createSuccessOrder({ amount: 40000 });
+		const key = `refund-race-${Date.now()}-${Math.random()}`;
+		const params = {
+			order_id: orderId,
+			merchant_id: "merch_refund",
+			amount: 10000,
+			idempotency_key: key,
+		};
+		const [a, b] = await Promise.all([createRefund(params), createRefund(params)]);
+		expect(a.id).toBe(b.id);
+		const rows = await db.execute({
+			sql: "SELECT COUNT(*) AS n FROM refunds WHERE merchant_id = ? AND idempotency_key = ?",
+			args: ["merch_refund", key],
+		});
+		expect(Number((rows.rows[0] as Record<string, unknown>).n)).toBe(1);
+	});
+
 describe("getRefundById", () => {
 	test("returns null for non-existent refund", async () => {
 		const result = await getRefundById("ref_nonexistent");

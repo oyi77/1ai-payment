@@ -9,7 +9,7 @@ export interface Refund {
 	merchant_id: string;
 	amount: number;
 	gateway: string;
-	status: "pending" | "completed" | "failed";
+	status: "pending" | "success" | "failed";
 	reason: string | null;
 	gateway_refund_id: string | null;
 	idempotency_key: string | null;
@@ -140,19 +140,39 @@ export async function createRefund(
 	}
 
 	const id = `rf_${crypto.randomUUID()}`;
-	await db.execute({
-		sql: `INSERT INTO refunds (id, order_id, merchant_id, amount, gateway, status, reason, idempotency_key)
+	try {
+		await db.execute({
+			sql: `INSERT INTO refunds (id, order_id, merchant_id, amount, gateway, status, reason, idempotency_key)
 		      VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
-		args: [
-			id,
-			params.order_id,
-			params.merchant_id,
-			refundAmount,
-			order.gateway,
-			params.reason ?? null,
-			params.idempotency_key ?? null,
-		],
-	});
+			args: [
+				id,
+				params.order_id,
+				params.merchant_id,
+				refundAmount,
+				order.gateway,
+				params.reason ?? null,
+				params.idempotency_key ?? null,
+			],
+		});
+	} catch (err: unknown) {
+		// Atomic backstop for the check-then-insert race: two parallel retries
+		// carrying the same idempotency key can both pass the pre-check above.
+		// The UNIQUE(merchant_id, idempotency_key) index (migration 005) makes
+		// the loser fail here — return the winner instead of 500ing
+		// (mirrors createOrder's DuplicateOrderError backstop, issue #4).
+		if (
+			params.idempotency_key &&
+			err instanceof Error &&
+			err.message.includes("UNIQUE constraint")
+		) {
+			const winner = await getRefundByIdempotencyKey(
+				params.idempotency_key,
+				params.merchant_id,
+			);
+			if (winner) return winner;
+		}
+		throw err;
+	}
 
 	// Attempt gateway-level refund if the gateway supports it
 	const gateway = getGateway(order.gateway);
@@ -228,7 +248,7 @@ function mapRefundRow(row: Record<string, unknown>): Refund {
 		merchant_id: row.merchant_id as string,
 		amount: Number(row.amount),
 		gateway: row.gateway as string,
-		status: row.status as "pending" | "completed" | "failed",
+		status: row.status as "pending" | "success" | "failed",
 		reason: (row.reason as string | null) ?? null,
 		gateway_refund_id: (row.gateway_refund_id as string | null) ?? null,
 		idempotency_key: (row.idempotency_key as string | null) ?? null,
