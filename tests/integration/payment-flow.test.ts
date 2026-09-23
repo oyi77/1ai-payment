@@ -98,6 +98,8 @@ describe('POST /api/payments', () => {
     expect(body.data).toBeDefined();
     expect(body.data.payment_url).toBeDefined();
     expect(body.data.id).toBeDefined();
+    expect(body.data.fee).toBeDefined();
+    expect(body.data.net).toBeDefined();
   });
 
   test('rejects unknown gateway', async () => {

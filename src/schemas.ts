@@ -115,6 +115,8 @@ export const orderResponseSchema = z
 			.string()
 			.nullable()
 			.openapi({ example: "https://sandbox.midtrans.com/pay/abc123" }),
+		fee: z.number().openapi({ example: 2500 }),
+		net: z.number().openapi({ example: 97500 }),
 		metadata: z
 			.record(z.string(), z.unknown())
 			.nullable()
@@ -427,8 +429,6 @@ export const toggleGatewayBodySchema = z
 	})
 	.openapi("ToggleGateway");
 
-// ── Helpers ────────────────────────────────────────────────────
-
 export function orderToResponse(order: {
 	id: string;
 	gateway: string;
@@ -438,6 +438,8 @@ export function orderToResponse(order: {
 	currency: string;
 	payment_method: string | null;
 	payment_url: string | null;
+	fee: number;
+	net: number;
 	metadata: Record<string, unknown> | null;
 	created_at: string;
 	updated_at: string;
@@ -451,6 +453,8 @@ export function orderToResponse(order: {
 		currency: order.currency,
 		payment_method: order.payment_method,
 		payment_url: order.payment_url,
+		fee: order.fee,
+		net: order.net,
 		metadata: order.metadata,
 		created_at: order.created_at,
 		updated_at: order.updated_at,
