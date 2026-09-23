@@ -124,7 +124,7 @@
       <label for="regName">Business Name</label>
       <input type="text" id="regName" placeholder="My Online Store" />
 
-      <p class="hint">All new accounts start on <strong>Free</strong> (30 req/min). Upgrades to Pro/Enterprise are handled by sales — contact us to change tiers.</p>
+      <p class="hint">All accounts are <strong>Free</strong> (30 req/min). Pro/Enterprise tiers are assigned by the platform admin — no self-upgrade yet.</p>
 
       <label for="regCallback">Default Callback URL <span style="color:#4a5568">(optional)</span></label>
       <input type="url" id="regCallback" placeholder="https://my-app.com/payment/callback" />
@@ -151,7 +151,7 @@
       </div>
 
       <div class="warning-box">
-        ⚠️ <strong>Lost your key?</strong> You can rotate it from Settings, but the old key will stop working immediately.
+        ⚠️ <strong>Lost your key?</strong> Rotation needs the current key. If the key is fully lost, contact the platform admin for a recovery reset — there is no self-service recovery yet.
       </div>
 
       <button class="btn btn-primary" onclick="goToSetup()">Continue to Setup →</button>
@@ -237,6 +237,8 @@
           <button onclick="dashTab('transactions', this)">Transactions</button>
           <button onclick="dashTab('refunds', this)">Refunds</button>
           <button onclick="dashTab('gateways', this)">Gateways</button>
+          <button onclick="dashTab('methods', this)">Saved Methods</button>
+          <button onclick="dashTab('deliveries', this)">Deliveries</button>
           <button onclick="dashTab('settings', this)">Settings</button>
         </nav>
         <div class="logout-btn">
@@ -271,8 +273,37 @@
         <!-- Refunds -->
         <div id="dRefunds" class="hidden">
           <h1>Refunds</h1>
+          <div class="settings-group">
+            <h3>Create refund</h3>
+            <label>Order ID</label>
+            <input id="refundOrderId" placeholder="order id" />
+            <label>Amount (optional — blank = full)</label>
+            <input id="refundAmount" type="number" min="1" placeholder="full amount" />
+            <label>Reason (optional)</label>
+            <input id="refundReason" placeholder="customer request" />
+            <button class="btn btn-primary btn-small" onclick="createRefund()">Create refund</button>
+            <div class="error-msg" id="refundError"></div>
+          </div>
           <div class="table-wrap">
             <table><thead><tr><th>ID</th><th>Order</th><th>Amount</th><th>Status</th><th>Reason</th><th>Date</th></tr></thead><tbody id="refundTable"></tbody></table>
+          </div>
+        </div>
+
+        <!-- Saved Methods -->
+        <div id="dMethods" class="hidden">
+          <h1>Saved Methods</h1>
+          <p style="color:#94a3b8;font-size:14px;margin-bottom:16px">Gateway tokens vaulted for reuse. Tokens are never shown back.</p>
+          <div class="table-wrap">
+            <table><thead><tr><th>ID</th><th>Gateway</th><th>Label</th><th>Created</th><th></th></tr></thead><tbody id="methodsTable"></tbody></table>
+          </div>
+        </div>
+
+        <!-- Webhook Deliveries -->
+        <div id="dDeliveries" class="hidden">
+          <h1>Webhook Deliveries</h1>
+          <p style="color:#94a3b8;font-size:14px;margin-bottom:16px">Dead-lettered forwards can be replayed from here.</p>
+          <div class="table-wrap">
+            <table><thead><tr><th>ID</th><th>Order</th><th>Gateway</th><th>Signature</th><th>Created</th><th></th></tr></thead><tbody id="deliveriesTable"></tbody></table>
           </div>
         </div>
 
@@ -459,7 +490,7 @@ const order = await payment.create({
 
     // ── Dashboard ────────────────────────────────────
     function dashTab(name, btn) {
-      ['dOverview', 'dTransactions', 'dRefunds', 'dGateways', 'dSettings'].forEach(id =>
+      ['dOverview', 'dTransactions', 'dRefunds', 'dGateways', 'dMethods', 'dDeliveries', 'dSettings'].forEach(id =>
         document.getElementById(id).classList.toggle('hidden', id !== 'd' + name.charAt(0).toUpperCase() + name.slice(1))
       );
       document.querySelectorAll('.sidebar nav button').forEach(b => b.classList.remove('active'));
@@ -467,6 +498,8 @@ const order = await payment.create({
       if (name === 'transactions') loadTransactions();
       if (name === 'refunds') loadRefunds();
       if (name === 'gateways') loadGateways();
+      if (name === 'methods') loadMethods();
+      if (name === 'deliveries') loadDeliveries();
       if (name === 'settings') loadSettings();
     }
 
@@ -503,6 +536,53 @@ const order = await payment.create({
       ).join('');
       if (refunds.length > 50) rows += `<tr><td colspan="6" style="color:#64748b;text-align:center">Showing latest 50 of ${refunds.length} refunds</td></tr>`;
       document.getElementById('refundTable').innerHTML = rows || '<tr><td colspan="6" style="color:#64748b">No refunds yet</td></tr>';
+    }
+
+    async function createRefund() {
+      const err = document.getElementById('refundError');
+      hideError(err);
+      const orderId = document.getElementById('refundOrderId').value.trim();
+      if (!orderId) { showError(err, 'Order ID is required.'); return; }
+      const body = { order_id: orderId };
+      const amt = document.getElementById('refundAmount').value.trim();
+      if (amt) body.amount = Number(amt);
+      const reason = document.getElementById('refundReason').value.trim();
+      if (reason) body.reason = reason;
+      const res = await api('POST', '/api/refunds', body);
+      if (!res || !res.success) { showError(err, (res && res.error && res.error.message) || 'Create failed.'); return; }
+      document.getElementById('refundOrderId').value = '';
+      document.getElementById('refundAmount').value = '';
+      document.getElementById('refundReason').value = '';
+      loadRefunds();
+    }
+
+    async function loadMethods() {
+      const data = await api('GET', '/api/saved-methods');
+      if (!data) return;
+      const methods = Array.isArray(data) ? data : (data.data || []);
+      document.getElementById('methodsTable').innerHTML = methods.map(m =>
+        `<tr><td class="mono">${escapeHtml(m.id)}</td><td>${escapeHtml(m.gateway)}</td><td>${escapeHtml(m.method_name || m.method_code || '-')}${m.masked_identifier ? ' (' + escapeHtml(m.masked_identifier) + ')' : ''}</td><td>${m.created_at ? new Date(m.created_at).toLocaleDateString() : '-'}</td><td><button class="btn btn-secondary btn-small" onclick="deleteMethod('${escapeHtml(m.id)}')">Delete</button></td></tr>`
+      ).join('') || '<tr><td colspan="5" style="color:#64748b">No saved methods</td></tr>';
+    }
+
+    async function deleteMethod(id) {
+      if (!confirm('Delete this saved method?')) return;
+      await api('DELETE', '/api/saved-methods/' + id);
+      loadMethods();
+    }
+
+    async function loadDeliveries() {
+      const data = await api('GET', '/api/webhook-deliveries?limit=50');
+      if (!data || !data.success || !data.data) return;
+      const items = data.data.deliveries || [];
+      document.getElementById('deliveriesTable').innerHTML = items.map(d =>
+        `<tr><td class="mono">${escapeHtml(d.id)}</td><td class="mono">${escapeHtml(d.order_id || '-')}</td><td>${escapeHtml(d.gateway)}</td><td><span class="badge ${d.signature_valid ? 'success' : 'failed'}">${d.signature_valid ? 'valid' : 'invalid'}</span></td><td>${d.created_at ? new Date(d.created_at).toLocaleString() : '-'}</td><td><button class="btn btn-secondary btn-small" onclick="replayDelivery('${escapeHtml(d.id)}')">Replay</button></td></tr>`
+      ).join('') || '<tr><td colspan="6" style="color:#64748b">No deliveries</td></tr>';
+    }
+
+    async function replayDelivery(id) {
+      await api('POST', '/api/webhook-deliveries/' + id + '/replay');
+      loadDeliveries();
     }
 
     const GW_FIELDS = {
