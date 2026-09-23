@@ -168,6 +168,7 @@ export async function verifyPayment(
 		const expectedRecipient = getMerchantWallet().toLowerCase();
 		const expectedAmount = BigInt(signature.amount);
 
+		let decodeFailures = 0;
 		for (const log of tx.logs) {
 			// Skip logs from non-target contracts
 			if (log.address.toLowerCase() !== expectedAsset.toLowerCase()) continue;
@@ -210,9 +211,15 @@ export async function verifyPayment(
 					sender,
 					amount: value.toString(),
 				};
-			} catch {}
+			} catch {
+				decodeFailures += 1;
+			}
 		}
 
+		logger.warn("x402: no matching USDC Transfer in tx", {
+			decodeFailures,
+			txHash: signature.txHash,
+		});
 		return {
 			verified: false,
 			error: "No matching USDC Transfer to merchant wallet found in tx",
