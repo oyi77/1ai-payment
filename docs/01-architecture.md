@@ -369,13 +369,14 @@ is not a 1ai-payment order).
    a channel ID and bot token are present, calls
    `POST api.telegram.org/bot<token>/createChatInviteLink`
    (`member_limit: 1`, `expire_in_seconds: 86400`) to mint a one-time invite;
-   then inserts a `nexus_subscriptions` row with status `active`. A DM to the
-   customer with the invite link is an unimplemented `@todo`.
+   then inserts a `nexus_subscriptions` row with status `active`. Invite-link DM
+   to the customer is structurally blocked — Scalev checkout captures no Telegram
+   identifier — so delivery is store-link + admin-manual-share by design.
 3. **Lifecycle cron** (`nexus-cron.ts`) — `startNexusCron()` runs once at
    startup, then every 6 hours: `handleExpiredSubscriptions` revokes access
-   and sets status `expired`; `sendExpiryReminders` finds subscriptions
-   expiring within 48 hours (log-only today, sets `reminder_sent_at`).
-   `stopNexusCron()` is called on graceful shutdown.
+   and sets status `expired`; `sendExpiryReminders` sends a real Telegram DM when
+   the row has a telegram_chat_id and bot token is set, else log-only (sets
+   `reminder_sent_at`). `stopNexusCron()` is called on graceful shutdown.
 
 Required env: `NEXUS_VARIANT_MAP` (JSON), `NEXUS_TELEGRAM_BOT_TOKEN` (or
 `TELEGRAM_BOT_TOKEN`), plus the Telegram channel ID from Scalev payloads.

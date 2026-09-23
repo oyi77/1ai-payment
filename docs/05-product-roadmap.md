@@ -447,8 +447,8 @@ user to manually paste the key into the Authorize dialog. The original goal
   `listRefunds()`, `listGateways()`, `listWebhookDeliveries()`,
   `getGatewayMethods()`; `APIError` class for typed errors.
 
-**Gap:** no SDK tests yet (`"test": "echo 'TODO: add tests'"`) and the package is
-unpublished/private.
+**Gap:** package is unpublished/private (intentional — `"private": true`).
+SDK tests exist at `packages/sdk/tests/index.test.ts` (`bun test`, mocked fetch).
 
 **Verified:** `bun run typecheck` passes; SDK methods mirror the REST API surface.
 
