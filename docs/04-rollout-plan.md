@@ -15,7 +15,7 @@ Phase 0 (Foundation) is **complete**. The in-repo pieces of Phase 5 (Commerciali
 13 gateways registered (midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria)
 
 **Verification:**
-- `bun test` — 507 pass / 0 fail (50 files, 1041 expect calls, verified 2026-09-24)
+- `bun test` — 506 pass / 0 fail (verified 2026-09-24 via JUnit XML, 120 suites)
 - `bun x tsc --noEmit` — exit 0
 
 **In-place production features (verified in source):**
@@ -46,7 +46,7 @@ Phase 0 (Foundation) is **complete**. The in-repo pieces of Phase 5 (Commerciali
 
 **Acceptance:**
 - `bun run typecheck` — zero errors ✅ (exit 0, verified 2026-08-01)
-- `bun test` — all pass ✅ (507 pass / 0 fail, 50 files, verified 2026-09-24)
+- `bun test` — all pass ✅ (506 pass / 0 fail, verified 2026-09-24)
 - `curl localhost:3100/health` — 200 ✅ (route implemented in `src/routes/health.ts`)
 
 **Rollback:** N/A (no production traffic)
