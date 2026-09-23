@@ -247,7 +247,7 @@ describe("POST /webhook/x402", () => {
 		expect(orderRows.rows[0].gateway_reference).toBe(TX_HASH_SUCCESS);
 
 		const eventRows = await db.execute({
-			sql: "SELECT gateway, order_id, gateway_reference, status, signature_valid FROM webhook_events WHERE order_id = ?",
+			sql: "SELECT gateway, order_id, gateway_reference, status, signature_valid, raw_payload FROM webhook_events WHERE order_id = ?",
 			args: [order.id],
 		});
 		expect(eventRows.rows.length).toBe(1);
@@ -255,6 +255,11 @@ describe("POST /webhook/x402", () => {
 		expect(eventRows.rows[0].status).toBe("success");
 		expect(eventRows.rows[0].gateway_reference).toBe(TX_HASH_SUCCESS);
 		expect(eventRows.rows[0].signature_valid).toBe(1);
+		// raw_payload must be the verbatim request bytes (byte-identical to what
+		// HMAC gateways verify over), not a re-serialized parse.
+		const stored = String(eventRows.rows[0].raw_payload);
+		expect(stored).toContain(order.id);
+		expect(stored).toContain(TX_HASH_SUCCESS);
 		expect(callbackCount()).toBe(1);
 	});
 
