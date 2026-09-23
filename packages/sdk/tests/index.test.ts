@@ -129,6 +129,18 @@ describe('request serialization', () => {
     expect(init.method).toBe('POST');
     expect(JSON.parse(String(init.body))).toEqual({ name: 'Store', default_callback_url: 'https://x.com/cb' });
   });
+  test('refund sends order reference plus idempotency key on the wire', async () => {
+    mockFetch({ success: true, data: {} });
+    const c = client();
+    await c.refund('pay_1', 1000, 'test', 'refund-key-1');
+    expect(calls[0].url).toBe('http://localhost:3100/api/refunds');
+    expect(JSON.parse(String(calls[0].init!.body))).toEqual({
+      order_id: 'pay_1',
+      amount: 1000,
+      reason: 'test',
+      idempotency_key: 'refund-key-1',
+    });
+  });
 });
 
 describe('error handling', () => {

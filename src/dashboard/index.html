@@ -293,6 +293,21 @@
         <div id="dMethods" class="hidden">
           <h1>Saved Methods</h1>
           <p style="color:#94a3b8;font-size:14px;margin-bottom:16px">Gateway tokens vaulted for reuse. Tokens are never shown back.</p>
+          <div class="settings-group">
+            <h3>Vault a new method</h3>
+            <label>Gateway</label>
+            <input id="methodGateway" placeholder="midtrans" />
+            <label>Method code</label>
+            <input id="methodCode" placeholder="card" />
+            <label>Label</label>
+            <input id="methodName" placeholder="BCA Visa" />
+            <label>Gateway token (opaque reference, never raw PAN)</label>
+            <input id="methodToken" type="password" placeholder="tok_secure_abc" autocomplete="off" />
+            <label>Masked identifier (optional)</label>
+            <input id="methodMasked" placeholder="•••• 4242" />
+            <button class="btn btn-primary btn-small" onclick="createMethod()">Vault method</button>
+            <div class="error-msg" id="methodError"></div>
+          </div>
           <div class="table-wrap">
             <table><thead><tr><th>ID</th><th>Gateway</th><th>Label</th><th>Created</th><th></th></tr></thead><tbody id="methodsTable"></tbody></table>
           </div>
@@ -564,10 +579,33 @@ const order = await payment.create({
         `<tr><td class="mono">${escapeHtml(m.id)}</td><td>${escapeHtml(m.gateway)}</td><td>${escapeHtml(m.method_name || m.method_code || '-')}${m.masked_identifier ? ' (' + escapeHtml(m.masked_identifier) + ')' : ''}</td><td>${m.created_at ? new Date(m.created_at).toLocaleDateString() : '-'}</td><td><button class="btn btn-secondary btn-small" onclick="deleteMethod('${escapeHtml(m.id)}')">Delete</button></td></tr>`
       ).join('') || '<tr><td colspan="5" style="color:#64748b">No saved methods</td></tr>';
     }
-
     async function deleteMethod(id) {
       if (!confirm('Delete this saved method?')) return;
       await api('DELETE', '/api/saved-methods/' + id);
+      loadMethods();
+    }
+
+    async function createMethod() {
+      const err = document.getElementById('methodError');
+      hideError(err);
+      const body = {
+        gateway: document.getElementById('methodGateway').value.trim(),
+        method_code: document.getElementById('methodCode').value.trim(),
+        method_name: document.getElementById('methodName').value.trim(),
+        gateway_token: document.getElementById('methodToken').value.trim(),
+        masked_identifier: document.getElementById('methodMasked').value.trim() || undefined,
+      };
+      if (!body.gateway || !body.method_code || !body.method_name || !body.gateway_token) {
+        showError(err, 'Gateway, method code, label, and token are required.');
+        return;
+      }
+      const res = await api('POST', '/api/saved-methods', body);
+      if (!res) { showError(err, 'Create failed.'); return; }
+      document.getElementById('methodGateway').value = '';
+      document.getElementById('methodCode').value = '';
+      document.getElementById('methodName').value = '';
+      document.getElementById('methodToken').value = '';
+      document.getElementById('methodMasked').value = '';
       loadMethods();
     }
 
