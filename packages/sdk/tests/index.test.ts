@@ -224,6 +224,8 @@ describe('typed usage', () => {
         currency: 'IDR',
         payment_method: 'gopay',
         payment_url: 'https://checkout.midtrans.com/abc',
+        fee: 2500,
+        net: 97500,
         metadata: null,
         created_at: '2026-01-01T00:00:00Z',
         updated_at: '2026-01-01T00:00:00Z',
@@ -231,5 +233,7 @@ describe('typed usage', () => {
     });
     const order: Order = await c.get('pay_1');
     expect(order.status).toBe('paid');
+    expect(order.fee).toBe(2500);
+    expect(order.net).toBe(97500);
   });
 });
