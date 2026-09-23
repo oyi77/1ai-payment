@@ -1208,6 +1208,7 @@ x-api-key: 1pay_...
 function updatePreview() {
   var gw = document.getElementById('gwSelect').value;
   var ex = API_EXAMPLES[gw];
+  if (!ex) return;
   document.getElementById('requestCode').textContent = ex.request;
   document.getElementById('responseCode').textContent = ex.response;
 }
