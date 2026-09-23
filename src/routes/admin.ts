@@ -7,22 +7,83 @@
  *   (account recovery for lost keys: rotate requires the CURRENT key, so
  *   admins need this escape hatch). Returns the new key once.
  *
- * All routes protected by adminAuthMiddleware (X-Admin-Key header).
+ * All routes protected by adminAuthMiddleware (X-Admin-Key header) and
+ * declared via .openapi(createRoute) so they appear in GET /doc.
  */
 
-import { OpenAPIHono } from "@hono/zod-openapi";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { getDb } from "../config/database";
 import { adminAuthMiddleware } from "../middleware/admin-auth";
-import { adminMerchantUpdateBodySchema } from "../schemas";
+import {
+	adminMerchantUpdateBodySchema,
+	defaultHook,
+	errorSchema,
+	merchantResponseSchema,
+} from "../schemas";
 import { generateApiKey, sha256Hash } from "../utils/crypto";
 import { logger } from "../utils/logger";
 
-export const adminRoutes = new OpenAPIHono();
+type AdminEnv = {
+	Variables: Record<string, string>;
+};
+export const adminRoutes = new OpenAPIHono<AdminEnv>({ defaultHook });
 
 // Apply admin auth to all admin routes
 adminRoutes.use("*", adminAuthMiddleware());
 
-adminRoutes.get("/admin/merchants", async (c) => {
+const adminSecurity = [{ ApiKeyAuth: [] }];
+const merchantIdParam = z.object({
+	id: z.string().openapi({ example: "merch_abc123" }),
+});
+const merchantDataSchema = z.object({
+	success: z.literal(true),
+	data: z.object({
+		merchant: merchantResponseSchema,
+	}),
+});
+const unauthorizedResponse = {
+	description: "Unauthorized.",
+	content: { "application/json": { schema: errorSchema } },
+} as const;
+const notFoundResponse = {
+	description: "Merchant not found.",
+	content: { "application/json": { schema: errorSchema } },
+} as const;
+const serverErrorResponse = {
+	description: "Internal server error.",
+	content: { "application/json": { schema: errorSchema } },
+} as const;
+
+// ── GET /api/admin/merchants ──────────────────────────────────────
+
+const listMerchantsRoute = createRoute({
+	method: "get",
+	path: "/admin/merchants",
+	tags: ["Admin"],
+	summary: "List all merchants",
+	description:
+		"Returns every merchant account (admin only, X-Admin-Key). No API keys — hashes only.",
+	security: adminSecurity,
+	responses: {
+		200: {
+			description: "Merchant list.",
+			content: {
+				"application/json": {
+					schema: z.object({
+						success: z.literal(true),
+						data: z.object({
+							merchants: z.array(merchantResponseSchema),
+						}),
+					}),
+				},
+			},
+		},
+		401: unauthorizedResponse,
+		500: serverErrorResponse,
+	},
+});
+
+adminRoutes.openapi(listMerchantsRoute, async (c) => {
 	const db = getDb();
 
 	try {
@@ -40,7 +101,7 @@ adminRoutes.get("/admin/merchants", async (c) => {
 			updated_at: row.updated_at as string,
 		}));
 
-		return c.json({ success: true, data: { merchants } });
+		return c.json({ success: true, data: { merchants } }, 200);
 	} catch (err) {
 		logger.error("Failed to list merchants", { error: err });
 		return c.json(
@@ -53,23 +114,44 @@ adminRoutes.get("/admin/merchants", async (c) => {
 	}
 });
 
-adminRoutes.patch("/admin/merchants/:id", async (c) => {
-	const db = getDb();
-	const id = c.req.param("id") ?? "";
+// ── PATCH /api/admin/merchants/:id ───────────────────────────────
 
-	const parseResult = adminMerchantUpdateBodySchema.safeParse(
-		await c.req.json().catch(() => undefined),
-	);
-	if (!parseResult.success) {
-		return c.json(
-			{
-				success: false,
-				error: { code: "INVALID_BODY", message: "Invalid request body" },
+const updateMerchantRoute = createRoute({
+	method: "patch",
+	path: "/admin/merchants/{id}",
+	tags: ["Admin"],
+	summary: "Update merchant plan / active status",
+	description: "Admin-only plan and active-state update (X-Admin-Key).",
+	security: adminSecurity,
+	request: {
+		params: merchantIdParam,
+		body: {
+			content: {
+				"application/json": { schema: adminMerchantUpdateBodySchema },
 			},
-			400,
-		);
-	}
-	const body = parseResult.data;
+		},
+	},
+	responses: {
+		200: {
+			description: "Merchant updated.",
+			content: {
+				"application/json": { schema: merchantDataSchema },
+			},
+		},
+		400: {
+			description: "Invalid request body.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		401: unauthorizedResponse,
+		404: notFoundResponse,
+		500: serverErrorResponse,
+	},
+});
+
+adminRoutes.openapi(updateMerchantRoute, async (c) => {
+	const db = getDb();
+	const { id } = c.req.valid("param");
+	const body = c.req.valid("json");
 
 	try {
 		const existing = await db.execute({
@@ -112,20 +194,23 @@ adminRoutes.patch("/admin/merchants/:id", async (c) => {
 		});
 		const row = result.rows[0];
 
-		return c.json({
-			success: true,
-			data: {
-				merchant: {
-					id: row.id as string,
-					name: row.name as string,
-					default_callback_url: row.default_callback_url as string | null,
-					active: Boolean(row.active),
-					plan: row.plan as string,
-					created_at: row.created_at as string,
-					updated_at: row.updated_at as string,
+		return c.json(
+			{
+				success: true,
+				data: {
+					merchant: {
+						id: row.id as string,
+						name: row.name as string,
+						default_callback_url: row.default_callback_url as string | null,
+						active: Boolean(row.active),
+						plan: row.plan as string,
+						created_at: row.created_at as string,
+						updated_at: row.updated_at as string,
+					},
 				},
 			},
-		});
+			200,
+		);
 	} catch (err) {
 		logger.error("Failed to update merchant", { merchant_id: id, error: err });
 		return c.json(
@@ -139,9 +224,45 @@ adminRoutes.patch("/admin/merchants/:id", async (c) => {
 });
 
 // ── POST /api/admin/merchants/:id/api-key (recovery reset) ───────
-adminRoutes.post("/admin/merchants/:id/api-key", async (c) => {
+
+const resetKeyRoute = createRoute({
+	method: "post",
+	path: "/admin/merchants/{id}/api-key",
+	tags: ["Admin"],
+	summary: "Reset a merchant API key (recovery)",
+	description:
+		"Admin-only recovery reset for lost keys (X-Admin-Key). Returns the new key once.",
+	security: adminSecurity,
+	request: {
+		params: merchantIdParam,
+	},
+	responses: {
+		200: {
+			description: "New API key (shown once).",
+			content: {
+				"application/json": {
+					schema: z.object({
+						success: z.literal(true),
+						data: z.object({
+							merchant_id: z.string().openapi({ example: "merch_abc123" }),
+							api_key: z.string().openapi({
+								description: "New API key — shown ONCE, store it securely",
+								example: "1pay_xyz789...",
+							}),
+						}),
+					}),
+				},
+			},
+		},
+		401: unauthorizedResponse,
+		404: notFoundResponse,
+		500: serverErrorResponse,
+	},
+});
+
+adminRoutes.openapi(resetKeyRoute, async (c) => {
 	const db = getDb();
-	const id = c.req.param("id") ?? "";
+	const { id } = c.req.valid("param");
 
 	try {
 		const existing = await db.execute({
@@ -166,10 +287,13 @@ adminRoutes.post("/admin/merchants/:id/api-key", async (c) => {
 		});
 
 		logger.info("Admin reset merchant API key", { merchant_id: id });
-		return c.json({
-			success: true as const,
-			data: { merchant_id: id, api_key: apiKey },
-		});
+		return c.json(
+			{
+				success: true as const,
+				data: { merchant_id: id, api_key: apiKey },
+			},
+			200,
+		);
 	} catch (err) {
 		logger.error("Failed to reset merchant API key", {
 			merchant_id: id,
