@@ -19,7 +19,6 @@ import {
 	transactionResponseSchema,
 	webhookDeliverySchema,
 } from "../../schemas";
-import { replayDeadLetter } from "../../services/forwarder.service";
 import {
 	getAvailableGateways,
 	getGateway,
