@@ -202,30 +202,28 @@ cross-tenant collision the roadmap wanted to eliminate.
 
 ### Step 2.2 — Refund API
 
-**Status: 🟡 Partial**
+**Status: ✅ Done**
 
 **Files:** `src/routes/refund.ts`, `src/services/refund.service.ts`, `src/config/database.ts`, `src/schemas.ts`
 
 **Shipped:**
 - `refunds` table: `order_id`, `merchant_id`, `amount`, `gateway`,
-  `gateway_refund_id`, `status` (`pending|success|failed`), `reason`, timestamps.
+  `gateway_refund_id`, `status` (`pending|success|failed`), `reason`,
+  `idempotency_key`, timestamps.
 - `POST /api/refunds` — order must exist **and belong to the merchant**
   (`merchant_id` or `project_id` match), status must be `success`, amount optional
-  (defaults to full, must be ≤ `order.amount`). Full refund flips the order to
-  `refunded`. `GET /api/refunds` lists with pagination, merchant-scoped.
-
-**Gaps:**
-- **No gateway implements `refundPayment`** — the optional method exists on the
-  `PaymentGateway` interface (`src/gateways/base.ts`), the service checks it, but
-  no concrete gateway provides one. Every refund falls through to
-  `status = 'pending'` (manual processing). Gateway-initiated refunds are
-  effectively dead code.
-- **No refund idempotency** — every `POST /api/refunds` call inserts a new row;
-  retrying the same refund double-creates entries.
-
-**Target:** implement `refundPayment` per gateway (or a clear
-`REFUND_NOT_SUPPORTED`), add an `idempotency_key` to `refunds` with a UNIQUE
-constraint.
+  (defaults to full, must be ≤ `order.amount`). Cumulative guard rejects
+  over-refunds. Full gateway-confirmed refund flips the order to `refunded`.
+  `GET /api/refunds` lists with pagination, merchant-scoped.
+- Idempotency: `idempotency_key` with `UNIQUE(merchant_id, idempotency_key)`
+  (migration 005) + pre-check + atomic backstop on INSERT collision
+  (parallel retries return the winner, never 500 — mirrors orders issue #4).
+- `refundPayment` contract: gateways return `{ gatewayRefundId }` on confirm or
+  throw `REFUND_NOT_SUPPORTED` (stays `pending`, manual handling) / other errors
+  (`failed`). Saweria implements explicit `REFUND_NOT_SUPPORTED` (anonymous
+  donations cannot be API-refunded, by design). No gateway confirms a live
+  refund yet — gateway-confirmed path proven by `refund.gateway.test.ts`
+  (fake gateway) until a real gateway ships one.
 
 **Rollback:** Drop `refunds` table, remove routes.
 
@@ -493,9 +491,8 @@ Shipped items the roadmap did not plan (audited — all present in code):
 | Admin API | `GET /api/admin/merchants` + `PATCH /api/admin/merchants/{id}` (`src/routes/admin.ts`, `X-Admin-Key`) | List + plan/active updates (no web UI) |
 | Prometheus metrics | `GET /metrics` (`src/middleware/metrics.ts`) | Counters + `payment_creation_duration_seconds` histogram; admin auth required (`X-Admin-Key`) |
 | Webhook events + dead letters | `webhook_events`, `dead_letter_events` (`src/config/database.ts`) | Dedup + audit + failed-forward queue |
-| Gateways 11–12 | `x402` (micropayments), `erc8183` (agentic-commerce escrow) | Registry: 12 total |
 | Nexus (1ai-product delivery) | `src/services/nexus-fulfillment.ts`, `nexus-cron.ts` | Scalev direct-checkout fulfillment + Telegram invite delivery; 6h maintenance cron; `nexus_customers` / `nexus_subscriptions` — PARKED (Scalev quota exhausted, live tables empty) |
-
+| Gateways 11–13 | `x402` (micropayments), `erc8183` (agentic-commerce escrow), `saweria` (anonymous donations) | Registry: 13 total |
 ## Future Work / Backlog
 
 Genuinely-future items, roughly by dependency order. None block current use.

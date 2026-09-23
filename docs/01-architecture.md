@@ -199,7 +199,10 @@ Key properties:
   durable queue: after the final failure the event is written to
   `dead_letter_events` and `forward_attempts` is set to 3. Dead letters can be
   replayed via `replayDeadLetter(id)`, which re-forwards and stamps
-  `replayed_at` on success.
+  `replayed_at` on success. Known limitation: a process restart during the
+  backoff window drops the in-flight forward before the dead letter is
+  written (gateway already got `200`, so it will not retry) — detect via
+  orders stuck `success` with `forward_attempts = 0` and no dead-letter row.
 - **Telegram gateways fail closed on forwarding.** If the merchant's
   `webhook_secret` is missing/empty, the event is skipped (not forwarded) and
   the gateway still receives `200` — verified events are never forwarded

@@ -79,7 +79,7 @@ All 13 gateways are normalized
 - Payout API for affiliates and merchants
 - Admin analytics dashboard
 - Webhook retry management UI (dead-letter replay is implemented; the UI is not)
-- Delivered renewal/expiry notifications for Nexus customers (currently logged only, not sent)
+- Delivered renewal/expiry notifications for Nexus customers (DM sent when the subscription row has a telegram_chat_id and bot token is set, else log-only)
 
 ## Non-Goals
 
