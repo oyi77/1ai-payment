@@ -58,15 +58,11 @@ export function getGateway(name: string): PaymentGateway | undefined {
 export function getGatewayNames(): string[] {
 	return Object.keys(registry);
 }
-
-export function isGatewayConfigured(name: string): boolean {
-	return name in registry;
-}
-
 /**
  * Register a gateway implementation at runtime. Primarily used by tests to
  * inject fake gateways (e.g. refund support) without network access.
  */
+
 export function registerGateway(name: string, gateway: PaymentGateway): void {
 	registry[name] = gateway;
 }

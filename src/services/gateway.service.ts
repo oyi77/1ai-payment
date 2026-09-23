@@ -3,10 +3,10 @@
  */
 
 import { getGatewayConfig } from "../config/env";
-import { getGateway, getGatewayNames, isGatewayConfigured } from "../gateways";
+import { getGateway, getGatewayNames } from "../gateways";
 import type { PaymentGateway, PaymentMethod } from "../gateways/base";
 
-export { getGateway, getGatewayNames, isGatewayConfigured };
+export { getGateway, getGatewayNames };
 
 export interface GatewayStatus {
 	name: string;
