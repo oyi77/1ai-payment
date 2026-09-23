@@ -105,7 +105,7 @@ Health check. No authentication required.
 
 Gateway callback receiver. One route for all gateways; the `gateway` path segment selects the handler.
 
-`gateway` is one of: `midtrans`, `tripay`, `duitku`, `nowpayments`, `ipaymu`, `scalev`, `xendit`, `telegram_stars`, `telegram_payments`, `paypal`, `x402`, `erc8183`.
+`gateway` is one of: `midtrans`, `tripay`, `duitku`, `nowpayments`, `ipaymu`, `scalev`, `xendit`, `telegram_stars`, `telegram_payments`, `paypal`, `x402`, `erc8183`, `saweria`.
 
 **Headers:** per-gateway signature (see table below). No `X-API-Key` required.
 

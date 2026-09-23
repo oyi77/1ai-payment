@@ -299,7 +299,7 @@ interface NormalizedPaymentEvent {
   gateway: string;            // 'midtrans' | 'tripay' | 'duitku' | 'nowpayments'
                               // | 'ipaymu' | 'scalev' | 'xendit'
                               // | 'telegram_stars' | 'telegram_payments'
-                              // | 'paypal' | 'x402' | 'erc8183'
+                              // | 'paypal' | 'x402' | 'erc8183' | 'saweria'
   order_id: string;           // 1ai-payment order ID
   gateway_reference: string;  // Gateway's transaction/reference ID
   status: PaymentStatus;      // 'success' | 'pending' | 'failed'
