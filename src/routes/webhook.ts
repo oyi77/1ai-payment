@@ -13,7 +13,7 @@
 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { getDb } from "../config/database";
-import { getConfig } from "../config/env";
+import { MERCHANT_CREDENTIAL_KEYS, getConfig } from "../config/env";
 import { getGateway } from "../gateways";
 import type { NormalizedPaymentEvent } from "../gateways/base";
 import { webhooksReceivedCounter } from "../middleware/metrics";
@@ -81,7 +81,20 @@ export function isHttpsRequest(
  * Candidate merchants: the order the event resolves to (by gateway
  * reference, then order id), plus — when the DB lookup found no order —
  * every merchant with an enabled row for this gateway.
+/**
+ * Gateways whose verifySignature honors opts.merchantId (derived from the
+ * merchant-credential contract, minus saweria: its verify is credential-free
+ * reconciliation, so per-merchant retry always returns the same verdict).
+ * Platform-credential gateways (paypal, telegram x2, x402, erc8183) verify
+ * against platform config only — retrying per merchant would repeat the
+ * identical check (worst case: N remote PayPal API calls per webhook).
  */
+export const MERCHANT_VERIFY_GATEWAYS: Record<string, true> =
+	Object.fromEntries(
+		Object.keys(MERCHANT_CREDENTIAL_KEYS)
+			.filter((g) => g !== "saweria")
+			.map((g) => [g, true as const]),
+	);
 async function verifyAgainstMerchantKeys(
 	gateway: {
 		verifySignatureRaw?: (
@@ -107,6 +120,7 @@ async function verifyAgainstMerchantKeys(
 	body: unknown,
 	headers: Record<string, string>,
 ): Promise<boolean> {
+	if (!MERCHANT_VERIFY_GATEWAYS[gatewayName]) return false;
 	const { getDb } = await import("../config/database");
 	const { getOrderByGatewayRef, getOrderById } = await import(
 		"../services/order.service"
