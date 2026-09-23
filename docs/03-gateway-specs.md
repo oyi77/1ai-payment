@@ -1234,7 +1234,78 @@ ERC8183_EVALUATOR_ADDRESS=...    # required for webhook signature verification
 # fallback when ERC8183_EVALUATOR_ADDRESS is unset: ERC8183_EVALUATOR_PUBLIC_KEY
 ```
 
----
+## Saweria
+
+Anonymous donations via QRIS / GoPay / DANA. Contract reverse-engineered from
+the open-source `saweraspay` client against the undocumented Saweria backend.
+Payment creation POSTs to `backend.saweria.co` with a browser-like
+User-Agent + Origin/Referer (no API key — identity is `SAWERIA_USERNAME` /
+`SAWERIA_USER_ID`). IDR only. The webhook URL is fixed in the Saweria
+dashboard.
+
+### Payment Creation
+```typescript
+POST https://backend.saweria.co/donations/snap/{SAWERIA_USER_ID}
+// body: { agree, notUnderage, message (= our orderId), amount, payment_type, vote, currency: "IDR", customer_info }
+// response: { data: { id (Saweria tx UUID), qr_string | redirect_url } }
+```
+
+### Callback URL
+```
+POST /webhook/saweria
+```
+
+### Signature Verification
+Saweria does NOT sign webhooks. Verification is by reconciliation:
+`verifySignature` requires the body to be an object with Saweria transaction
+`id` + our echoed order id in `message` (and `type === "donation"` when
+present). The route layer additionally looks the order up — unknown orders
+are logged, never forwarded.
+
+Accepted risk: a forged body with a valid shape AND a known order id would
+normalize to `success` (receiving the webhook == payment received — the
+provider only fires on donation). Mitigations: order ids are unguessable
+(21-char nanoid), order must pre-exist, and amounts can be reconciled
+manually in the Saweria dashboard (`id` matches the `generate` response).
+No amount-match guard in code by design: Saweria deducts fees (`cut`,
+`transaction_fee_policy`) so callback `amount_raw` may legitimately differ
+from the order amount — a strict guard would reject legitimate donations.
+
+### Status Mapping
+| Saweria Condition | Mapped To |
+|-------------------|-----------|
+| webhook received (valid shape) | success |
+| body not an object / missing id or message | throws → 400 |
+
+### Callback Payload (relevant fields)
+```json
+{
+  "id": "saweria-tx-uuid",
+  "type": "donation",
+  "amount_raw": 50000,
+  "cut": -2500,
+  "donator_name": "Anon",
+  "message": "pay_xxx",
+  "etc": { "qr_string": "...", "amount_to_display": 50000, "transaction_fee_policy": "..." }
+}
+```
+
+### Payment Methods
+| Code | Name | Currencies |
+|------|------|------------|
+| `qris` | QRIS | IDR |
+| `gopay` | GoPay | IDR |
+| `dana` | DANA | IDR |
+
+### Environment Variables
+```
+SAWERIA_USERNAME=...
+SAWERIA_USER_ID=...
+SAWERIA_ENVIRONMENT=...
+# No webhook secret — verification by reconciliation (id + message).
+# refundPayment throws REFUND_NOT_SUPPORTED (anonymous donations cannot be API-refunded).
+```
+
 
 ## Adding a New Gateway
 
