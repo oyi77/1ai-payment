@@ -87,17 +87,6 @@ export class ApiError extends PaymentError {
 }
 
 /**
- * Build a typed API error with an explicit HTTP status.
- */
-export function httpError(
-	statusCode: number,
-	code: string,
-	message: string,
-): ApiError {
-	return new ApiError(message, code, statusCode);
-}
-
-/**
  * Standard 404 helper.
  */
 export function notFound(message = "Not found"): ApiError {
