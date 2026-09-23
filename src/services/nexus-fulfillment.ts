@@ -169,23 +169,45 @@ async function fulfillOrder(
 		);
 	}
 
-	await db.execute({
-		sql: `INSERT INTO nexus_subscriptions
+	try {
+		await db.execute({
+			sql: `INSERT INTO nexus_subscriptions
           (id, customer_id, tier, variant, scalev_order_id, status, telegram_invite_link, telegram_chat_id, expires_at, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`,
-		args: [
-			subId,
-			dbCustomerId,
-			product.tier,
-			product.label,
-			scalevOrderId || null,
-			inviteLink ?? null,
-			channelId || null,
-			expiresAt,
-			now,
-			now,
-		],
-	});
+			args: [
+				subId,
+				dbCustomerId,
+				product.tier,
+				product.label,
+				scalevOrderId || null,
+				inviteLink ?? null,
+				channelId || null,
+				expiresAt,
+				now,
+				now,
+			],
+		});
+	} catch (err: unknown) {
+		// Atomic backstop for the check-then-insert race: two parallel
+		// webhooks for the same Scalev order both pass the pre-check above.
+		// The UNIQUE partial index (migration 007) makes the loser fail
+		// here — return the winner instead of 500ing (mirrors the
+		// refunds/vault backstops).
+		if (
+			scalevOrderId &&
+			err instanceof Error &&
+			err.message.includes("UNIQUE constraint")
+		) {
+			const winner = await db.execute({
+				sql: "SELECT id FROM nexus_subscriptions WHERE scalev_order_id = ?",
+				args: [scalevOrderId],
+			});
+			if (winner.rows.length > 0) {
+				return { success: true, subscriptionId: String(winner.rows[0].id) };
+			}
+		}
+		throw err;
+	}
 
 	logger.info("Nexus: subscription created", {
 		subId,

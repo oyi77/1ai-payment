@@ -161,6 +161,21 @@ const MIGRATIONS: Migration[] = [
 			`);
 		},
 	},
+	{
+		version: "007",
+		name: "Dedupe Nexus subscriptions per Scalev order",
+		run: async (db: Client) => {
+			// nexus_subscriptions.scalev_order_id backs the fulfillOrder
+			// pre-check (SELECT before INSERT). Without a UNIQUE index two
+			// parallel webhooks for the same Scalev order both pass the
+			// check, mint two invite links, and insert two subscriptions.
+			// Partial index: NULL/empty order ids stay insertable; only
+			// real Scalev order ids dedupe.
+			await db.execute(
+				"CREATE UNIQUE INDEX IF NOT EXISTS idx_nexus_subs_scalev_unique ON nexus_subscriptions(scalev_order_id) WHERE scalev_order_id IS NOT NULL AND scalev_order_id != ''",
+			);
+		},
+	},
 ];
 export async function runMigrations(db: Client): Promise<void> {
 	// Ensure the tracking table exists
