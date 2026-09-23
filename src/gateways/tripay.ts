@@ -74,6 +74,7 @@ export class TripayGateway implements PaymentGateway {
 		const env = m?.environment || base.TRIPAY_ENVIRONMENT;
 		const baseUrl = env === "production" ? PRODUCTION_URL : SANDBOX_URL;
 
+		const publicBase = base.PUBLIC_BASE_URL.replace(/\/$/, "");
 		const body = {
 			method: params.paymentMethod || "BCA",
 			merchant_ref: params.orderId,
@@ -88,8 +89,8 @@ export class TripayGateway implements PaymentGateway {
 					quantity: 1,
 				},
 			],
-			callback_url: "https://pay.1ai.dev/webhook/tripay",
-			return_url: "https://example.com/payment/finish",
+			callback_url: `${publicBase}/webhook/tripay`,
+			return_url: params.successUrl ?? `${publicBase}/payment/finish`,
 			expired_time: Math.floor(Date.now() / 1000) + 86400, // 24 hours
 		};
 

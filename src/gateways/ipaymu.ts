@@ -77,14 +77,15 @@ export class IPaymuGateway implements PaymentGateway {
 		const env = m?.environment || base.IPAYMU_ENVIRONMENT;
 		const baseUrl = env === "production" ? PRODUCTION_URL : SANDBOX_URL;
 
+		const publicBase = base.PUBLIC_BASE_URL.replace(/\/$/, "");
 		const body = {
 			name: params.customerName || "Customer",
 			email: params.customerEmail || "",
 			phone: "",
 			amount: params.amount,
-			notifyUrl: "https://pay.1ai.dev/webhook/ipaymu",
-			returnUrl: "https://example.com/payment/finish",
-			cancelUrl: "https://example.com/payment/cancel",
+			notifyUrl: `${publicBase}/webhook/ipaymu`,
+			returnUrl: params.successUrl ?? `${publicBase}/payment/finish`,
+			cancelUrl: params.cancelUrl ?? `${publicBase}/payment/cancel`,
 			referenceId: params.orderId,
 			paymentMethod: params.paymentMethod || "va",
 			paymentChannel: "va",

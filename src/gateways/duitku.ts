@@ -79,6 +79,7 @@ export class DuitkuGateway implements PaymentGateway {
 			.update(`${merchantCode}${params.orderId}${params.amount}${apiKey}`)
 			.digest("hex");
 
+		const publicBase = base.PUBLIC_BASE_URL.replace(/\/$/, "");
 		const body = {
 			merchantCode: merchantCode,
 			paymentAmount: params.amount,
@@ -87,8 +88,8 @@ export class DuitkuGateway implements PaymentGateway {
 			productDetails: "Payment",
 			customerVaName: params.customerName || "Customer",
 			email: params.customerEmail || "",
-			callbackUrl: "https://pay.1ai.dev/webhook/duitku",
-			returnUrl: "https://example.com/payment/finish",
+			callbackUrl: `${publicBase}/webhook/duitku`,
+			returnUrl: params.successUrl ?? `${publicBase}/payment/finish`,
 			signature,
 			expiryPeriod: 60,
 		};

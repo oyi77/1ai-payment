@@ -242,4 +242,43 @@ describe("gateway createPayment simulations (real charge code)", () => {
 		const expected = `Basic ${Buffer.from("sim-midtrans:").toString("base64")}`;
 		expect(wireAuth).toBe(expected);
 	});
+	test("callback URLs point at PUBLIC_BASE_URL, not stale hosts", async () => {
+		const bodies: Record<string, string> = {};
+		const prevFetch = globalThis.fetch;
+		globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+			bodies[String(input)] = String(init?.body ?? "");
+			return sandboxResponse(String(input));
+		}) as typeof fetch;
+		try {
+			await getGateway("duitku")!.createPayment(PARAMS);
+			await getGateway("tripay")!.createPayment(PARAMS);
+			await getGateway("ipaymu")!.createPayment(PARAMS);
+		} finally {
+			globalThis.fetch = prevFetch;
+		}
+		const duitkuEntry = Object.entries(bodies).find(([url]) =>
+			url.includes("duitku"),
+		);
+		const tripayEntry = Object.entries(bodies).find(([url]) =>
+			url.includes("tripay"),
+		);
+		const ipaymuEntry = Object.entries(bodies).find(([url]) =>
+			url.includes("ipaymu"),
+		);
+		expect(
+			(JSON.parse(duitkuEntry?.[1] ?? "{}") as Record<string, unknown>)
+				.callbackUrl,
+		).toBe("https://pay.1ai.dev/webhook/duitku");
+		expect(
+			(JSON.parse(tripayEntry?.[1] ?? "{}") as Record<string, unknown>)
+				.callback_url,
+		).toBe("https://pay.1ai.dev/webhook/tripay");
+		expect(
+			(JSON.parse(ipaymuEntry?.[1] ?? "{}") as Record<string, unknown>)
+				.notifyUrl,
+		).toBe("https://pay.1ai.dev/webhook/ipaymu");
+		for (const body of Object.values(bodies)) {
+			expect(body).not.toContain("example.com/payment");
+		}
+	});
 });
