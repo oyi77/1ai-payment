@@ -122,6 +122,7 @@ export class MidtransGateway implements PaymentGateway {
 				Authorization: `Basic ${auth}`,
 			},
 			body: JSON.stringify(body),
+			signal: AbortSignal.timeout(30_000),
 		});
 
 		if (!response.ok) {

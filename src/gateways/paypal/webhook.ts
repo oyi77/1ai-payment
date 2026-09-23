@@ -82,6 +82,7 @@ export async function verifySignature(
 					webhook_id: config.PAYPAL_WEBHOOK_ID,
 					webhook_event: body,
 				}),
+				signal: AbortSignal.timeout(30_000),
 			},
 		);
 
@@ -198,6 +199,7 @@ async function getAccessToken(): Promise<string> {
 			"Content-Type": "application/x-www-form-urlencoded",
 		},
 		body: "grant_type=client_credentials",
+		signal: AbortSignal.timeout(30_000),
 	});
 
 	if (!response.ok) {

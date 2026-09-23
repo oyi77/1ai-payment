@@ -225,6 +225,7 @@ async function generateTelegramInviteLink(
 				member_limit: 1,
 				expire_date: Math.floor(Date.now() / 1000) + durationDays * 86400,
 			}),
+			signal: AbortSignal.timeout(30_000),
 		});
 
 		if (!res.ok) {
@@ -274,6 +275,7 @@ export async function revokeTelegramInviteLink(
 				chat_id: chatId,
 				invite_link: inviteLink,
 			}),
+			signal: AbortSignal.timeout(30_000),
 		});
 	} catch (err: unknown) {
 		logger.warn("Nexus: failed to revoke invite link", {

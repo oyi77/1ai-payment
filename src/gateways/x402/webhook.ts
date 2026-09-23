@@ -142,7 +142,7 @@ export async function verifyPayment(
 
 		const client = createPublicClient({
 			chain,
-			transport: http(rpcUrl),
+			transport: http(rpcUrl, { timeout: 30_000 }),
 		});
 
 		// Get and cast the transaction receipt to access log details

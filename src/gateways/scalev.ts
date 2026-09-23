@@ -163,6 +163,7 @@ export class ScalevGateway implements PaymentGateway {
 					"X-Scalev-Storefront-Api-Key": storefrontApiKey,
 				},
 				body: JSON.stringify(body),
+				signal: AbortSignal.timeout(30_000),
 			},
 		);
 
@@ -336,6 +337,7 @@ export class ScalevGateway implements PaymentGateway {
 					headers: {
 						"X-Scalev-Storefront-Api-Key": config.SCALEV_STOREFRONT_API_KEY,
 					},
+					signal: AbortSignal.timeout(30_000),
 				},
 			);
 

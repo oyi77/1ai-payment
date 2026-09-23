@@ -115,6 +115,7 @@ export class IPaymuGateway implements PaymentGateway {
 				timestamp: timestamp,
 			},
 			body: JSON.stringify(body),
+			signal: AbortSignal.timeout(30_000),
 		});
 
 		if (!response.ok) {

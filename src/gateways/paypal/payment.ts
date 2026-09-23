@@ -67,6 +67,7 @@ async function getAccessToken(
 			"Content-Type": "application/x-www-form-urlencoded",
 		},
 		body: "grant_type=client_credentials",
+		signal: AbortSignal.timeout(30_000),
 	});
 
 	if (!response.ok) {
@@ -148,6 +149,7 @@ export async function createOrder(
 			"PayPal-Request-Id": params.orderId, // Idempotency key
 		},
 		body: JSON.stringify(body),
+		signal: AbortSignal.timeout(30_000),
 	});
 
 	if (!response.ok) {

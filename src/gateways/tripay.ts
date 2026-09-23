@@ -101,6 +101,7 @@ export class TripayGateway implements PaymentGateway {
 				Authorization: `Bearer ${apiKey}`,
 			},
 			body: JSON.stringify(body),
+			signal: AbortSignal.timeout(30_000),
 		});
 
 		if (!response.ok) {

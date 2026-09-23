@@ -127,6 +127,7 @@ export class XenditGateway implements PaymentGateway {
 					Authorization: `Basic ${Buffer.from(`${apiKey}:`).toString("base64")}`,
 				},
 				body: JSON.stringify(body),
+				signal: AbortSignal.timeout(30_000),
 			});
 
 			if (!response.ok) {
@@ -182,6 +183,7 @@ export class XenditGateway implements PaymentGateway {
 				Authorization: `Basic ${Buffer.from(`${apiKey}:`).toString("base64")}`,
 			},
 			body: JSON.stringify(body),
+			signal: AbortSignal.timeout(30_000),
 		});
 
 		if (!response.ok) {

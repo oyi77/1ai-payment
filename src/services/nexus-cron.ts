@@ -66,6 +66,7 @@ async function sendTelegramMessage(
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ chat_id: chatId, text }),
+			signal: AbortSignal.timeout(30_000),
 		},
 	);
 	if (!res.ok) {

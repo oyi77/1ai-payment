@@ -146,6 +146,7 @@ export class SaweriaGateway implements PaymentGateway {
 				method: "POST",
 				headers: this.buildHeaders(cfg.username),
 				body: JSON.stringify(body),
+				signal: AbortSignal.timeout(30_000),
 			},
 		);
 
