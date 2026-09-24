@@ -125,3 +125,25 @@ describe("evaluator alias precedence (ADDRESS wins)", () => {
 		resetConfigCache();
 	});
 });
+
+describe(".env.example completeness", () => {
+	test("every key consumed by env.ts is documented in .env.example", async () => {
+		const { readFileSync } = await import("node:fs");
+		const { join, dirname } = await import("node:path");
+		const { fileURLToPath } = await import("node:url");
+		const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+		const envTs = readFileSync(join(root, "src", "config", "env.ts"), "utf8");
+		const example = readFileSync(join(root, ".env.example"), "utf8");
+		const consumed = new Set<string>();
+		for (const m of envTs.matchAll(/(?:required|optional|bool)\("([A-Z_]+)"/g)) {
+			consumed.add(m[1]);
+		}
+		expect(consumed.size).toBeGreaterThan(30);
+		const exampleKeys = new Set<string>();
+		for (const m of example.matchAll(/^([A-Z_]+)=/gm)) {
+			exampleKeys.add(m[1]);
+		}
+		const missing = [...consumed].filter((k) => !exampleKeys.has(k));
+		expect(missing).toEqual([]);
+	});
+});
