@@ -25,6 +25,6 @@ A payment aggregator that returns `500` on bad input or lets key-brute-force run
 
 ## How to Verify
 ```bash
-bun run lint && bun run typecheck && bun test   # expect: clean / clean / 506 pass 0 fail
+bun run lint && bun run typecheck && bun test   # expect: clean / clean / 560 pass 0 fail
 # then run the curl burst in curl/gate6-payments.md against an isolated 3105 server
 ```
