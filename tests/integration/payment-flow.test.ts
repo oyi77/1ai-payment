@@ -288,6 +288,49 @@ describe('POST /webhook/:gateway', () => {
     expect(ack.ok).toBe(true);
   });
 
+  test('midtrans webhook — valid signature but short amount stays pending (Sweep157)', async () => {
+    const createRes = await app.request('/api/payments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'test-api-key-flow' },
+      body: JSON.stringify({
+        gateway: 'midtrans',
+        amount: 20000,
+        customer: { name: 'Short Test', email: 'short@test.com' },
+        callback_url: 'https://example.com/callback',
+      }),
+    });
+    const createBody = await createRes.json() as { data: { id: string } };
+    const orderId = createBody.data.id;
+
+    // Cryptographically VALID signature over a SHORT amount: the gateway
+    // (or a leaked-key forger) claims success for 5000 on a 20000 order.
+    // The reconciliation floor must 200-skip without closing the order.
+    const serverKey = 'midtrans_test_key';
+    const statusCode = '200';
+    const grossAmount = '5000.00';
+    const crypto = await import('crypto');
+    const signature = crypto.createHash('sha512').update(`${orderId}${statusCode}${grossAmount}${serverKey}`).digest('hex');
+
+    const webhookRes = await app.request('/webhook/midtrans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        transaction_status: 'settlement',
+        order_id: orderId,
+        status_code: statusCode,
+        gross_amount: grossAmount,
+        payment_type: 'bank_transfer',
+        currency: 'IDR',
+        transaction_time: new Date().toISOString(),
+        signature_key: signature,
+      }),
+    });
+    expect(webhookRes.status).toBe(200);
+
+    const { getDb } = await import("../../src/config/database");
+    const row = await getDb().execute({ sql: "SELECT status FROM orders WHERE id = ?", args: [orderId] });
+    expect(String((row.rows[0] as Record<string, unknown>).status)).toBe("pending");
+  });
 
   test('tripay webhook — invalid signature returns 401', async () => {
     const webhookRes = await app.request('/webhook/tripay', {

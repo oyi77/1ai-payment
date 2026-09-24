@@ -492,15 +492,26 @@ for (const gatewayName of GATEWAY_NAMES) {
 			return c.json({ ok: true as const }, 200);
 		}
 
-		// Saweria has no webhook signature: anyone who knows an order_id can
-		// forge a success callback. Amount-match is the reconciliation floor —
-		// reject underpay forgeries (paid X, claim Y>X). Overpay passes
-		// (donors tip extra; amount_raw includes fees). Residue: exact-amount
-		// forgery with zero payment is still possible — full mitigation needs
-		// a Saweria transaction-status API, which does not exist publicly.
-		// 200-skip (not 4xx): the fact will not change on retry; log the warn.
-		if (gatewayName === "saweria" && event.amount < order.amount) {
-			logger.warn("Saweria: underpay forgery rejected", {
+		// Amount reconciliation (Sweep157): a success event reporting LESS than
+		// the order total must not close the order — otherwise a partial or
+		// short-money callback marks the full order paid and the merchant ships
+		// on short money. Zero-amount events skip the check: some gateways do
+		// not report amounts (e.g. erc8183 attestations approve escrow release
+		// with no amount field) and there is nothing to reconcile. Overpay
+		// passes (tips, fee-inclusive gross). Saweria is the sharpest case —
+		// no webhook signature, so anyone knowing an order_id can forge; the
+		// same floor now protects every amount-reporting gateway. Exact-amount
+		// forgery with zero real payment on unsigned gateways is still
+		// possible — full mitigation needs a transaction-status API, which
+		// Saweria does not expose publicly.
+		// 200-skip (not 4xx): amounts never change on gateway retry; log the warn.
+		if (
+			event.status === "success" &&
+			event.amount > 0 &&
+			event.amount < order.amount
+		) {
+			logger.warn("Underpaid success event rejected", {
+				gateway: gatewayName,
 				order_id: order.id,
 				order_amount: order.amount,
 				claimed_amount: event.amount,
