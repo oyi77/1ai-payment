@@ -89,7 +89,7 @@ beforeAll(async () => {
 	const { initDatabase, getDb } = await import("../../src/config/database");
 	const { webhookRoutes } = await import("../../src/routes/webhook");
 	const { createOrder } = await import("../../src/services/order.service");
-	const { sha256Hash } = await import("../../src/utils/crypto");
+	const { encryptWebhookSecret, sha256Hash } = await import("../../src/utils/crypto");
 	const { Hono } = await import("hono");
 
 	await initDatabase();
@@ -99,7 +99,7 @@ beforeAll(async () => {
 		sql: "INSERT INTO merchants (id, name, api_key_hash, webhook_secret, active) VALUES (?, ?, ?, ?, 1)",
 		// A distinct key string: the default merchant is seeded from env
 		// API_KEY, so reusing it here would violate the api_key_hash UNIQUE.
-		args: [MERCHANT_ID, "ERC8183", sha256Hash("erc8183-webhook-key"), "whsec_erc8183"],
+		args: [MERCHANT_ID, "ERC8183", sha256Hash("erc8183-webhook-key"), encryptWebhookSecret("whsec_erc8183")],
 	});
 
 	createOrderFn = createOrder;

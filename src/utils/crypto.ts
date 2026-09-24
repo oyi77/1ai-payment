@@ -104,3 +104,25 @@ export function decrypt(ciphertext: string): string {
 	decipher.setAuthTag(tag);
 	return decipher.update(encrypted) + decipher.final("utf8");
 }
+
+// Webhook-secret storage (Sweep154): merchants.webhook_secret is encrypted
+// at rest with the same AES-256-GCM envelope as gateway credentials — a DB
+// or backup-file read must never yield a usable signing secret.
+export function encryptWebhookSecret(secret: string): string {
+	return encrypt(secret);
+}
+
+/**
+ * Decrypt a stored webhook secret. Returns null when the row is missing OR
+ * undecryptable (wrong key, corrupt/legacy-plaintext value). Callers treat
+ * null as "no usable secret" (skip forward, loud warn) — never fall back
+ * to the raw stored value, which would defeat the encryption.
+ */
+export function decryptWebhookSecret(stored: unknown): string | null {
+	if (typeof stored !== "string" || stored.length === 0) return null;
+	try {
+		return decrypt(stored);
+	} catch {
+		return null;
+	}
+}

@@ -195,6 +195,27 @@ const MIGRATIONS: Migration[] = [
 			);
 		},
 	},
+	{
+		version: "009",
+		name: "Encrypt merchants.webhook_secret at rest",
+		run: async (db: Client) => {
+			// Sweep154: webhook secrets were stored plaintext. Encrypt every
+			// row still in legacy form (whsec_ prefix = plaintext; encrypted
+			// rows are base64 AES-GCM envelopes). Idempotent on re-run.
+			// Dynamic import avoids a logger→env→crypto cycle at module load.
+			const { encrypt } = await import("../utils/crypto");
+			const rows = await db.execute("SELECT id, webhook_secret FROM merchants");
+			for (const row of rows.rows) {
+				const r = row as Record<string, unknown>;
+				const current = String(r.webhook_secret ?? "");
+				if (!current.startsWith("whsec_")) continue;
+				await db.execute({
+					sql: "UPDATE merchants SET webhook_secret = ? WHERE id = ?",
+					args: [encrypt(current), String(r.id)],
+				});
+			}
+		},
+	},
 ];
 export async function runMigrations(db: Client): Promise<void> {
 	// Ensure the tracking table exists

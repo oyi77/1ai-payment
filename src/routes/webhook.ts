@@ -35,7 +35,7 @@ import {
 	updateOrderStatus,
 } from "../services/order.service";
 import type { Order } from "../services/order.service";
-import { generateEventId } from "../utils/crypto";
+import { decryptWebhookSecret, generateEventId } from "../utils/crypto";
 import { logger } from "../utils/logger";
 
 export const webhookRoutes = new OpenAPIHono({ defaultHook });
@@ -559,7 +559,9 @@ for (const gatewayName of GATEWAY_NAMES) {
 
 		// Look up merchant's webhook_secret for signing — no fallback. Only
 		// forward when a real secret exists; signing with anything else would
-		// make verification fail on the project side.
+		// make verification fail on the project side. Stored encrypted at
+		// rest (Sweep154): decrypt here; undecryptable rows are treated as
+		// missing (loud warn below), never used raw.
 		let webhookSecret: string | null = null;
 		try {
 			// merchant_id first: it is the canonical owner (project_id is a
@@ -569,7 +571,9 @@ for (const gatewayName of GATEWAY_NAMES) {
 				args: [order.merchant_id],
 			});
 			if (merchantResult.rows.length > 0) {
-				webhookSecret = merchantResult.rows[0].webhook_secret as string;
+				webhookSecret = decryptWebhookSecret(
+					merchantResult.rows[0].webhook_secret,
+				);
 			}
 		} catch {
 			/* treat as missing secret */

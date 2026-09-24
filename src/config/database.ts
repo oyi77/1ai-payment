@@ -3,7 +3,11 @@
  */
 
 import { type Client, createClient } from "@libsql/client";
-import { generateWebhookSecret, sha256Hash } from "../utils/crypto";
+import {
+	encryptWebhookSecret,
+	generateWebhookSecret,
+	sha256Hash,
+} from "../utils/crypto";
 import { logger } from "../utils/logger";
 import { getConfig } from "./env";
 import { runMigrations } from "./migrations";
@@ -175,7 +179,10 @@ export async function initDatabase(): Promise<void> {
 		await db.execute({
 			sql: `INSERT OR IGNORE INTO merchants (id, name, api_key_hash, webhook_secret, active)
             VALUES ('merch_default', 'Default', ?, ?, 1)`,
-			args: [sha256Hash(config.API_KEY), generateWebhookSecret()],
+			args: [
+				sha256Hash(config.API_KEY),
+				encryptWebhookSecret(generateWebhookSecret()),
+			],
 		});
 		logger.info("Default merchant seeded from env API_KEY");
 	}
@@ -201,7 +208,7 @@ export async function backupDatabase(): Promise<string> {
 	// VACUUM INTO refuses to overwrite — remove the previous snapshot first.
 	// (Sweep131: without this every maintenance run after the first warned
 	// "output file already exists" and kept the stale copy.)
-	const { rmSync } = await import("node:fs");
+	const { rmSync, chmodSync } = await import("node:fs");
 	try {
 		rmSync(backupPath, { force: true });
 	} catch {
@@ -212,5 +219,10 @@ export async function backupDatabase(): Promise<string> {
 	// config, never merchant input; embedded quotes escaped by doubling.
 	const safe = backupPath.replace(/'/g, "''");
 	await database.execute(`VACUUM INTO '${safe}'`);
+	// Lock down (Sweep154): VACUUM INTO creates the file under the process
+	// umask (0644 observed live) while the live DB is 0600. The snapshot
+	// holds webhook secrets + key hashes + raw payloads — world-readable
+	// must never happen.
+	chmodSync(backupPath, 0o600);
 	return backupPath;
 }

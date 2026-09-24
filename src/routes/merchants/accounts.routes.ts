@@ -19,6 +19,7 @@ import {
 } from "../../schemas";
 import {
 	encrypt,
+	encryptWebhookSecret,
 	generateApiKey,
 	generateMerchantId,
 	generateWebhookSecret,
@@ -84,7 +85,7 @@ accountsRouter.openapi(createMerchantRoute, async (c) => {
 				id,
 				body.name,
 				apiKeyHash,
-				webhookSecret,
+				encryptWebhookSecret(webhookSecret),
 				body.default_callback_url ?? null,
 				"free",
 			],
@@ -530,10 +531,9 @@ accountsRouter.openapi(rotateSecretRoute, async (c) => {
 	}
 
 	const newSecret = generateWebhookSecret();
-
 	await db.execute({
 		sql: "UPDATE merchants SET webhook_secret = ?, updated_at = datetime('now') WHERE id = ?",
-		args: [newSecret, id],
+		args: [encryptWebhookSecret(newSecret), id],
 	});
 
 	logger.info("Merchant webhook secret rotated", { id });

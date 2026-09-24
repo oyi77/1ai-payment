@@ -119,7 +119,7 @@ beforeAll(async () => {
 	const { initDatabase, getDb } = await import("../../src/config/database");
 	const { paymentRoutes } = await import("../../src/routes/payment");
 	const { createOrder } = await import("../../src/services/order.service");
-	const { sha256Hash } = await import("../../src/utils/crypto");
+	const { encryptWebhookSecret, sha256Hash } = await import("../../src/utils/crypto");
 	const { Hono } = await import("hono");
 
 	await initDatabase();
@@ -131,7 +131,7 @@ beforeAll(async () => {
 			"merch_replay",
 			"Replay",
 			sha256Hash("test-key-replay"),
-			"whsec_replay",
+			encryptWebhookSecret("whsec_replay"),
 		],
 	});
 
@@ -194,7 +194,7 @@ describe("POST /api/webhook-deliveries/{id}/replay", () => {
 
 	test("404 when the dead letter belongs to another merchant", async () => {
 		const { getDb } = await import("../../src/config/database");
-		const { sha256Hash } = await import("../../src/utils/crypto");
+		const { encryptWebhookSecret, sha256Hash } = await import("../../src/utils/crypto");
 		const db = getDb();
 
 		await db.execute({
@@ -203,7 +203,7 @@ describe("POST /api/webhook-deliveries/{id}/replay", () => {
 				"merch_other",
 				"Other",
 				sha256Hash("test-key-other"),
-				"whsec_other",
+				encryptWebhookSecret("whsec_other"),
 			],
 		});
 		await createReplayFixture("merch_other", "dl_replay_other");

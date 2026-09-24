@@ -8,7 +8,11 @@
 import { getDb } from "../config/database";
 import type { NormalizedPaymentEvent } from "../gateways/base";
 import { forwardFailuresCounter } from "../middleware/metrics";
-import { generateEventId, signPayload } from "../utils/crypto";
+import {
+	decryptWebhookSecret,
+	generateEventId,
+	signPayload,
+} from "../utils/crypto";
 import { logger } from "../utils/logger";
 import { fetchPublic } from "../utils/ssrf";
 import { getOrderById, markForwarded } from "./order.service";
@@ -266,7 +270,8 @@ export async function replayDeadLetter(id: string): Promise<ReplayResult> {
 		return { ok: false, error: "Order not found" };
 	}
 
-	// Signing secret lives on the merchant row — never logged.
+	// Signing secret lives on the merchant row (encrypted at rest, Sweep154)
+	// — never logged. Undecryptable rows fail the replay loudly.
 	const merchant = await db.execute({
 		sql: "SELECT webhook_secret FROM merchants WHERE id = ?",
 		args: [order.merchant_id],
@@ -274,8 +279,8 @@ export async function replayDeadLetter(id: string): Promise<ReplayResult> {
 	if (merchant.rows.length === 0) {
 		return { ok: false, error: "Merchant not found" };
 	}
-	const webhookSecret = String(
-		(merchant.rows[0] as Record<string, unknown>).webhook_secret ?? "",
+	const webhookSecret = decryptWebhookSecret(
+		(merchant.rows[0] as Record<string, unknown>).webhook_secret,
 	);
 	if (!webhookSecret) {
 		return { ok: false, error: "No webhook secret for merchant" };

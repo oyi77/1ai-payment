@@ -15,16 +15,18 @@ process.env.NODE_ENV = "test";
 resetConfigCache();
 
 import {
-	generateOrderId,
-	generateEventId,
-	sha256Hash,
-	timingSafeCompare,
-	signPayload,
-	encrypt,
+	decryptWebhookSecret,
 	decrypt,
+	encrypt,
+	encryptWebhookSecret,
 	generateApiKey,
-	generateWebhookSecret,
+	generateEventId,
 	generateMerchantId,
+	generateOrderId,
+	generateWebhookSecret,
+	sha256Hash,
+	signPayload,
+	timingSafeCompare,
 } from "../../src/utils/crypto";
 
 describe("generateOrderId", () => {
@@ -159,8 +161,31 @@ describe("encrypt / decrypt", () => {
 		const decrypted = decrypt(encrypted);
 		expect(decrypted).toBe("");
 	});
-
 	test("thrown on invalid ciphertext", () => {
 		expect(() => decrypt("invalid-base64!!!")).toThrow();
+	});
+});
+
+describe("webhook-secret storage (Sweep154)", () => {
+	test("stored value never contains the plaintext secret", () => {
+		const secret = generateWebhookSecret();
+		const stored = encryptWebhookSecret(secret);
+		expect(stored).not.toContain(secret);
+		expect(stored).not.toMatch(/^whsec_/);
+		expect(decryptWebhookSecret(stored)).toBe(secret);
+	});
+
+	test("legacy plaintext rows decrypt to null (never used raw)", () => {
+		expect(decryptWebhookSecret("whsec_legacy_plaintext")).toBeNull();
+	});
+
+	test("missing/empty rows decrypt to null", () => {
+		expect(decryptWebhookSecret(null)).toBeNull();
+		expect(decryptWebhookSecret(undefined)).toBeNull();
+		expect(decryptWebhookSecret("")).toBeNull();
+	});
+
+	test("wrong-key ciphertext decrypts to null (no throw)", () => {
+		expect(decryptWebhookSecret("aGVsbG8td29ybGQ=")).toBeNull();
 	});
 });

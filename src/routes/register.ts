@@ -16,6 +16,7 @@ import {
 	errorSchema,
 } from "../schemas";
 import {
+	encryptWebhookSecret,
 	generateApiKey,
 	generateMerchantId,
 	generateWebhookSecret,
@@ -72,7 +73,7 @@ registerRoutes.openapi(registerRoute, async (c) => {
 				id,
 				body.name,
 				apiKeyHash,
-				webhookSecret,
+				encryptWebhookSecret(webhookSecret),
 				body.default_callback_url ?? null,
 				"free",
 			],
