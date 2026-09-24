@@ -61,8 +61,8 @@ async function callAuth(apiKey?: string, adminKey?: string): Promise<{
 
 	app.use("*", authMiddleware);
 	app.get("/test", (c) => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const ctx = c as any;
+		// Narrow cast (no any): the test app carries merchant context vars.
+		const ctx = c as unknown as { get(key: string): unknown };
 		captured = {
 			merchantId: ctx.get("merchantId"),
 			merchantName: ctx.get("merchantName"),
