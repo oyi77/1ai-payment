@@ -138,6 +138,20 @@ describe('POST /api/payments', () => {
     });
     expect(res.status).toBe(400);
   });
+
+  test('rejects private callback_url (SSRF layer 1)', async () => {
+    const res = await app.request('/api/payments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'test-api-key-flow' },
+      body: JSON.stringify({
+        gateway: 'midtrans',
+        amount: 10000,
+        currency: 'IDR',
+        callback_url: 'http://169.254.169.254/latest/meta-data/',
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('POST /webhook/:gateway', () => {

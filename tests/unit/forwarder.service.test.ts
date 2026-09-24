@@ -255,4 +255,27 @@ describe("forwardEvent with mocked fetch", () => {
 		const result = await forwardEvent(baseEvent, order, "hook_secret");
 		expect(result.success).toBe(true);
 	});
+
+	test("SSRF-blocked callback never reaches fetch (pre-DNS block)", async () => {
+		const order = await makeOrder({
+			callback_url: "http://127.0.0.1:9/nope",
+		});
+		let fetchCalls = 0;
+		globalThis.fetch = (() => {
+			fetchCalls++;
+			return Promise.resolve(new Response("ok", { status: 200 }));
+		}) as unknown as typeof fetch;
+
+		const result = await withInstantTimers(() =>
+			forwardEvent(baseEvent, order, "secret"),
+		);
+		expect(result.success).toBe(false);
+		expect(result.attempts).toBe(3);
+		expect(fetchCalls).toBe(0);
+
+		const letters = await listDeadLetter();
+		const match = letters.find((l) => l.order_id === order.id);
+		expect(match).toBeDefined();
+		expect(match!.error).toMatch(/SSRF-blocked/);
+	});
 });
