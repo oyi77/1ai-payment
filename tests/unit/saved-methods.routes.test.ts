@@ -345,3 +345,32 @@ describe("DELETE /api/saved-methods/:methodId (route)", () => {
 		expect(res.status).toBe(404);
 	});
 });
+
+describe("GET /api/saved-methods pagination (Sweep158)", () => {
+	test("limit bounds the page and offset skips", async () => {
+		for (const tok of ["tok_page_1", "tok_page_2", "tok_page_3"]) {
+			await app.request("/api/saved-methods", {
+				method: "POST",
+				headers: { "X-API-Key": merchantAKey, "Content-Type": "application/json" },
+				body: JSON.stringify({ ...VALID_BODY, gateway_token: tok, method_name: tok }),
+			});
+		}
+		const p1 = await app.request("/api/saved-methods?limit=2", {
+			headers: { "X-API-Key": merchantAKey },
+		});
+		expect(p1.status).toBe(200);
+		expect(((await p1.json()) as { data: unknown[] }).data.length).toBe(2);
+		const p2 = await app.request("/api/saved-methods?limit=2&offset=2", {
+			headers: { "X-API-Key": merchantAKey },
+		});
+		expect(p2.status).toBe(200);
+		expect(((await p2.json()) as { data: unknown[] }).data.length).toBeGreaterThanOrEqual(1);
+	});
+
+	test("limit above 100 is rejected (400)", async () => {
+		const res = await app.request("/api/saved-methods?limit=500", {
+			headers: { "X-API-Key": merchantAKey },
+		});
+		expect(res.status).toBe(400);
+	});
+});

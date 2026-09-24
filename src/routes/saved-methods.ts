@@ -37,6 +37,12 @@ router.openapi(
 		method: "get",
 		path: "/saved-methods",
 		security: [{ ApiKeyAuth: [] }],
+		request: {
+			query: z.object({
+				limit: z.coerce.number().int().min(1).max(100).default(100),
+				offset: z.coerce.number().int().min(0).default(0),
+			}),
+		},
 		responses: {
 			200: {
 				description: "List of saved payment methods for the merchant",
@@ -52,7 +58,8 @@ router.openapi(
 	}),
 	async (c) => {
 		const merchantId = c.get("merchantId") ?? "merch_default";
-		const methods = await listSavedMethods(merchantId);
+		const { limit, offset } = c.req.valid("query");
+		const methods = await listSavedMethods(merchantId, limit, offset);
 		return c.json({
 			success: true as const,
 			data: methods.map(savedMethodToResponse),

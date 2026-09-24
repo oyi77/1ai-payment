@@ -35,6 +35,10 @@ export interface CreateSavedMethodInput {
 
 export async function listSavedMethods(
 	merchantId: string,
+	// Bounded (Sweep158): the vault list was the only unbounded read — one
+	// merchant stuffing rows could force a giant response on every GET.
+	limit = 100,
+	offset = 0,
 ): Promise<SavedMethod[]> {
 	const db = getDb();
 	const result = await db.execute({
@@ -44,8 +48,9 @@ export async function listSavedMethods(
 			FROM saved_payment_methods
 			WHERE merchant_id = ?
 			ORDER BY created_at DESC
+			LIMIT ? OFFSET ?
 		`,
-		args: [merchantId],
+		args: [merchantId, Math.min(Math.max(limit, 1), 100), Math.max(offset, 0)],
 	});
 	return (result.rows as unknown as SavedMethod[]).map(rowToSavedMethod);
 }
