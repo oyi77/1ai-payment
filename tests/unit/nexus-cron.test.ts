@@ -238,4 +238,16 @@ describe("backupDatabase", () => {
 		snap.close();
 		rmSync(backupPath);
 	});
+
+	test("second snapshot overwrites the first (Sweep131)", async () => {
+		const { backupDatabase } = await import("../../src/config/database");
+		const { existsSync, rmSync } = await import("node:fs");
+		const first = await backupDatabase();
+		expect(existsSync(first)).toBe(true);
+		// Must not throw "output file already exists" — the stale copy is replaced.
+		const second = await backupDatabase();
+		expect(second).toBe(first);
+		expect(existsSync(second)).toBe(true);
+		rmSync(second);
+	});
 });

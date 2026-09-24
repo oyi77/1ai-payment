@@ -198,6 +198,15 @@ export async function initDatabase(): Promise<void> {
 export async function backupDatabase(): Promise<string> {
 	const database = getDb();
 	const backupPath = `${getConfig().DATABASE_PATH}.backup`;
+	// VACUUM INTO refuses to overwrite — remove the previous snapshot first.
+	// (Sweep131: without this every maintenance run after the first warned
+	// "output file already exists" and kept the stale copy.)
+	const { rmSync } = await import("node:fs");
+	try {
+		rmSync(backupPath, { force: true });
+	} catch {
+		// Best-effort: VACUUM INTO below will surface a real failure.
+	}
 	// VACUUM INTO takes a filename STRING literal (single quotes) — double
 	// quotes would parse as an identifier. Path comes from our own env
 	// config, never merchant input; embedded quotes escaped by doubling.
