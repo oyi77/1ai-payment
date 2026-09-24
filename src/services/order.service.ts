@@ -153,6 +153,28 @@ export async function updateOrderStatus(
 	paymentMethod?: string,
 ): Promise<void> {
 	const db = getDb();
+	// Terminal-regression guard: a late/duplicate "pending" callback must
+	// never rewind a terminal state. Providers move forward only — a pending
+	// arriving after terminal is stale. Creation path (fresh pending rows)
+	// is unaffected.
+	if (status === "pending") {
+		const current = await db.execute({
+			sql: "SELECT status FROM orders WHERE id = ?",
+			args: [id],
+		});
+		const cur = current.rows[0]
+			? String((current.rows[0] as Record<string, unknown>).status)
+			: "";
+		if (
+			cur === "success" ||
+			cur === "failed" ||
+			cur === "expired" ||
+			cur === "cancelled" ||
+			cur === "refunded"
+		) {
+			return;
+		}
+	}
 	const updates: string[] = ["status = ?", "updated_at = datetime('now')"];
 	const args: Array<string | number | null> = [status];
 

@@ -255,6 +255,23 @@ describe("updateOrderStatus", () => {
 			updateOrderStatus("fake-id", "success"),
 		).resolves.toBeUndefined();
 	});
+
+	test("stale pending never rewinds a terminal state", async () => {
+		for (const terminal of ["success", "failed", "expired", "cancelled", "refunded"]) {
+			const order = await createTestOrder();
+			await updateOrderStatus(order.id, terminal);
+			await updateOrderStatus(order.id, "pending");
+			const updated = await getOrderById(order.id);
+			expect(updated!.status).toBe(terminal);
+		}
+	});
+
+	test("forward transitions still apply (pending to terminal)", async () => {
+		const order = await createTestOrder();
+		await updateOrderStatus(order.id, "success");
+		const updated = await getOrderById(order.id);
+		expect(updated!.status).toBe("success");
+	});
 });
 
 describe("markForwarded", () => {
