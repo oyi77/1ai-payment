@@ -33,11 +33,15 @@ afterEach(() => {
 interface StubCtx {
 	headers: Record<string, string>;
 	store: Record<string, string>;
+	env: unknown;
 	resHeaders: Record<string, string>;
 	jsonBody: unknown;
 	jsonStatus: number | null;
 	get(k: string): string | undefined;
-	req: { header(n: string): string | undefined };
+	req: {
+		header(n: string): string | undefined;
+		raw: unknown;
+	};
 	header(k: string, v: string): void;
 	json(o: unknown, s: number): { status: number; body: unknown };
 }
@@ -45,10 +49,12 @@ interface StubCtx {
 function stubCtx(
 	headers: Record<string, string> = {},
 	store: Record<string, string> = {},
+	env: unknown = undefined,
 ): StubCtx {
 	const ctx: StubCtx = {
 		headers,
 		store,
+		env,
 		resHeaders: {},
 		jsonBody: null,
 		jsonStatus: null,
@@ -63,6 +69,7 @@ function stubCtx(
 				}
 				return undefined;
 			},
+			raw: {},
 		},
 		header(k: string, v: string) {
 			ctx.resHeaders[k] = v;
@@ -145,6 +152,31 @@ describe("rateLimitMiddleware", () => {
 		expect((await run(handler, a())).nexted).toBe(true);
 		expect((await run(handler, a())).nexted).toBe(false);
 		expect((await run(handler, b())).nexted).toBe(true);
+	});
+
+	test("socket IP via c.env.server buckets per address (Sweep144)", async () => {
+		// Contract with src/index.ts: Bun.serve passes { server } as app env,
+		// so headerless direct requests key by true socket address instead
+		// of sharing one "unknown" bucket. socketIp() closes over the
+		// address the same way Bun's server.requestIP(req) does.
+		const socketEnv = (address: string) => ({
+			server: { requestIP: (_req: unknown) => ({ address }) },
+		});
+		const handler = rateLimitMiddleware({ windowMs: 60_000, max: 1 });
+		const a = () => stubCtx({}, {}, socketEnv("9.9.9.9"));
+		const b = () => stubCtx({}, {}, socketEnv("8.8.8.8"));
+		expect((await run(handler, a())).nexted).toBe(true);
+		expect((await run(handler, a())).nexted).toBe(false);
+		expect((await run(handler, b())).nexted).toBe(true);
+	});
+
+	test("headerless requests without server env share the unknown bucket (Sweep144)", async () => {
+		// Documents the fallback: no header + no server (e.g. app.fetch in
+		// tests without env) can only key "unknown". Production always has
+		// either CF-Connecting-IP (tunnel) or server.requestIP (index.ts).
+		const handler = rateLimitMiddleware({ windowMs: 60_000, max: 1 });
+		expect((await run(handler, stubCtx())).nexted).toBe(true);
+		expect((await run(handler, stubCtx())).nexted).toBe(false);
 	});
 
 	test("TRUST_PROXY honors leftmost X-Forwarded-For hop", async () => {

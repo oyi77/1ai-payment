@@ -22,7 +22,10 @@ logger.info(`Starting 1ai-payment on port ${config.PORT}...`);
 const server = Bun.serve({
 	hostname: "127.0.0.1",
 	port: config.PORT,
-	fetch: app.fetch,
+	// Pass the Bun server into app env (Sweep144): rate-limit IP fallback
+	// reads c.env.server.requestIP(req) for the true socket address. Without
+	// this, every headerless request shared one "unknown" bucket.
+	fetch: (req, server) => app.fetch(req, { server }),
 });
 
 logger.info(`1ai-payment ready on http://localhost:${config.PORT}`);

@@ -38,6 +38,11 @@ const PLAN_LIMITS: Record<string, number> = {
  * - Never fail the request over IP detection: fall back to "unknown"
  *   (per-instance map makes it per-instance, so it only throttles requests
  *   that reached the same middleware instance without an identifiable key).
+ *
+ * The runtime leg reads c.env.server.requestIP — populated ONLY because
+ * src/index.ts wraps fetch as (req, server) => app.fetch(req, { server }).
+ * Calling app.fetch without env (tests, tunnels that strip it) degrades to
+ * "unknown"; the tunnel path always carries CF-Connecting-IP instead.
  */
 function getClientIp(c: Context): string {
 	const trustProxy = getConfig().TRUST_PROXY;
