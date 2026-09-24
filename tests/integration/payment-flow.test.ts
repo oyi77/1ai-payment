@@ -196,6 +196,27 @@ describe('POST /api/payments', () => {
     expect(ok.status).toBe(201);
   });
 
+  test('rejects hostile payment_method with 400 VALIDATION_ERROR (Sweep127)', async () => {
+    const res = await app.request('/api/payments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'test-api-key-flow' },
+      body: JSON.stringify({
+        gateway: 'tripay',
+        amount: 10000,
+        currency: 'IDR',
+        payment_method: '<script>alert(1)</script>',
+        callback_url: 'https://example.com/callback',
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as {
+      success: boolean;
+      error: { code: string; message: string };
+    };
+    expect(body.success).toBe(false);
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+  });
+
   test('rejects wrong-currency with 400 VALIDATION_ERROR (not 502)', async () => {
     const res = await app.request('/api/payments', {
       method: 'POST',

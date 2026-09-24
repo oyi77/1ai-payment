@@ -114,3 +114,13 @@ describe('ScalevGateway.verifySignature', () => {
     expect(await gateway.verifySignature(makePayload(), {})).toBe(false);
   });
 });
+describe('ScalevGateway.createPayment method guard (Sweep127)', () => {
+  test('rejects hostile payment_method shape (400-class)', async () => {
+    const { ScalevGateway } = await import('../../src/gateways/scalev');
+    const { ValidationError } = await import('../../src/utils/errors');
+    const gw = new ScalevGateway();
+    const err = await gw.createPayment({ amount: 10000, currency: 'IDR', orderId: 'ord_fx', paymentMethod: 'x'.repeat(64) }).then(() => null, (e: unknown) => e);
+    expect(err).toBeInstanceOf(ValidationError);
+    expect((err as ValidationError).statusCode).toBe(400);
+  });
+});

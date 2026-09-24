@@ -124,3 +124,25 @@ describe('IPaymuGateway.createPayment currency guard', () => {
     ).rejects.toThrow(/IDR only/);
   });
 });
+describe('IPaymuGateway.createPayment method guard (Sweep127)', () => {
+  test('rejects hostile payment_method shape (400-class)', async () => {
+    const { IPaymuGateway } = await import('../../src/gateways/ipaymu');
+    const { ValidationError } = await import('../../src/utils/errors');
+    const gw = new IPaymuGateway();
+    const err = await gw.createPayment({ amount: 10000, currency: 'IDR', orderId: 'ord_fx', paymentMethod: '<script>alert(1)</script>' }).then(() => null, (e: unknown) => e);
+    expect(err).toBeInstanceOf(ValidationError);
+    expect((err as ValidationError).statusCode).toBe(400);
+  });
+  test('natural codes pass the shape check (no code-list false-reject)', async () => {
+    const { IPaymuGateway } = await import('../../src/gateways/ipaymu');
+    const { ValidationError } = await import('../../src/utils/errors');
+    const gw = new IPaymuGateway();
+    // 'bca' is not in every gateway's list spelling, but must not 400 here
+    // (it fails later on creds/network, never on validation).
+    try {
+      await gw.createPayment({ amount: 10000, currency: 'IDR', orderId: 'ord_fx', paymentMethod: 'bca' });
+    } catch (e: unknown) {
+      expect(e).not.toBeInstanceOf(ValidationError);
+    }
+  });
+});

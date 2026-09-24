@@ -11,6 +11,7 @@ import crypto from "node:crypto";
 import { getConfig, resolveGatewayConfig } from "../config/env";
 import { GatewayError, ValidationError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { assertSanePaymentMethod } from "./base";
 import type {
 	CreatePaymentParams,
 	CreatePaymentResult,
@@ -63,6 +64,9 @@ export class DuitkuGateway implements PaymentGateway {
 			);
 		}
 		const base = getConfig();
+		// Shape-check the method code (Sweep127): full code-list validation
+		// false-rejects ("bca" works at providers spelling it "BC").
+		assertSanePaymentMethod("duitku", params.paymentMethod);
 		const m = params.merchantId
 			? ((await resolveGatewayConfig(
 					"duitku",

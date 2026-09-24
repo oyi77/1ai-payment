@@ -22,8 +22,9 @@
 
 import crypto from "node:crypto";
 import { getConfig, resolveGatewayConfig } from "../config/env";
-import { GatewayError } from "../utils/errors";
+import { GatewayError, ValidationError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { assertSanePaymentMethod } from "./base";
 import type {
 	CreatePaymentParams,
 	CreatePaymentResult,
@@ -109,6 +110,9 @@ export class ScalevGateway implements PaymentGateway {
 					params.merchantId,
 				)) as unknown as ScalevMerchantConfig)
 			: null;
+		// Shape-check the method code (Sweep127): full code-list validation
+		// false-rejects natural codes providers accept under other spellings.
+		assertSanePaymentMethod("scalev", params.paymentMethod);
 		const storefrontApiKey =
 			m?.storefrontApiKey || base.SCALEV_STOREFRONT_API_KEY;
 		const storeId = m?.storeId || base.SCALEV_STORE_ID;

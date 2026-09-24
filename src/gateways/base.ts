@@ -4,6 +4,7 @@
  * Provider/Plugin pattern (RULES.md §5): depend on abstractions, not implementations.
  * Each gateway implements this interface. Adding a new gateway = implement + register.
  */
+import { ValidationError } from "../utils/errors";
 
 export type PaymentStatus =
 	| "success"
@@ -66,6 +67,30 @@ export interface PaymentMethod {
  */
 export interface GatewayVerifyOpts {
 	merchantId?: string;
+}
+
+/**
+ * Reject payment_method values that cannot be real provider codes
+ * (Sweep127). Shape-only: letters/digits/`_`/`-`, max 32 chars.
+ *
+ * Deliberately NOT checked against getPaymentMethods() codes — merchants
+ * send natural codes ("bca") that providers accept but our lists spell
+ * differently ("BC"), and providers add codes without telling us. A
+ * code-list check false-rejects legitimate payments (proven by the sim
+ * suite, which sends "bca" to every gateway). Unknown-but-shaped codes
+ * still fail at the provider with a 502, which is the honest signal.
+ */
+export function assertSanePaymentMethod(
+	gateway: string,
+	method: string | undefined,
+): void {
+	if (!method) return;
+	if (!/^[A-Za-z0-9_-]{1,32}$/.test(method)) {
+		throw new ValidationError(
+			gateway,
+			`Invalid payment_method "${method}" (letters/digits/_/-, max 32 chars)`,
+		);
+	}
 }
 
 export interface PaymentGateway {
