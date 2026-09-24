@@ -422,6 +422,29 @@ describe("listOrders", () => {
 		}
 	});
 
+	test("date-only to-filter includes same-day rows (end-of-day normalization)", async () => {
+		const order = await createTestOrder({ project_id: "list_dateday_test" });
+		const today = order.created_at.slice(0, 10);
+		const result = await listOrders({
+			project_id: "list_dateday_test",
+			from: today,
+			to: today,
+		});
+		expect(result.total).toBeGreaterThanOrEqual(1);
+		expect(result.orders.some((o) => o.id === order.id)).toBe(true);
+	});
+
+	test("normalizeDateBound passes full datetimes through untouched", async () => {
+		const { normalizeDateBound } = await import(
+			"../../src/services/order.service"
+		);
+		expect(normalizeDateBound("2026-09-24 10:00:00", true)).toBe(
+			"2026-09-24 10:00:00",
+		);
+		expect(normalizeDateBound("2026-09-24", false)).toBe("2026-09-24");
+		expect(normalizeDateBound("2026-09-24", true)).toBe("2026-09-24 23:59:59");
+	});
+
 	test("empty result for non-matching filter", async () => {
 		const result = await listOrders({ gateway: "nonexistent_gateway" });
 		expect(result.orders).toHaveLength(0);

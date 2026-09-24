@@ -221,6 +221,20 @@ export async function markForwarded(
 	});
 }
 
+/**
+ * Normalize a date filter bound. A bare YYYY-MM-DD means the whole day:
+ * `from` → 00:00:00 (string compare already does this), `to` → 23:59:59
+ * (without this, `to=today` matches only midnight and silently drops every
+ * same-day row — Sweep82 proved total 0 for an order created today).
+ * Full datetimes pass through untouched.
+ */
+export function normalizeDateBound(bound: string, endOfDay: boolean): string {
+	if (endOfDay && /^\d{4}-\d{2}-\d{2}$/.test(bound.trim())) {
+		return `${bound.trim()} 23:59:59`;
+	}
+	return bound;
+}
+
 export async function listOrders(params: {
 	project_id?: string;
 	merchant_id?: string;
@@ -252,11 +266,11 @@ export async function listOrders(params: {
 	}
 	if (params.from) {
 		conditions.push("created_at >= ?");
-		args.push(params.from);
+		args.push(normalizeDateBound(params.from, false));
 	}
 	if (params.to) {
 		conditions.push("created_at <= ?");
-		args.push(params.to);
+		args.push(normalizeDateBound(params.to, true));
 	}
 
 	const where =
