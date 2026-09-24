@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>1ai-payment — Status pembayaran</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#0f1117;color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+.card{background:#161b27;border:1px solid #1e2740;border-radius:12px;padding:40px;max-width:480px;text-align:center}
+h1{font-size:22px;margin:0 0 12px}
+p{color:#94a3b8;font-size:14px;line-height:1.7}
+.va{font-family:monospace;font-size:28px;letter-spacing:2px;background:#0f1117;border:1px solid #2d3a55;border-radius:8px;padding:12px;margin:16px 0}
+a{color:#818cf8}
+</style>
+</head>
+<body>
+<div class="card">
+<h1 id="title">Pembayaran selesai</h1>
+<div id="va" class="va" style="display:none"></div>
+<p id="msg">Terima kasih. Status akhir pembayaran Anda ditentukan oleh merchant — silakan kembali ke toko/aplikasi tempat Anda membayar, atau hubungi mereka bila status belum berubah dalam beberapa menit.</p>
+<p><a href="/">1ai-payment</a> — infrastruktur pembayaran untuk Indonesia &amp; global.</p>
+</div>
+<script>
+(function(){
+  var path = location.pathname;
+  var q = new URLSearchParams(location.search);
+  var title = document.getElementById('title');
+  var msg = document.getElementById('msg');
+  if (path.indexOf('cancel') !== -1) {
+    title.textContent = 'Pembayaran dibatalkan';
+    msg.textContent = 'Anda membatalkan pembayaran. Tidak ada dana yang ditarik. Silakan kembali ke merchant untuk mencoba lagi bila diinginkan.';
+  } else if (q.get('va')) {
+    title.textContent = 'Virtual Account ' + (q.get('bank') || '').toUpperCase();
+    var va = document.getElementById('va');
+    va.style.display = 'block';
+    va.textContent = q.get('va');
+    msg.textContent = 'Transfer tepat sesuai nominal ke nomor di atas sebelum kedaluwarsa. Status akan berubah otomatis setelah pembayaran terdeteksi.';
+  }
+})();
+</script>
+</body>
+</html>

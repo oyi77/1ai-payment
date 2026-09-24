@@ -84,6 +84,19 @@ app.get("/", async (c) => {
 	c.header("Cache-Control", "no-cache, must-revalidate");
 	return c.html(await Bun.file("./src/landing/index.html").text());
 });
+// Buyer redirect landing — gateways send buyers here after pay/cancel when
+// the merchant did not set successUrl/cancelUrl (Sweep72: these 404'd).
+for (const p of [
+	"/payment/finish",
+	"/payment/cancel",
+	"/payment/success",
+	"/payment/virtual-account",
+]) {
+	app.get(p, async (c) => {
+		c.header("Cache-Control", "no-cache, must-revalidate");
+		return c.html(await Bun.file("./src/landing/payment-done.html").text());
+	});
+}
 app.get("/favicon.svg", (c) => {
 	c.header("Cache-Control", "no-cache, must-revalidate");
 	return new Response(Bun.file("./src/landing/favicon.svg"), {
