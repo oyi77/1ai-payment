@@ -32,7 +32,11 @@ import { initDatabase, getDb } from "../../src/config/database";
 let db: Client;
 
 function fakeRefundGateway(
-	refundPayment?: (ref: string, amount: number) => Promise<RefundResult>,
+	refundPayment?: (
+		ref: string,
+		amount: number,
+		opts?: { merchantId?: string },
+	) => Promise<RefundResult>,
 ): PaymentGateway {
 	return {
 		name: "fake_refund",
@@ -206,9 +210,27 @@ describe("createRefund with gateway confirmation", () => {
 			merchant_id: "merch_refund_gw",
 			amount: 50000,
 		});
-
 		expect(refund.status).toBe("failed");
 		expect(refund.gateway_refund_id).toBeNull();
 		expect(await orderStatus(orderId)).toBe("success");
+	});
+
+	test("forwards order merchantId to gateway refundPayment (Sweep120)", async () => {
+		const orderId = await createConfirmedOrder(50000);
+		let seenOpts: { merchantId?: string } | undefined;
+		registerGateway(
+			"fake_refund",
+			fakeRefundGateway(async (_ref, _amount, opts) => {
+				seenOpts = opts;
+				return { gatewayRefundId: "gw_thread_1", status: "success" };
+			}),
+		);
+
+		await createRefund({
+			order_id: orderId,
+			merchant_id: "merch_refund_gw",
+			amount: 50000,
+		});
+		expect(seenOpts?.merchantId).toBe("merch_refund_gw");
 	});
 });
