@@ -1,7 +1,9 @@
 # False-positive fixtures: test ENCRYPTION_KEY dummy hex, 1pay_test_* keys,
 # README/docs curl placeholders (your-api-key/wrongkey), .env.example placeholder.
 # Live secrets live in gitignored .env + data/*.db* (never committed).
-.env.example:generic-api-key:19
+# Sweep167: allowlist completed — every remaining tracked finding verified
+# as a non-live fixture (dummy hex / test-api-key-* / 1pay_abc123 fixtures).
+.env.example:generic-api-key:21
 README.md:curl-auth-header:103
 README.md:curl-auth-header:147
 docs/evidence/curl/gate6-payments.md:curl-auth-header:33
@@ -37,3 +39,23 @@ tests/unit/replay-routes.scoping.test.ts:generic-api-key:21
 tests/unit/saved-methods.routes.test.ts:generic-api-key:19
 tests/unit/saved-methods.service.test.ts:generic-api-key:17
 tests/unit/schemas.test.ts:generic-api-key:83
+tests/integration/gateway-disabled.test.ts:generic-api-key:21
+tests/integration/public-surface.test.ts:generic-api-key:24
+tests/integration/reference.test.ts:generic-api-key:23
+tests/integration/saweria-webhook.test.ts:generic-api-key:20
+tests/integration/webhook-unknown.test.ts:generic-api-key:20
+tests/unit/body-limit.test.ts:generic-api-key:19
+tests/unit/env-externalization.test.ts:generic-api-key:15
+tests/unit/migration-009.test.ts:generic-api-key:13
+tests/unit/migration-009.test.ts:generic-api-key:17
+tests/unit/migration-010.test.ts:generic-api-key:14
+tests/unit/migration-010.test.ts:generic-api-key:18
+tests/unit/nexus-config.test.ts:generic-api-key:23
+tests/unit/nexus-cron.test.ts:generic-api-key:19
+tests/unit/nexus-idempotency.test.ts:generic-api-key:20
+tests/unit/nexus-revoke.test.ts:generic-api-key:23
+tests/unit/nexus-telegram.test.ts:generic-api-key:19
+tests/unit/openapi-security.test.ts:generic-api-key:18
+tests/unit/rate-limit.test.ts:generic-api-key:21
+tests/unit/schemas.test.ts:generic-api-key:80
+tests/unit/schemas.test.ts:generic-api-key:81

@@ -12,7 +12,8 @@
     "test:coverage": "bun test --coverage",
     "typecheck": "bun x tsc --noEmit",
     "lint": "bun x biome check src/",
-    "lint:fix": "bun x biome check --apply src/"
+    "lint:fix": "bun x biome check --apply src/",
+    "audit:secrets": "gitleaks detect --source . --no-git"
   },
   "dependencies": {
     "@hono/swagger-ui": "^0.6.1",
