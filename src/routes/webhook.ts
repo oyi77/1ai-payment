@@ -294,7 +294,25 @@ for (const gatewayName of GATEWAY_NAMES) {
 		}
 
 		if (!signatureValid) {
-			logger.warn(`Webhook ${gatewayName}: invalid signature`);
+			// Forgery triage context: order_ref lets ops distinguish gateway
+			// retries for a real order (actionable) from blind probes (noise).
+			// Only IDs — never the body, signature, or headers (Sweep93 rule).
+			const b = body as Record<string, unknown> | null;
+			const orderRef =
+				typeof b?.order_id === "string"
+					? b.order_id
+					: typeof b?.merchant_ref === "string"
+						? b.merchant_ref
+						: typeof b?.external_id === "string"
+							? b.external_id
+							: typeof b?.merchantOrderId === "string"
+								? b.merchantOrderId
+								: typeof b?.message === "string"
+									? b.message
+									: "none";
+			logger.warn(`Webhook ${gatewayName}: invalid signature`, {
+				order_ref: orderRef,
+			});
 			return c.json({ error: "Invalid signature" }, 401);
 		}
 
