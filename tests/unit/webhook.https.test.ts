@@ -38,13 +38,31 @@ describe("isHttpsRequest", () => {
 		);
 	});
 
-	test("accepts http URL when X-Forwarded-Proto is https", () => {
+	test("accepts http URL when X-Forwarded-Proto is https AND TRUST_PROXY is set", () => {
+		process.env.TRUST_PROXY = "true";
+		resetConfigCache();
+		try {
+			expect(
+				isHttpsRequest(
+					"http://localhost:3100/webhook/midtrans",
+					"https",
+				),
+			).toBe(true);
+		} finally {
+			delete process.env.TRUST_PROXY;
+			resetConfigCache();
+		}
+	});
+
+	test("rejects X-Forwarded-Proto https without TRUST_PROXY (spoofable chain)", () => {
+		delete process.env.TRUST_PROXY;
+		resetConfigCache();
 		expect(
 			isHttpsRequest(
 				"http://localhost:3100/webhook/midtrans",
 				"https",
 			),
-		).toBe(true);
+		).toBe(false);
 	});
 
 	test("rejects http URL when X-Forwarded-Proto is http", () => {
@@ -56,7 +74,7 @@ describe("isHttpsRequest", () => {
 		).toBe(false);
 	});
 
-	test("rejects http URL with no X-Forwarded-Proto", () => {
+	test("rejects http URL with no proxy headers at all", () => {
 		expect(isHttpsRequest("http://localhost:3100/webhook/midtrans")).toBe(
 			false,
 		);
@@ -68,13 +86,32 @@ describe("isHttpsRequest", () => {
 		).toBe(true);
 	});
 
-	test("accepts chained X-Forwarded-Proto containing https", () => {
+	test("honors chained X-Forwarded-Proto when TRUST_PROXY is set", () => {
+		process.env.TRUST_PROXY = "true";
+		resetConfigCache();
+		try {
+			expect(
+				isHttpsRequest(
+					"http://localhost:3100/webhook/midtrans",
+					"https, http",
+				),
+			).toBe(true);
+		} finally {
+			delete process.env.TRUST_PROXY;
+			resetConfigCache();
+		}
+	});
+
+	test("CF-Visitor http beats spoofed X-Forwarded-Proto https", () => {
+		delete process.env.TRUST_PROXY;
+		resetConfigCache();
 		expect(
 			isHttpsRequest(
 				"http://localhost:3100/webhook/midtrans",
-				"https, http",
+				"https, https",
+				'{"scheme":"http"}',
 			),
-		).toBe(true);
+		).toBe(false);
 	});
 
 	test("accepts CF-Visitor https scheme behind Cloudflare", () => {

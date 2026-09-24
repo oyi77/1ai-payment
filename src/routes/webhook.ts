@@ -46,9 +46,16 @@ const errorJson = {
 
 /**
  * Determine whether an incoming webhook request was transported over TLS.
- * Behind Cloudflare the app sees plain HTTP, so the edge signal decides:
- * X-Forwarded-Proto (may be a comma-chained list — any "https" wins) or
- * Cloudflare's own CF-Visitor: {"scheme":"https"} header.
+ * Behind Cloudflare the app sees plain HTTP, so the edge signal decides.
+ *
+ * Trust order (Sweep125):
+ * 1. Direct https URL — true.
+ * 2. CF-Visitor (Cloudflare edge writes this; clients cannot forge it
+ *    through the edge): https → true, anything else → FALSE, stop.
+ * 3. X-Forwarded-Proto — honored ONLY when TRUST_PROXY is set (a
+ *    non-Cloudflare reverse proxy the operator controls). Otherwise an
+ *    attacker could slip "https" into a comma chain (`.some()` matches
+ *    any hop) and bypass enforcement.
  */
 export function isHttpsRequest(
 	url: string,
@@ -56,9 +63,7 @@ export function isHttpsRequest(
 	cfVisitor?: string,
 ): boolean {
 	if (url.startsWith("https://")) return true;
-	if (xForwardedProto?.split(",").some((p) => p.trim() === "https"))
-		return true;
-	if (cfVisitor) {
+	if (cfVisitor !== undefined) {
 		try {
 			const parsed: unknown = JSON.parse(cfVisitor);
 			if (
@@ -71,6 +76,11 @@ export function isHttpsRequest(
 		} catch {
 			// malformed header — fall through to false
 		}
+		return false;
+	}
+	if (getConfig().TRUST_PROXY) {
+		if (xForwardedProto?.split(",").some((p) => p.trim() === "https"))
+			return true;
 	}
 	return false;
 }
