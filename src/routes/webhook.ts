@@ -474,9 +474,11 @@ for (const gatewayName of GATEWAY_NAMES) {
 		// make verification fail on the project side.
 		let webhookSecret: string | null = null;
 		try {
+			// merchant_id first: it is the canonical owner (project_id is a
+			// legacy alias, kept equal at creation but not guaranteed).
 			const merchantResult = await getDb().execute({
 				sql: "SELECT webhook_secret FROM merchants WHERE id = ?",
-				args: [order.project_id],
+				args: [order.merchant_id],
 			});
 			if (merchantResult.rows.length > 0) {
 				webhookSecret = merchantResult.rows[0].webhook_secret as string;
