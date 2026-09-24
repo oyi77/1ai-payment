@@ -266,6 +266,13 @@ describe("updateOrderStatus", () => {
 		}
 	});
 
+	test("net derives as amount minus fee (fee uncomputed today)", async () => {
+		const order = await createTestOrder({ amount: 75000 });
+		const fetched = await getOrderById(order.id);
+		expect(fetched!.fee).toBe(0);
+		expect(fetched!.net).toBe(75000);
+	});
+
 	test("forward transitions still apply (pending to terminal)", async () => {
 		const order = await createTestOrder();
 		await updateOrderStatus(order.id, "success");

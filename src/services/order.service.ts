@@ -298,7 +298,10 @@ function mapRow(row: Record<string, unknown>): Order {
 		metadata,
 		idempotency_key: (row.idempotency_key as string) ?? null,
 		fee: Number(row.fee ?? 0),
-		net: Number(row.net ?? 0),
+		// net is derived (amount - fee): no gateway computes fees yet, so the
+		// stored net column is always 0 — serving raw 0 misleads consumers.
+		// Deriving here stays correct when fee computation ships later.
+		net: Number(row.amount) - Number(row.fee ?? 0),
 		created_at: row.created_at as string,
 		updated_at: row.updated_at as string,
 		forwarded_at: (row.forwarded_at as string) ?? null,
