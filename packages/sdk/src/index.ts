@@ -153,7 +153,7 @@ export class OneAIPayment {
   async register(params: {
     name: string;
     default_callback_url?: string;
-  }): Promise<{ merchant: Merchant; api_key: string }> {
+  }): Promise<{ merchant: Merchant; api_key: string; webhook_secret: string }> {
     return this.request('POST', '/api/register', params);
   }
 

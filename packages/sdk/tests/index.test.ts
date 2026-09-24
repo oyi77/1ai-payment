@@ -216,12 +216,14 @@ describe('typed usage', () => {
           updated_at: '2026-01-01T00:00:00Z',
         },
         api_key: '1pay_merchant',
+        webhook_secret: 'whsec_merchant',
       },
     });
-    const reg: { merchant: Merchant; api_key: string } = await c.register({ name: 'Store' });
+    const reg = await c.register({ name: 'Store' });
     expect(reg.merchant.name).toBe('Store');
     expect(reg.merchant.plan).toBe('free');
     expect(reg.api_key).toBe('1pay_merchant');
+    expect(reg.webhook_secret).toBe('whsec_merchant');
 
     mockFetch({
       success: true,
