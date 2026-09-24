@@ -95,8 +95,9 @@ export function isHttpsRequest(
  * Candidate merchants: the order the event resolves to (by gateway
  * reference, then order id), plus — when the DB lookup found no order —
  * every merchant with an enabled row for this gateway.
-/**
- * Gateways whose verifySignature honors opts.merchantId (derived from the
+ *
+ * MERCHANT_VERIFY_GATEWAYS below encodes the eligible set: gateways whose
+ * verifySignature honors opts.merchantId (derived from the
  * merchant-credential contract, minus saweria: its verify is credential-free
  * reconciliation, so per-merchant retry always returns the same verdict).
  * Platform-credential gateways (paypal, telegram x2, x402, erc8183) verify
