@@ -130,6 +130,30 @@ describe('X402Gateway.verifySignature', () => {
 
     expect(result).toBe(false);
   });
+
+  test('rejects unknown EVM chain without any fetch (Sweep152 SSRF)', async () => {
+    // eip155:99999 is well-formed but outside the RPC allowlist — the
+    // gateway must reject before building any client. The fetch tripwire
+    // proves no SSRF-shaped request escapes toward attacker-chosen infra.
+    const prevFetch = globalThis.fetch;
+    let fetchCalls = 0;
+    globalThis.fetch = ((..._args: unknown[]) => {
+      fetchCalls++;
+      return Promise.resolve(new Response("{}", { status: 200 }));
+    }) as unknown as typeof fetch;
+    try {
+      const result = await gateway.verifySignature({
+        tx_hash: '0xabc123def4567890abc123def4567890abc123def4567890abc123def4567890',
+        network: 'eip155:99999',
+        asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+        amount: '1000000',
+      }, {});
+      expect(result).toBe(false);
+      expect(fetchCalls).toBe(0);
+    } finally {
+      globalThis.fetch = prevFetch;
+    }
+  });
 });
 
 describe('X402Gateway.normalizeEvent', () => {
