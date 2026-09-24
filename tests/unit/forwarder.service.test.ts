@@ -137,6 +137,8 @@ describe("forwardEvent with mocked fetch", () => {
 			expect(body.gateway).toBe("midtrans");
 			expect(body.order_id).toBe(order.id);
 			expect(body.amount).toBe(25000);
+			// Sweep119: stable dedupe ID merchants key retries/replays on.
+			expect(body.event_id).toBe(`evt_${order.id}_payment.success`);
 			return Promise.resolve(new Response("ok", { status: 200 }));
 		}) as unknown as typeof fetch;
 

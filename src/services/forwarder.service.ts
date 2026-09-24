@@ -35,8 +35,14 @@ export async function forwardEvent(
 ): Promise<ForwardResult> {
 	const status = event.status;
 	const eventType = `payment.${status}`;
+	// Stable dedupe ID (Sweep119): retries of THIS call reuse the payload
+	// object below, and replays re-derive the same ID — merchants dedupe on
+	// event_id across attempts, replays, and gateway retransmissions.
+	// timestamp stays per-call (observability), never for identity.
+	const eventId = `evt_${order.id}_${eventType}`;
 
 	const payload = JSON.stringify({
+		event_id: eventId,
 		event: eventType,
 		gateway: event.gateway,
 		order_id: order.id,

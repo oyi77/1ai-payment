@@ -878,6 +878,7 @@ X-Payment-Event: payment.success     # Event type
 **Body:**
 ```typescript
 {
+  event_id: string;                  // Stable dedupe key: `evt_<order_id>_<event>` — identical across retries and replays
   event: 'payment.success' | 'payment.pending' | 'payment.failed'
        | 'payment.expired' | 'payment.cancelled' | 'payment.refunded';
   gateway: string;
@@ -890,15 +891,14 @@ X-Payment-Event: payment.success     # Event type
   payment_method: string | null;
   paid_at: string | null;            // ISO timestamp
   metadata: Record<string, unknown> | null;  // Project metadata (passthrough)
-  timestamp: string;                 // ISO timestamp of forwarding
+  timestamp: string;                 // ISO timestamp of forwarding (per attempt — never for dedupe)
 }
 ```
 
 **Project MUST:**
 1. Verify `X-Payment-Signature` (HMAC-SHA256 over the raw request body, keyed with its `webhook_secret`) — reject anything that does not match.
 2. Return 2xx within 30 seconds.
-3. Be idempotent (the same `order_id` may arrive multiple times).
-
+3. Be idempotent on `event_id` (the same `event_id` arrives on every retry and replay — never process it twice).
 **Retry behavior:** on a non-2xx response or network failure, 1ai-payment retries with exponential backoff (`5s → 30s → 300s`, 3 attempts, 30s request timeout). On success the outcome is recorded on the order (`forward_status` HTTP code + `forward_attempts`) **without** changing the payment status. If all attempts fail, the event is written to the dead-letter store and no further retries are made. Dead-lettered deliveries can be re-forwarded via `POST /api/webhook-deliveries/{id}/replay` (merchant-scoped, stamps `replayed_at` on success) or the service-level `replayDeadLetter` helper: either re-forwards the stored event signed with the merchant's `webhook_secret`.
 
 ---
