@@ -239,6 +239,24 @@ describe("backupDatabase", () => {
 		rmSync(backupPath);
 	});
 
+	test("snapshot carries identical row counts (Sweep133)", async () => {
+		const { backupDatabase, getDb } = await import("../../src/config/database");
+		const { rmSync } = await import("node:fs");
+		const backupPath = await backupDatabase();
+		const live = getDb();
+		const { createClient } = await import("@libsql/client");
+		const snap = createClient({ url: `file:${backupPath}` });
+		for (const t of ["orders", "merchants", "webhook_events", "refunds"]) {
+			const l = await live.execute(`SELECT COUNT(*) as n FROM ${t}`);
+			const b = await snap.execute(`SELECT COUNT(*) as n FROM ${t}`);
+			expect(Number((b.rows[0] as Record<string, unknown>).n)).toBe(
+				Number((l.rows[0] as Record<string, unknown>).n),
+			);
+		}
+		snap.close();
+		rmSync(backupPath);
+	});
+
 	test("second snapshot overwrites the first (Sweep131)", async () => {
 		const { backupDatabase } = await import("../../src/config/database");
 		const { existsSync, rmSync } = await import("node:fs");
