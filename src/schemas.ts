@@ -36,13 +36,6 @@ export const gatewayNameSchema = z.enum(GATEWAY_NAMES).openapi({
 	example: "midtrans",
 });
 
-export const paymentStatusSchema = z
-	.enum(["pending", "success", "failed", "expired", "cancelled", "refunded"])
-	.openapi({
-		description: "Lifecycle status of a payment order",
-		example: "pending",
-	});
-
 // ── Schemas ────────────────────────────────────────────────────
 
 export const customerSchema = z
