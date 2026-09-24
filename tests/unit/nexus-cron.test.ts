@@ -218,3 +218,24 @@ describe("sendExpiryReminders", () => {
 		expect(farRow.reminder_sent_at).toBeNull();
 	});
 });
+
+describe("backupDatabase", () => {
+	test("writes a readable snapshot of the live DB (Sweep113)", async () => {
+		const { backupDatabase } = await import("../../src/config/database");
+		const { existsSync, rmSync } = await import("node:fs");
+		const backupPath = await backupDatabase();
+		expect(backupPath).toBe(`${TEST_DB}.backup`);
+		expect(existsSync(backupPath)).toBe(true);
+		// Snapshot is a real SQLite DB containing our tables.
+		const { createClient } = await import("@libsql/client");
+		const snap = createClient({ url: `file:${backupPath}` });
+		const tables = await snap.execute(
+			"SELECT name FROM sqlite_master WHERE type='table'",
+		);
+		const names = tables.rows.map((r) => String((r as Record<string, unknown>).name));
+		expect(names).toContain("orders");
+		expect(names).toContain("merchants");
+		snap.close();
+		rmSync(backupPath);
+	});
+});

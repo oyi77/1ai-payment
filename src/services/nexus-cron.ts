@@ -40,6 +40,16 @@ async function runNexusMaintenance(): Promise<void> {
 	try {
 		await handleExpiredSubscriptions();
 		await sendExpiryReminders();
+		// Backup failures must never fail maintenance (own try/catch + warn).
+		try {
+			const { backupDatabase } = await import("../config/database");
+			await backupDatabase();
+		} catch (backupErr: unknown) {
+			logger.warn("Nexus cron: database backup failed", {
+				error:
+					backupErr instanceof Error ? backupErr.message : String(backupErr),
+			});
+		}
 	} catch (err: unknown) {
 		logger.error("Nexus cron: maintenance run failed", {
 			error: err instanceof Error ? err.message : String(err),

@@ -184,3 +184,24 @@ export async function initDatabase(): Promise<void> {
 	await runMigrations(db);
 	logger.info("Database initialized");
 }
+
+/**
+ * Atomic DB snapshot for disaster recovery (Sweep113).
+ *
+ * VACUUM INTO writes a consistent backup even while writers are active
+ * (unlike cp, which can copy a torn WAL). Path derives from DATABASE_PATH
+ * (<db>.backup) — no new env var. Called from the 6h nexus maintenance;
+ * restores are a file copy while the server is stopped. Protects against
+ * DB-file corruption/loss on THIS disk, not disk death (off-box copy is
+ * an ops task — disk is at 98% as of Sweep113).
+ */
+export async function backupDatabase(): Promise<string> {
+	const database = getDb();
+	const backupPath = `${getConfig().DATABASE_PATH}.backup`;
+	// VACUUM INTO takes a filename STRING literal (single quotes) — double
+	// quotes would parse as an identifier. Path comes from our own env
+	// config, never merchant input; embedded quotes escaped by doubling.
+	const safe = backupPath.replace(/'/g, "''");
+	await database.execute(`VACUUM INTO '${safe}'`);
+	return backupPath;
+}
