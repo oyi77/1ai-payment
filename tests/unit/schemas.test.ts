@@ -17,15 +17,14 @@ describe('createMerchantBodySchema', () => {
     expect(result.default_callback_url).toBeUndefined();
   });
 
-  test('ignores explicit plan (admin-only)', () => {
-    const result = createMerchantBodySchema.parse({ name: 'Pro Store', plan: 'pro' });
-    expect(result.name).toBe('Pro Store');
-    expect(result.plan).toBeUndefined(); // plan stripped — not self-assignable
+  test('rejects explicit plan (strict body, admin-only)', () => {
+    const result = createMerchantBodySchema.safeParse({ name: 'Pro Store', plan: 'pro' });
+    expect(result.success).toBe(false);
   });
 
-  test('ignores enterprise plan (admin-only)', () => {
-    const result = createMerchantBodySchema.parse({ name: 'Enterprise Store', plan: 'enterprise' });
-    expect(result.plan).toBeUndefined();
+  test('rejects enterprise plan (strict body, admin-only)', () => {
+    const result = createMerchantBodySchema.safeParse({ name: 'Enterprise Store', plan: 'enterprise' });
+    expect(result.success).toBe(false);
   });
 
   test('accepts default_callback_url', () => {
@@ -46,12 +45,10 @@ describe('createMerchantBodySchema', () => {
     expect(result.success).toBe(false);
   });
 
-  test('ignores invalid plan value', () => {
+  test('rejects invalid plan value (strict body)', () => {
     const result = createMerchantBodySchema.safeParse({ name: 'Store', plan: 'gold' });
-    expect(result.success).toBe(true);
-    if (result.success) expect(result.data.plan).toBeUndefined();
+    expect(result.success).toBe(false);
   });
-
   test('rejects invalid url', () => {
     const result = createMerchantBodySchema.safeParse({
       name: 'Store',

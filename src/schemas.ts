@@ -47,6 +47,7 @@ export const customerSchema = z
 			.optional()
 			.openapi({ example: "budi@example.com" }),
 	})
+	.strict()
 	.optional()
 	.openapi("Customer");
 
@@ -154,6 +155,7 @@ export const createPaymentBodySchema = z
 				example: { user_id: "usr_789", plan: "pro" },
 			}),
 	})
+	.strict()
 	.openapi("CreatePaymentBody");
 
 export const orderResponseSchema = z
@@ -248,6 +250,7 @@ export const createMerchantBodySchema = z
 			.optional()
 			.openapi({ example: "https://my-store.com/callback" }),
 	})
+	.strict()
 	.openapi("CreateMerchantBody");
 
 export const updateMerchantBodySchema = z
@@ -433,6 +436,7 @@ export const createRefundBodySchema = z
 			example: "refund-usr123-1720180000",
 		}),
 	})
+	.strict()
 	.openapi("CreateRefundBody");
 
 export const refundResponseSchema = z
@@ -490,6 +494,7 @@ export const setGatewayCredentialsBodySchema = z
 			.default("sandbox")
 			.openapi({ example: "sandbox" }),
 	})
+	.strict()
 	.openapi("SetGatewayCredentials");
 
 export const merchantGatewayResponseSchema = z
@@ -508,6 +513,7 @@ export const toggleGatewayBodySchema = z
 	.object({
 		enabled: z.boolean().openapi({ example: false }),
 	})
+	.strict()
 	.openapi("ToggleGateway");
 
 export function orderToResponse(order: {

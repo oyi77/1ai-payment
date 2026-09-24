@@ -42,7 +42,7 @@ describe('POST /api/register', () => {
     const res = await app.request('/api/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'My Store', plan: 'free' }),
+      body: JSON.stringify({ name: 'My Store' }),
     });
 
     expect(res.status).toBe(201);
@@ -65,8 +65,6 @@ describe('POST /api/register', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'Callback Store',
-        // plan is ignored — merchants always register on the free tier
-        plan: 'pro',
         default_callback_url: 'https://mystore.com/payment-callback',
       }),
     });
@@ -78,6 +76,15 @@ describe('POST /api/register', () => {
     expect(body.data.merchant.default_callback_url).toBe(
       'https://mystore.com/payment-callback',
     );
+  });
+
+  test('rejects explicit plan (strict body — tiers are admin-assigned)', async () => {
+    const res = await app.request('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Pro Store', plan: 'pro' }),
+    });
+    expect(res.status).toBe(400);
   });
 
   test('rejects missing name', async () => {
