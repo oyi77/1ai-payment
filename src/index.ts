@@ -15,7 +15,12 @@ startNexusCron();
 
 logger.info(`Starting 1ai-payment on port ${config.PORT}...`);
 
+// Localhost-only: the only ingress is the Cloudflare tunnel (see
+// /etc/cloudflared/config.yml → 127.0.0.1:3100). Binding * would let LAN
+// clients bypass the tunnel and spoof CF-Connecting-IP, defeating IP-keyed
+// rate limits. Cloudflare overwrites the header with the real client IP.
 const server = Bun.serve({
+	hostname: "127.0.0.1",
 	port: config.PORT,
 	fetch: app.fetch,
 });
