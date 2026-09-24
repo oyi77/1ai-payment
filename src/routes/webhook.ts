@@ -520,7 +520,8 @@ for (const gatewayName of GATEWAY_NAMES) {
 	});
 }
 
-// Catch-all for unknown gateways
+// Catch-all for unknown gateways — webhook error shape ({ error }), not the
+// /api/* envelope: gateway callers key retries off this contract.
 webhookRoutes.all("*", (c) => {
-	return c.json({ error: "Unknown gateway", ok: false as const }, 501);
+	return c.json({ error: "Unknown gateway" }, 501);
 });
