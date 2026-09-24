@@ -192,7 +192,7 @@ cross-tenant collision the roadmap wanted to eliminate.
 **Shipped:**
 - `GET /api/transactions?status=&gateway=&from=&to=&limit=&offset=` — scoped to
   the authenticated merchant (`orders.merchant_id`), `limit` capped at 100
-  (default 50). Returns `fee`/`net` from the order row (currently always 0 — see 4.3).
+  (default 50). Returns `fee` (stored, always 0 — no gateway computes fees yet, see 4.3) and `net` (derived as amount − fee at read time, so currently equals amount).
 
 **Verified:** Merchant A sees only A's rows; filters + pagination tested.
 
@@ -500,10 +500,8 @@ Genuinely-future items, roughly by dependency order. None block current use.
 1. **Complete 1.6** — drop global `UNIQUE(idempotency_key)`; migrate to
    `UNIQUE(merchant_id, idempotency_key)`. Cross-merchant key reuse is the only
    remaining multi-tenant correctness gap.
-2. **Complete 3.2** — wire `getGatewayConfigForMerchant` into payment creation
-   (and refund) paths so stored merchant credentials actually take effect.
-3. **Refund hardening** — per-gateway `refundPayment` implementations (or explicit
-   `REFUND_NOT_SUPPORTED`), plus refund idempotency (`idempotency_key` + UNIQUE).
+2. ~~Complete 3.2~~ — **done**: `resolveGatewayConfig` threads `merchantId` through createPayment/verify/refund for all 8 merchant-credential gateways (proven by `merchant-verify.test.ts`); platform-credential gateways stay platform-only by design.
+3. ~~Refund hardening~~ — **done**: `refundPayment` contract (confirm / `REFUND_NOT_SUPPORTED` → pending / error → failed; Saweria explicit unsupported), refund `idempotency_key` + UNIQUE + atomic backstop + cumulative guard + cumulative refunded-flip. No gateway confirms a live refund yet (proven via fake gateway).
 4. **Complete 4.3 — billing foundation** — compute `fee`/`net` on successful
    webhooks from the merchant's `plan`. This is the prerequisite for billing.
 5. **Webhook secret rotation API** — per-merchant endpoint to rotate
@@ -516,9 +514,9 @@ Genuinely-future items, roughly by dependency order. None block current use.
 8. **Admin dashboard expansion** — web UI + detail/disable/plan-change actions
    (API lists merchants and can update plan/active; no web UI / detail actions
    yet).
-9. **Dashboard Webhooks page** — surface `webhook-deliveries` in the portal.
-10. **Complete 5.2** — inject `?key=` into Swagger authorization on load.
-11. **SDK maturity** — test suite (`bun test`), CI publish (currently private).
+9. ~~Dashboard Webhooks page~~ — **done**: Deliveries tab with replay button ships in the dashboard.
+10. **Complete 5.2 (partial)** — `?key=` is read and `persistAuthorization` is on, but the key is not injected into Swagger auth on load; manual paste still required.
+11. **SDK maturity (partial)** — test suite ships (`packages/sdk/tests/index.test.ts`, mocked fetch); remaining: CI publish (currently private).
 12. **Distributed rate limiting** — replace the in-memory `Map` with a shared
     store (Redis/libSQL) so limits hold across instances.
 
@@ -532,7 +530,4 @@ Genuinely-future items, roughly by dependency order. None block current use.
 | Phase 4: Rate & Billing | 3 steps | 1 done, 2 partial | 1 week | **P2** — monetization |
 | Phase 5: Dashboard & SDK | 3 steps | 2 done, 1 partial | 2-3 weeks | **P2** — adoption |
 
-**Remaining to finish all 18 steps:** the four 🟡 gaps (1.6 migration, 3.2 wiring,
-2.2 gateway refunds + idempotency, 4.3 fee computation) and the two 🟡 polish
-items (4.2 webhook tiers, 5.2 docs pre-fill) — roughly 1-2 focused weeks.
-Everything after that (billing, rotation, admin UI) is net-new backlog.
+**Remaining to finish all 18 steps:** two 🟡 gaps (1.6 cross-merchant idempotency migration, 4.3 fee computation) and two 🟡 polish items (4.2 webhook tiers, 5.2 key pre-fill) — under a week. Closed since: 3.2 wiring, 2.2 refunds + idempotency, 5.3 SDK tests, Webhooks page. Everything after that (billing, rotation, admin UI) is net-new backlog.
