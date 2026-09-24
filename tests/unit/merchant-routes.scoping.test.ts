@@ -80,6 +80,25 @@ describe("PATCH /api/merchants/:id (scoping)", () => {
 		});
 		expect(res.status).toBe(403);
 	});
+
+	test("400 for plan/active self-escalation attempt (strict body)", async () => {
+		const before = await app.request("/api/merchants/merch_u_a", {
+			headers: { "X-API-Key": merchantAKey },
+		});
+		const beforePlan = ((await before.json()) as { data: { plan: string } }).data.plan;
+		const res = await app.request("/api/merchants/merch_u_a", {
+			method: "PATCH",
+			headers: { "X-API-Key": merchantAKey, "Content-Type": "application/json" },
+			body: JSON.stringify({ name: "A", plan: "enterprise", active: true }),
+		});
+		expect(res.status).toBe(400);
+		// Plan unchanged — verify via re-read.
+		const check = await app.request("/api/merchants/merch_u_a", {
+			headers: { "X-API-Key": merchantAKey },
+		});
+		const body = (await check.json()) as { data: { plan: string } };
+		expect(body.data.plan).toBe(beforePlan);
+	});
 });
 
 describe("POST /api/merchants/:id/api-key (scoping)", () => {

@@ -262,6 +262,7 @@ export const updateMerchantBodySchema = z
 			.optional()
 			.openapi({ example: "https://my-store.com/callback" }),
 	})
+	.strict()
 	.openapi("UpdateMerchantBody");
 
 export const adminMerchantUpdateBodySchema = z
