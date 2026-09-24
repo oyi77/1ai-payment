@@ -41,10 +41,11 @@ export const gatewayNameSchema = z.enum(GATEWAY_NAMES).openapi({
 
 export const customerSchema = z
 	.object({
-		name: z.string().optional().openapi({ example: "Budi Santoso" }),
+		name: z.string().max(128).optional().openapi({ example: "Budi Santoso" }),
 		email: z
 			.string()
 			.email()
+			.max(254)
 			.optional()
 			.openapi({ example: "budi@example.com" }),
 	})
@@ -95,8 +96,13 @@ export const createPaymentBodySchema = z
 				"Payment amount in smallest currency unit (IDR = full Rupiah)",
 			example: 100000,
 		}),
-		currency: z.string().default("IDR").openapi({ example: "IDR" }),
-		payment_method: z.string().optional().openapi({
+		currency: z
+			.string()
+			.min(1)
+			.max(16)
+			.default("IDR")
+			.openapi({ example: "IDR" }),
+		payment_method: z.string().max(64).optional().openapi({
 			description:
 				"Gateway-specific payment method code (e.g. qris, bca_va, gopay)",
 			example: "qris",
@@ -106,7 +112,7 @@ export const createPaymentBodySchema = z
 				"URL to forward the normalized payment event to after gateway callback",
 			example: "https://your-app.com/payment/callback",
 		}),
-		idempotency_key: z.string().optional().openapi({
+		idempotency_key: z.string().max(128).optional().openapi({
 			description: "Client-generated unique key to prevent duplicate orders",
 			example: "order-usr123-1720180000",
 		}),
@@ -141,7 +147,7 @@ export const createPaymentBodySchema = z
 			.openapi({
 				description: "Where to redirect the buyer after cancelling",
 			}),
-		project_order_id: z.string().optional().openapi({
+		project_order_id: z.string().max(128).optional().openapi({
 			description:
 				"Your application's own order/invoice ID for cross-reference",
 			example: "inv_789",
@@ -150,6 +156,14 @@ export const createPaymentBodySchema = z
 		metadata: z
 			.record(z.string(), z.unknown())
 			.optional()
+			.refine(
+				(m) =>
+					!m ||
+					(Object.keys(m).length <= 50 && JSON.stringify(m).length <= 8192),
+				{
+					message: "metadata too large: max 50 keys and 8KB serialized",
+				},
+			)
 			.openapi({
 				description:
 					"Arbitrary metadata preserved through the full payment lifecycle",
@@ -463,7 +477,7 @@ export const createRefundBodySchema = z
 			.max(500)
 			.optional()
 			.openapi({ example: "Customer request" }),
-		idempotency_key: z.string().optional().openapi({
+		idempotency_key: z.string().max(128).optional().openapi({
 			description:
 				"Client-generated unique key to prevent duplicate refunds on retry",
 			example: "refund-usr123-1720180000",

@@ -237,6 +237,45 @@ describe('POST /api/payments', () => {
     expect(body.error.code).toBe('VALIDATION_ERROR');
     expect(body.error.message).toMatch(/IDR only/);
   });
+
+  test('rejects oversized metadata with 400 (Sweep160)', async () => {
+    const big: Record<string, string> = {};
+    for (let i = 0; i < 60; i++) big[`k${i}`] = 'v'.repeat(200);
+    const res = await app.request('/api/payments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'test-api-key-flow' },
+      body: JSON.stringify({
+        gateway: 'midtrans',
+        amount: 10000,
+        currency: 'IDR',
+        callback_url: 'https://example.com/callback',
+        metadata: big,
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test('rejects oversized string fields with 400 (Sweep160)', async () => {
+    for (const body of [
+      { currency: 'X'.repeat(32) },
+      { payment_method: 'x'.repeat(128) },
+      { project_order_id: 'i'.repeat(256) },
+      { idempotency_key: 'k'.repeat(256) },
+    ]) {
+      const res = await app.request('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': 'test-api-key-flow' },
+        body: JSON.stringify({
+          gateway: 'midtrans',
+          amount: 10000,
+          currency: 'IDR',
+          callback_url: 'https://example.com/callback',
+          ...body,
+        }),
+      });
+      expect(res.status).toBe(400);
+    }
+  });
 });
 
 describe('POST /webhook/:gateway', () => {
