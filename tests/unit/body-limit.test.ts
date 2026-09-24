@@ -75,6 +75,21 @@ describe("bodyLimitMiddleware routes", () => {
 		expect(res.status).toBe(200);
 	});
 
+	test("health exposes gateway counts, not per-gateway map (Sweep108)", async () => {
+		const { getGatewayNames } = await import("../../src/gateways");
+		const res = await app.request("/health");
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as {
+			status: string;
+			gateways: { configured: number; total: number };
+		};
+		expect(body.status).toBe("ok");
+		expect(body.gateways.total).toBe(getGatewayNames().length);
+		expect(body.gateways.configured).toBeGreaterThanOrEqual(0);
+		expect(body.gateways.configured).toBeLessThanOrEqual(body.gateways.total);
+		expect(JSON.stringify(body.gateways)).not.toContain("missing_key");
+	});
+
 	test("CORS wired: preflight on /api/* returns ACAO (test env wildcard)", async () => {
 		const res = await app.request("/api/payments", {
 			method: "OPTIONS",

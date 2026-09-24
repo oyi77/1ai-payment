@@ -39,12 +39,10 @@ healthRoutes.openapi(healthRoute, async (c) => {
 	}
 
 	const gateways = getGatewayHealth();
-	const gatewayStatus = Object.fromEntries(
-		Object.entries(gateways).map(
-			([name, status]) =>
-				[name, status.configured ? "configured" : "missing_key"] as const,
-		),
-	) as Record<string, "configured" | "missing_key">;
+	const entries = Object.values(gateways);
+	// Counts only: per-gateway configured/missing_key map would leak the live
+	// attack surface on an unauthenticated endpoint (Sweep108).
+	const configured = entries.filter((g) => g.configured).length;
 
 	return c.json(
 		{
@@ -52,7 +50,7 @@ healthRoutes.openapi(healthRoute, async (c) => {
 			version: "0.1.0",
 			uptime: process.uptime(),
 			database: databaseOk ? ("ok" as const) : ("error" as const),
-			gateways: gatewayStatus,
+			gateways: { configured, total: entries.length },
 		},
 		200,
 	);

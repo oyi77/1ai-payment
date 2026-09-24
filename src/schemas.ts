@@ -188,9 +188,13 @@ export const healthResponseSchema = z
 			.openapi({ description: "Process uptime in seconds", example: 3600.42 }),
 		database: z.enum(["ok", "error"]).openapi({ example: "ok" }),
 		gateways: z
-			.record(z.string(), z.enum(["configured", "missing_key"]))
+			.object({
+				configured: z.number().openapi({ example: 9 }),
+				total: z.number().openapi({ example: 13 }),
+			})
 			.openapi({
-				example: { midtrans: "configured", tripay: "missing_key" },
+				description:
+					"Configured-gateway counts (per-gateway map intentionally withheld — unauthenticated endpoint)",
 			}),
 	})
 	.openapi("HealthResponse");
