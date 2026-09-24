@@ -153,37 +153,15 @@ export async function updateOrderStatus(
 	paymentMethod?: string,
 ): Promise<void> {
 	const db = getDb();
-	// Terminal-regression guard, two halves:
-	// (a) a late/duplicate "pending" callback must never rewind a terminal
-	//     state (success/failed/expired/cancelled/refunded);
-	// (b) "refunded" is absolute — there is no un-refund path (a failed
-	//     refund never flips the order; only a CONFIRMED refund does), so
-	//     any non-refunded status arriving after refunded is stale (e.g. a
-	//     retransmitted success after a provider-side refund) and dropped.
+	// Terminal-regression guard, ATOMIC (single UPDATE — no SELECT+UPDATE
+	// TOCTOU where a late pending could overwrite a concurrent success):
+	// (a) a late/duplicate "pending" never rewinds a terminal state
+	//     (success/failed/expired/cancelled/refunded);
+	// (b) "refunded" is absolute — any non-refunded status arriving after
+	//     refunded is stale (e.g. a retransmitted success after a
+	//     provider-side refund) and dropped.
 	// Other forward transitions (success->failed chargeback, success->expired
 	// void) stay allowed — providers move money, we record it.
-	if (status !== "refunded") {
-		const current = await db.execute({
-			sql: "SELECT status FROM orders WHERE id = ?",
-			args: [id],
-		});
-		const cur = current.rows[0]
-			? String((current.rows[0] as Record<string, unknown>).status)
-			: "";
-		if (cur === "refunded" && status !== "refunded") {
-			return;
-		}
-		if (
-			status === "pending" &&
-			(cur === "success" ||
-				cur === "failed" ||
-				cur === "expired" ||
-				cur === "cancelled" ||
-				cur === "refunded")
-		) {
-			return;
-		}
-	}
 	const updates: string[] = ["status = ?", "updated_at = datetime('now')"];
 	const args: Array<string | number | null> = [status];
 
@@ -200,9 +178,11 @@ export async function updateOrderStatus(
 		args.push(paymentMethod);
 	}
 
-	args.push(id);
+	args.push(id, status, status);
 	await db.execute({
-		sql: `UPDATE orders SET ${updates.join(", ")} WHERE id = ?`,
+		sql: `UPDATE orders SET ${updates.join(", ")} WHERE id = ?
+			AND NOT (status IN ('success','failed','expired','cancelled','refunded') AND ? = 'pending')
+			AND NOT (status = 'refunded' AND ? <> 'refunded')`,
 		args,
 	});
 }
