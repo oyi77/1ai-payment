@@ -9,6 +9,7 @@
 
 import { extendZodWithOpenApi } from "@hono/zod-openapi";
 import { ZodError, z } from "zod";
+import { isPublicHostname } from "./utils/ssrf";
 
 extendZodWithOpenApi(z);
 
@@ -56,6 +57,32 @@ export const customerSchema = z
 	.optional()
 	.openapi("Customer");
 
+/**
+ * Merchant-controlled callback URL. SSRF guard, layer 1 (Sweep77):
+ * https-only + reject literal private/loopback hosts in ANY numeric form
+ * (127.0.0.1, 2130706433, 0x7f.0.0.1...). Regular hostnames pass here and
+ * are DNS-validated per attempt at forward time (`fetchPublic`), including
+ * every redirect hop.
+ */
+export const callbackUrlSchema = z
+	.string()
+	.url()
+	.refine(
+		(url) => {
+			try {
+				const parsed = new URL(url);
+				if (parsed.protocol !== "https:") return false;
+				return isPublicHostname(parsed.hostname);
+			} catch {
+				return false;
+			}
+		},
+		{
+			message:
+				"callback_url must be a public https URL (no private IPs, localhost, or non-https schemes)",
+		},
+	);
+
 export const createPaymentBodySchema = z
 	.object({
 		gateway: gatewayNameSchema,
@@ -70,7 +97,7 @@ export const createPaymentBodySchema = z
 				"Gateway-specific payment method code (e.g. qris, bca_va, gopay)",
 			example: "qris",
 		}),
-		callback_url: z.string().url().openapi({
+		callback_url: callbackUrlSchema.openapi({
 			description:
 				"URL to forward the normalized payment event to after gateway callback",
 			example: "https://your-app.com/payment/callback",
@@ -186,9 +213,7 @@ export const webhookAckSchema = z
 export const createMerchantBodySchema = z
 	.object({
 		name: z.string().min(1).max(100).openapi({ example: "My Store" }),
-		default_callback_url: z
-			.string()
-			.url()
+		default_callback_url: callbackUrlSchema
 			.optional()
 			.openapi({ example: "https://my-store.com/callback" }),
 	})
@@ -202,9 +227,7 @@ export const updateMerchantBodySchema = z
 			.max(100)
 			.optional()
 			.openapi({ example: "My Store" }),
-		default_callback_url: z
-			.string()
-			.url()
+		default_callback_url: callbackUrlSchema
 			.optional()
 			.openapi({ example: "https://my-store.com/callback" }),
 	})

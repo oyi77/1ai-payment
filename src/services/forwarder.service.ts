@@ -10,6 +10,7 @@ import type { NormalizedPaymentEvent } from "../gateways/base";
 import { forwardFailuresCounter } from "../middleware/metrics";
 import { generateEventId, signPayload } from "../utils/crypto";
 import { logger } from "../utils/logger";
+import { fetchPublic } from "../utils/ssrf";
 import { getOrderById, markForwarded } from "./order.service";
 import type { Order } from "./order.service";
 interface ForwardResult {
@@ -57,7 +58,10 @@ export async function forwardEvent(
 
 	for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
 		try {
-			const response = await fetch(order.callback_url, {
+			// SSRF guard: DNS-validate the merchant URL per attempt and
+			// validate every redirect hop (Sweep77). Blocked = fail the
+			// attempt like a network error (retry → dead letter on exhaust).
+			const guarded = await fetchPublic(order.callback_url, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -67,20 +71,26 @@ export async function forwardEvent(
 				body: payload,
 				signal: AbortSignal.timeout(30_000),
 			});
+			if (guarded.blocked) {
+				lastError = new Error(`SSRF-blocked callback: ${guarded.reason}`);
+				lastStatus = null;
+			} else {
+				const response = guarded.response as Response;
 
-			if (response.ok) {
-				await markForwarded(order.id, response.status, attempt + 1);
-				return {
-					success: true,
-					statusCode: response.status,
-					attempts: attempt + 1,
-				};
+				if (response.ok) {
+					await markForwarded(order.id, response.status, attempt + 1);
+					return {
+						success: true,
+						statusCode: response.status,
+						attempts: attempt + 1,
+					};
+				}
+
+				lastError = new Error(
+					`HTTP ${response.status}: ${await response.text().catch(() => "unknown")}`,
+				);
+				lastStatus = response.status;
 			}
-
-			lastError = new Error(
-				`HTTP ${response.status}: ${await response.text().catch(() => "unknown")}`,
-			);
-			lastStatus = response.status;
 		} catch (err: unknown) {
 			lastError = err instanceof Error ? err : new Error(String(err));
 		}
