@@ -18,12 +18,6 @@ export type EscrowStatus =
 	| "disputed"
 	| "cancelled";
 
-/** A party in the escrow */
-export interface EscrowParty {
-	address: string;
-	role: "employer" | "provider" | "evaluator";
-}
-
 /** Escrow job specification */
 export interface EscrowJob {
 	title: string;

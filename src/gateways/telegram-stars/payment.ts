@@ -12,13 +12,6 @@ import type { CreatePaymentParams, CreatePaymentResult } from "../base";
 
 const TELEGRAM_API = "https://api.telegram.org";
 
-export interface TelegramStarsPayment {
-	orderId: string;
-	invoiceLink: string;
-	amount: number;
-	currency: string;
-}
-
 /**
  * Create a Telegram Stars invoice link
  */
