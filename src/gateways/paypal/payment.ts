@@ -7,7 +7,7 @@
 
 import { getConfig, resolveGatewayConfig } from "../../config/env";
 import { GatewayError } from "../../utils/errors";
-import { logger } from "../../utils/logger";
+import { logger, upstreamPreview } from "../../utils/logger";
 import type { CreatePaymentParams, CreatePaymentResult } from "../base";
 
 const PAYPAL_API = {
@@ -74,11 +74,11 @@ async function getAccessToken(
 		const error = await response.text();
 		logger.error("PayPal access token failed", {
 			status: response.status,
-			error,
+			error: upstreamPreview(error),
 		});
 		throw new GatewayError(
 			"paypal",
-			`Access token failed: ${response.status} ${error}`,
+			`Access token failed: ${response.status} ${upstreamPreview(error)}`,
 		);
 	}
 
@@ -156,11 +156,11 @@ export async function createOrder(
 		const error = await response.text();
 		logger.error("PayPal order creation failed", {
 			status: response.status,
-			error,
+			error: upstreamPreview(error),
 		});
 		throw new GatewayError(
 			"paypal",
-			`Order creation failed: ${response.status} ${error}`,
+			`Order creation failed: ${response.status} ${upstreamPreview(error)}`,
 		);
 	}
 

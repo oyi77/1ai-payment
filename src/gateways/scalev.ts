@@ -23,7 +23,7 @@
 import crypto from "node:crypto";
 import { getConfig, resolveGatewayConfig } from "../config/env";
 import { GatewayError, ValidationError } from "../utils/errors";
-import { logger } from "../utils/logger";
+import { logger, upstreamPreview } from "../utils/logger";
 import { assertSanePaymentMethod } from "./base";
 import type {
 	CreatePaymentParams,
@@ -194,11 +194,11 @@ export class ScalevGateway implements PaymentGateway {
 
 			logger.error("Scalev checkout failed", {
 				status: response.status,
-				error,
+				error: upstreamPreview(error),
 			});
 			throw new GatewayError(
 				"scalev",
-				`Checkout failed: ${response.status} ${error}`,
+				`Checkout failed: ${response.status} ${upstreamPreview(error)}`,
 			);
 		}
 

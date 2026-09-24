@@ -37,6 +37,21 @@ export function safeStringify(data: unknown): string {
 	}
 }
 
+// Max chars of an UPSTREAM error body kept in logs/throw messages
+// (Sweep148). Upstream 4xx/5xx bodies are echoed for debuggability, but a
+// full dump can carry echoed request material — 200 chars holds the human
+// message while bounding the blast radius. Key-shaped JSON fields that
+// survive the cut are still redacted by safeStringify at log time.
+export const UPSTREAM_ERROR_PREVIEW = 200;
+
+/**
+ * Trim an upstream error body to a log-safe preview.
+ */
+export function upstreamPreview(text: string): string {
+	return text.length > UPSTREAM_ERROR_PREVIEW
+		? `${text.slice(0, UPSTREAM_ERROR_PREVIEW)}...[truncated]`
+		: text;
+}
 function formatMessage(level: string, msg: string, data?: unknown): string {
 	const ts = new Date().toISOString();
 	const prefix = `[${ts}] [${level.toUpperCase()}]`;

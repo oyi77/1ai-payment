@@ -7,7 +7,7 @@
 
 import { getConfig, resolveGatewayConfig } from "../../config/env";
 import { GatewayError } from "../../utils/errors";
-import { logger } from "../../utils/logger";
+import { logger, upstreamPreview } from "../../utils/logger";
 import type { CreatePaymentParams, CreatePaymentResult } from "../base";
 
 const TELEGRAM_API = "https://api.telegram.org";
@@ -71,11 +71,11 @@ export async function createInvoice(
 		const error = await response.text();
 		logger.error("Telegram Payments invoice creation failed", {
 			status: response.status,
-			error,
+			error: upstreamPreview(error),
 		});
 		throw new GatewayError(
 			"telegram_payments",
-			`Invoice creation failed: ${response.status} ${error}`,
+			`Invoice creation failed: ${response.status} ${upstreamPreview(error)}`,
 		);
 	}
 
