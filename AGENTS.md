@@ -151,10 +151,10 @@ tests/
 ## Commands
 
 - Dev:   `bun run dev`
-- Test:  `bun test`
+- Test:  `bun test` (covers tests/ + packages/sdk/tests — SDK specs run in the root suite, proven by name-pattern run)
 - Build: `bun run build`
-- Lint:  `bun run lint`
-- Type:  `bun run typecheck`
+- Lint:  `bun run lint` (biome on src/ only, by design — tests use pragmatic env-mutation patterns)
+- Type:  `bun run typecheck` (tsconfig includes src/ only, by design — tests carry intentional loose types)
 
 ## Adding a New Gateway
 
