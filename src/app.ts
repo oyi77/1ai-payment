@@ -15,6 +15,7 @@ import { getConfig } from "./config/env";
 import { adminAuthMiddleware } from "./middleware/admin-auth";
 import { authMiddleware } from "./middleware/auth";
 import { bodyLimitMiddleware } from "./middleware/body-limit";
+import { cspMiddleware } from "./middleware/csp";
 import { metricsHandler } from "./middleware/metrics";
 import { rateLimitMiddleware } from "./middleware/rate-limit";
 import { adminRoutes } from "./routes/admin";
@@ -50,6 +51,7 @@ app.openAPIRegistry.registerComponent("securitySchemes", "AdminKeyAuth", {
 
 // Middleware
 app.use("*", secureHeaders());
+app.use("*", cspMiddleware);
 app.use("*", bodyLimitMiddleware);
 // CORS for merchant browser-apps — origin resolved PER REQUEST so the
 // hardened CORS_ORIGIN is honored even if config reloads; wildcard only

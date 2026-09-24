@@ -80,3 +80,24 @@ describe("public surface (Sweep150)", () => {
 		expect(res.headers.get("x-frame-options")).toBe("SAMEORIGIN");
 	});
 });
+
+describe("Content-Security-Policy (Sweep165)", () => {
+	test("static pages carry the exfil-containment policy", async () => {
+		for (const path of ["/", "/dashboard", "/payment/finish"]) {
+			const res = await app.request(path);
+			const csp = res.headers.get("content-security-policy") ?? "";
+			expect(csp).toContain("connect-src 'self'");
+			expect(csp).toContain("object-src 'none'");
+			expect(csp).toContain("frame-ancestors 'self'");
+			expect(csp).toContain("cdn.tailwindcss.com");
+			expect(csp).not.toContain("jsdelivr");
+		}
+	});
+
+	test("API and docs routes carry no CSP (untouched)", async () => {
+		for (const path of ["/health", "/doc", "/reference"]) {
+			const res = await app.request(path);
+			expect(res.headers.get("content-security-policy")).toBeNull();
+		}
+	});
+});
