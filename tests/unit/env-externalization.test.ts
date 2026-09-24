@@ -126,6 +126,24 @@ describe("evaluator alias precedence (ADDRESS wins)", () => {
 	});
 });
 
+describe("ADMIN_API_KEY separation (Sweep164)", () => {
+	test("identical API_KEY and ADMIN_API_KEY refuse to boot", () => {
+		process.env.API_KEY = "same-key-both";
+		process.env.ADMIN_API_KEY = "same-key-both";
+		resetConfigCache();
+		expect(() => getConfig()).toThrow(/must differ/);
+	});
+
+	test("distinct keys boot normally", () => {
+		process.env.API_KEY = "merchant-key";
+		process.env.ADMIN_API_KEY = "admin-key";
+		resetConfigCache();
+		const cfg = getConfig();
+		expect(cfg.API_KEY).toBe("merchant-key");
+		expect(cfg.ADMIN_API_KEY).toBe("admin-key");
+	});
+});
+
 describe(".env.example completeness", () => {
 	test("every key consumed by env.ts is documented in .env.example", async () => {
 		const { readFileSync } = await import("node:fs");

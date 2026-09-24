@@ -145,16 +145,29 @@ export function getConfig(): Config {
 		);
 	}
 
+	// Key separation (Sweep164): ADMIN_API_KEY must differ from API_KEY. The
+	// merchant env-key fallback (authMiddleware) and the admin gate
+	// (adminAuthMiddleware) compare against different headers but the same
+	// value would promote any merchant-key holder to full admin (list all
+	// merchants, reset any key, change plans). Refuse to boot instead.
+	const apiKey = required("API_KEY");
+	const adminApiKey = required("ADMIN_API_KEY");
+	if (apiKey === adminApiKey) {
+		throw new Error(
+			"ADMIN_API_KEY must differ from API_KEY (identical values would grant admin to every merchant-key holder)",
+		);
+	}
+
 	cachedConfig = {
 		PORT: Number(optional("PORT", "3100")),
 		PUBLIC_BASE_URL: optional("PUBLIC_BASE_URL", "https://pay.berkahkarya.org"),
 		NODE_ENV: nodeEnv,
 		REQUIRE_HTTPS: bool("REQUIRE_HTTPS", nodeEnv === "production"),
 		DATABASE_PATH: optional("DATABASE_PATH", "./data/payment.db"),
-		API_KEY: required("API_KEY"),
+		API_KEY: apiKey,
 		ENCRYPTION_KEY: required("ENCRYPTION_KEY"),
 		CORS_ORIGIN: corsOrigin,
-		ADMIN_API_KEY: required("ADMIN_API_KEY"),
+		ADMIN_API_KEY: adminApiKey,
 		MIDTRANS_SERVER_KEY: optional("MIDTRANS_SERVER_KEY"),
 		MIDTRANS_CLIENT_KEY: optional("MIDTRANS_CLIENT_KEY"),
 		MIDTRANS_ENVIRONMENT: optional(
