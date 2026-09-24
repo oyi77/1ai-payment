@@ -15,6 +15,29 @@ const PAYPAL_API = {
 	production: "https://api-m.paypal.com",
 };
 
+/**
+ * PayPal decimal-currency allowlist (Sweep166).
+ *
+ * params.amount is MINOR units (cents) — same contract as NOWPayments and
+ * x402. Zero-decimal currencies (JPY/HUF/TWD) and non-PayPal currencies
+ * (IDR) would be misbilled 100x by the /100 conversion below, exactly the
+ * class of bug Sweep112 fixed for x402. Reject before any API call.
+ * Source: https://developer.paypal.com/api/rest/reference/currency-codes/
+ */
+const PAYPAL_DECIMAL_CURRENCIES = new Set([
+	"ILS",
+	"MXN",
+	"MYR",
+	"NOK",
+	"NZD",
+	"PHP",
+	"PLN",
+	"RUB",
+	"SEK",
+	"SGD",
+	"THB",
+	"USD",
+]);
 interface PayPalAccessToken {
 	access_token: string;
 	token_type: string;
@@ -92,6 +115,17 @@ async function getAccessToken(
 export async function createOrder(
 	params: CreatePaymentParams,
 ): Promise<CreatePaymentResult> {
+	// Currency guard FIRST (Sweep166): params.amount is minor units.
+	// Zero-decimal (JPY/HUF/TWD) or unsupported (IDR) currencies would be
+	// misbilled 100x by the /100 conversion below. Fail closed before any
+	// DB read or API call.
+	const currency = (params.currency || "USD").toUpperCase();
+	if (!PAYPAL_DECIMAL_CURRENCIES.has(currency)) {
+		throw new GatewayError(
+			"paypal",
+			`PayPal settles decimal currencies only, got ${params.currency ?? "(unset)"}`,
+		);
+	}
 	const base = getConfig();
 	const m = params.merchantId
 		? ((await resolveGatewayConfig(
@@ -105,9 +139,8 @@ export async function createOrder(
 
 	const accessToken = await getAccessToken(m ?? undefined);
 
-	// Convert amount to decimal (PayPal uses decimal amounts, e.g., 10.00)
+	// Convert minor units to decimal (e.g. 1000 cents -> "10.00").
 	const amount = (params.amount / 100).toFixed(2);
-	const currency = params.currency || "USD";
 
 	const body = {
 		intent: "CAPTURE",

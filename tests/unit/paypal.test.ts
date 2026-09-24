@@ -146,3 +146,39 @@ describe('PayPalGateway.verifySignature', () => {
     expect(result).toBe(false);
   });
 });
+
+describe('PayPalGateway.createPayment currency guard (Sweep166)', () => {
+	test('rejects IDR before any API call (no 100x misbilling)', async () => {
+		const prevFetch = globalThis.fetch;
+		let fetchCalls = 0;
+		globalThis.fetch = ((..._args: unknown[]) => {
+			fetchCalls++;
+			return Promise.resolve(new Response('{}', { status: 200 }));
+		}) as unknown as typeof fetch;
+		try {
+			await expect(
+				gateway.createPayment({ amount: 100000, currency: 'IDR', orderId: 'ord_idr' }),
+			).rejects.toThrow(/decimal currencies only/);
+			expect(fetchCalls).toBe(0);
+		} finally {
+			globalThis.fetch = prevFetch;
+		}
+	});
+
+	test('rejects zero-decimal JPY before any API call', async () => {
+		const prevFetch = globalThis.fetch;
+		let fetchCalls = 0;
+		globalThis.fetch = ((..._args: unknown[]) => {
+			fetchCalls++;
+			return Promise.resolve(new Response('{}', { status: 200 }));
+		}) as unknown as typeof fetch;
+		try {
+			await expect(
+				gateway.createPayment({ amount: 1000, currency: 'JPY', orderId: 'ord_jpy' }),
+			).rejects.toThrow(/decimal currencies only/);
+			expect(fetchCalls).toBe(0);
+		} finally {
+			globalThis.fetch = prevFetch;
+		}
+	});
+});
