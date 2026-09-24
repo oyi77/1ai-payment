@@ -74,7 +74,6 @@ All 13 gateways are normalized
 - KYC, compliance, banking relationships
 
 ### Future (v0.2+)
-- Webhook secret rotation for merchant callbacks (merchant API-key rotation is implemented; callback-signing secrets are not)
 - Subscription billing with recurring charges
 - Payout API for affiliates and merchants
 - Admin analytics dashboard

@@ -95,7 +95,7 @@ Health check. No authentication required.
   version: string;                 // e.g. '0.1.0'
   uptime: number;                  // Process uptime in seconds
   database: 'ok' | 'error';
-  gateways: Record<string, 'configured' | 'missing_key'>;  // e.g. { midtrans: 'configured', tripay: 'missing_key' }
+  gateways: { configured: number; total: number };  // counts only (per-gateway map withheld — unauthenticated endpoint)
 }
 ```
 
@@ -113,7 +113,7 @@ Gateway callback receiver. One route for all gateways; the `gateway` path segmen
 
 **Flow:**
 
-1. If `REQUIRE_HTTPS` is enabled (default in production), require a TLS connection: if the request URL is not `https://` and the `x-forwarded-proto` header is not `https`, reject with `400 { error: 'HTTPS required' }`.
+1. If `REQUIRE_HTTPS` is enabled (default in production), require edge TLS: CF-Visitor `{"scheme":"https"}` (Cloudflare edge signal) or `x-forwarded-proto: https` when `TRUST_PROXY` is set for a controlled non-Cloudflare proxy; reject with `400 { error: 'HTTPS required' }` otherwise.
 2. Lowercase-normalize headers, verify the gateway signature (reject with `401` on mismatch).
 3. Normalize the payload into a `NormalizedPaymentEvent`.
 4. Look up the order (by gateway reference, then by order id).
@@ -136,7 +136,7 @@ An event for an **unknown order** is still acknowledged with `200` (and logged) 
 | 400 | `{ error: 'Invalid JSON' }` | Body is not valid JSON |
 | 400 | `{ error: 'Failed to normalize event' }` | Payload cannot be normalized |
 | 401 | `{ error: 'Invalid signature' }` | Signature verification failed |
-| 501 | `{ error: 'Unknown gateway', ok: false }` | Unknown gateway path segment |
+| 501 | `{ error: 'Unknown gateway' }` | Unknown gateway path segment |
 
 An event for an **unknown order** is still acknowledged with `200` (and logged) so gateways do not retry forever.
 
@@ -838,7 +838,7 @@ All `/api/*` errors follow a consistent envelope:
 }
 ```
 
-Webhook endpoints use a simpler shape instead: `{ error: string }` (e.g. `{ error: 'Invalid signature' }`), and the unknown-gateway response is `{ error: 'Unknown gateway', ok: false }`.
+Webhook endpoints use a simpler shape instead: `{ error: string }` (e.g. `{ error: 'Invalid signature' }`), and the unknown-gateway response is `{ error: 'Unknown gateway' }`.
 
 ### Error codes
 

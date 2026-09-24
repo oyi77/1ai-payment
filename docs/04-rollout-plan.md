@@ -15,7 +15,7 @@ Phase 0 (Foundation) is **complete**. The in-repo pieces of Phase 5 (Commerciali
 13 gateways registered (midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria)
 
 **Verification:**
-- `bun test` — 560 pass / 0 fail (verified 2026-09-24, 58 files)
+- `bun test` — 607 pass / 0 fail (verified 2026-09-24, 61 files)
 - `bun x tsc --noEmit` — exit 0
 
 **In-place production features (verified in source):**
@@ -29,7 +29,7 @@ Phase 0 (Foundation) is **complete**. The in-repo pieces of Phase 5 (Commerciali
 - Multi-tenant auth: `X-API-Key` → merchants table hash lookup → env `API_KEY` fallback; `X-Admin-Key` gates admin routes and `/metrics` but never bypasses merchant auth — merchant routes always require a valid `X-API-Key`; disabled merchants rejected with 403 (`src/middleware/auth.ts`, `src/middleware/admin-auth.ts`)
 - Refund API (`POST` / `GET /api/refunds`), admin dashboard (`/dashboard` + admin routes), merchant portal, landing page
 - Graceful shutdown: SIGTERM/SIGINT → stop cron → drain server → 10s force-exit (`src/index.ts`)
-- Health endpoint `GET /health` reports status, DB state, per-gateway config (`configured` / `missing_key`)
+- Health endpoint `GET /health` reports status, DB state, gateway configured/total counts
 - Schema migrations run at boot (`src/config/migrations.ts` — v001 baseline, v002 nexus tables, v003 forward status / dead-letter replay / refund dedup)
 
 ---
@@ -46,7 +46,7 @@ Phase 0 (Foundation) is **complete**. The in-repo pieces of Phase 5 (Commerciali
 
 **Acceptance:**
 - `bun run typecheck` — zero errors ✅ (exit 0, verified 2026-08-01)
-- `bun test` — all pass ✅ (560 pass / 0 fail, verified 2026-09-24)
+- `bun test` — all pass ✅ (607 pass / 0 fail, verified 2026-09-24)
 - `curl localhost:3100/health` — 200 ✅ (route implemented in `src/routes/health.ts`)
 
 **Rollback:** N/A (no production traffic)
@@ -138,7 +138,7 @@ all 13 gateways
 - ✅ Admin dashboard (payment analytics, project management) — `/dashboard` + admin routes behind `ADMIN_API_KEY` (verified)
 - ✅ Refund API — `POST` / `GET /api/refunds` with `refunds` table (verified)
 - ⏳ Subscription lifecycle management — partial: nexus tables (v002 migration) + nexus cron/fulfillment exist; full billing lifecycle still open
-- ⏳ Webhook secret rotation — not implemented
+- ✅ Webhook secret rotation — SHIPPED (Sweep115): `webhook_secret` returned once on both creates + owner `POST /:id/webhook-secret` + dashboard reveal/rotate
 - ⏳ Payout API for affiliates — not implemented
 
 **Not in scope until revenue justifies it.**

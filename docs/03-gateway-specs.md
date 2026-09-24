@@ -101,13 +101,14 @@ All 13 gateways follow the same PaymentGateway
 1. **Verify** — the raw request body is read as text before parsing, so HMAC gateways verify over the exact received bytes: nowpayments, tripay, and scalev implement `verifySignatureRaw` and are verified over the unmodified body; all others use `gateway.verifySignature(body, headers)`. Reject with 401 if invalid.
 2. **Normalize** — `gateway.normalizeEvent(body, null)` → `NormalizedPaymentEvent`.
 3. **Resolve order** — for scalev, `order_id` is first recovered from `notes`; then lookup tries `gateway_reference`, then `order_id`.
-4. **Insert webhook event** — `webhook_events` table with `UNIQUE(order_id, gateway, status)`; a duplicate callback hits the constraint and returns 200 (idempotency).
-5. **Update order status** — `order.service.updateOrderStatus(...)`.
-6. **Forward to owning project** — `forwarder.service.forwardEvent(...)` runs async with retries; the webhook returns 200 immediately (forwarding is not awaited).
+4. **Saweria amount floor** (unsigned webhooks only) — reject underpay forgeries (`event.amount < order.amount`) with a logged 200-skip, order untouched.
+5. **Insert webhook event** — `webhook_events` table with `UNIQUE(order_id, gateway, status)`; a duplicate callback hits the constraint and returns 200 (idempotency).
+6. **Update order status** — `order.service.updateOrderStatus(...)` (atomic conditional UPDATE: terminal states and `refunded` never regress).
+7. **Forward to owning project** — `forwarder.service.forwardEvent(...)` runs async with retries; the webhook returns 200 immediately (forwarding is not awaited). Payload carries a stable `event_id` (`evt_<order>_<event>`) for merchant-side dedupe.
 
 If the order cannot be found, the event is still recorded and 200 is returned (for scalev, a direct-checkout Nexus fulfillment is also attempted).
 
-In production (`NODE_ENV === "production"`), webhook requests are rejected with 400 unless the request URL starts with `https://` or the `x-forwarded-proto` header is `https`.
+In production (`NODE_ENV === "production"`), webhook requests are rejected with 400 unless edge TLS holds: CF-Visitor `{"scheme":"https"}` or `x-forwarded-proto: https` with `TRUST_PROXY` set.
 
 ---
 
@@ -1261,15 +1262,15 @@ Saweria does NOT sign webhooks. Verification is by reconciliation:
 `id` + our echoed order id in `message` (and `type === "donation"` when
 present). The route layer additionally looks the order up — unknown orders
 are logged, never forwarded.
-
 Accepted risk: a forged body with a valid shape AND a known order id would
 normalize to `success` (receiving the webhook == payment received — the
 provider only fires on donation). Mitigations: order ids are unguessable
-(21-char nanoid), order must pre-exist, and amounts can be reconciled
-manually in the Saweria dashboard (`id` matches the `generate` response).
-No amount-match guard in code by design: Saweria deducts fees (`cut`,
-`transaction_fee_policy`) so callback `amount_raw` may legitimately differ
-from the order amount — a strict guard would reject legitimate donations.
+(21-char nanoid), order must pre-exist, and an amount floor rejects
+underpay forgeries (`event.amount < order.amount` → logged 200-skip, order
+untouched; Sweep105). No strict amount-match by design: Saweria deducts
+fees (`cut`, `transaction_fee_policy`) so callback `amount_raw` may
+legitimately differ from the order amount — a strict guard would reject
+legitimate donations.
 
 ### Status Mapping
 | Saweria Condition | Mapped To |

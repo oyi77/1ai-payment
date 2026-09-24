@@ -25,7 +25,7 @@ Prometheus metrics (/metrics)
 Webhook events + dead-letter tracking
 13 gateways
 Nexus: Scalev direct-checkout fulfillment + Telegram delivery cron
-No billing, no fee computation, no webhook-secret rotation yet
+No billing, no fee computation (webhook-secret rotation SHIPPED Sweep115)
 ```
 
 **What works:** Payment creation, webhook processing, signature verification
@@ -504,9 +504,7 @@ Genuinely-future items, roughly by dependency order. None block current use.
 3. ~~Refund hardening~~ — **done**: `refundPayment` contract (confirm / `REFUND_NOT_SUPPORTED` → pending / error → failed; Saweria explicit unsupported), refund `idempotency_key` + UNIQUE + atomic backstop + cumulative guard + cumulative refunded-flip. No gateway confirms a live refund yet (proven via fake gateway).
 4. **Complete 4.3 — billing foundation** — compute `fee`/`net` on successful
    webhooks from the merchant's `plan`. This is the prerequisite for billing.
-5. **Webhook secret rotation API** — per-merchant endpoint to rotate
-   `merchants.webhook_secret` (API-key rotation already exists; secret rotation
-   does not).
+5. ~~Webhook secret rotation API~~ — **done (Sweep115)**: owner `POST /api/merchants/:id/webhook-secret` + secret-once on both creates + dashboard reveal/rotate.
 6. **Plan-aware webhook rate limits** — per-merchant tiers on `/webhook/*`
    (currently flat 120/min).
 7. **Billing** — plan payments, overage, dunning. Depends on 4/5. No billing
@@ -530,4 +528,4 @@ Genuinely-future items, roughly by dependency order. None block current use.
 | Phase 4: Rate & Billing | 3 steps | 1 done, 2 partial | 1 week | **P2** — monetization |
 | Phase 5: Dashboard & SDK | 3 steps | 2 done, 1 partial | 2-3 weeks | **P2** — adoption |
 
-**Remaining to finish all 18 steps:** two 🟡 gaps (1.6 cross-merchant idempotency migration, 4.3 fee computation) and two 🟡 polish items (4.2 webhook tiers, 5.2 key pre-fill) — under a week. Closed since: 3.2 wiring, 2.2 refunds + idempotency, 5.3 SDK tests, Webhooks page. Everything after that (billing, rotation, admin UI) is net-new backlog.
+**Remaining to finish all 18 steps:** two 🟡 gaps (1.6 cross-merchant idempotency migration, 4.3 fee computation) and two 🟡 polish items (4.2 webhook tiers, 5.2 key pre-fill) — under a week. Closed since: 3.2 wiring, 2.2 refunds + idempotency, 5.3 SDK tests, Webhooks page, webhook-secret rotation (Sweep115). Everything after that (billing, admin UI) is net-new backlog.
