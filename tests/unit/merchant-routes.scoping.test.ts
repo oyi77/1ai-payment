@@ -162,3 +162,31 @@ describe("POST /api/merchants/:id/webhook-secret (Sweep115)", () => {
 		expect(res.status).toBe(401);
 	});
 });
+
+describe("POST /api/merchants (authed provisioning, Sweep123)", () => {
+	test("authenticated merchant may provision sub-merchants (agency model, not a throttle bypass)", async () => {
+		const res = await app.request("/api/merchants", {
+			method: "POST",
+			headers: { "X-API-Key": merchantAKey, "Content-Type": "application/json" },
+			body: JSON.stringify({ name: "Sub Client" }),
+		});
+		expect(res.status).toBe(201);
+		const body = (await res.json()) as {
+			success: boolean;
+			data: { merchant: { id: string; plan: string }; api_key: string; webhook_secret: string };
+		};
+		expect(body.success).toBe(true);
+		expect(body.data.merchant.plan).toBe("free");
+		expect(body.data.api_key).toMatch(/^1pay_/);
+		expect(body.data.webhook_secret).toMatch(/^whsec_/);
+	});
+
+	test("rejects provisioning without a key (401)", async () => {
+		const res = await app.request("/api/merchants", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ name: "Anon" }),
+		});
+		expect(res.status).toBe(401);
+	});
+});
