@@ -224,6 +224,7 @@ Replaying a request with the same `idempotency_key` returns the original order w
 | 400 | `INVALID_BODY` | Missing/invalid fields, unsupported gateway |
 | 401 | `UNAUTHORIZED` | Missing/invalid API key |
 | 403 | `MERCHANT_DISABLED` | Merchant is disabled |
+| 403 | `GATEWAY_DISABLED` | Gateway explicitly disabled for this merchant (PATCH enabled=false); no order created |
 | 409 | `DUPLICATE_ORDER` | Idempotency key already used |
 | 502 | `GATEWAY_ERROR` | Gateway API returned an error (order is marked `failed`) |
 | 500 | `INTERNAL_ERROR` | Unexpected server error |
@@ -619,6 +620,33 @@ Rotate a merchant's API key. The previous key is invalidated immediately; the ne
 
 ---
 
+### POST /api/admin/merchants/{id}/api-key
+
+Recovery reset for a lost API key (self-service rotate requires the CURRENT key, so a lost key = permanent lockout without this). Requires the `X-Admin-Key` header. Returns the new key once.
+
+**Response (200):**
+```typescript
+{
+  success: true,
+  data: {
+    merchant_id: string;
+    api_key: string;                // New '1pay_…' key — shown ONCE
+  }
+}
+```
+
+**Errors:**
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `UNAUTHORIZED` | Missing or invalid `X-Admin-Key` |
+| 404 | `NOT_FOUND` | No merchant with that ID |
+| 500 | `INTERNAL_ERROR` | Unexpected server error |
+
+> Appears in the OpenAPI spec at `GET /doc` (converted in Sweep49).
+
+---
+
 ### GET /api/merchants/{id}/gateways
 
 List a merchant's gateway configurations. Requires `X-API-Key`.
@@ -735,7 +763,7 @@ List all merchants (admin). Requires the `X-Admin-Key` header.
 | 401 | `UNAUTHORIZED` | Missing or invalid `X-Admin-Key` |
 | 500 | `INTERNAL_ERROR` | Unexpected server error |
 
-> Note: these endpoints are registered as plain Hono handlers, not via the OpenAPI route builder, so they do **not** appear in the auto-generated OpenAPI spec at `GET /doc`.
+> Note: since Sweep49 these endpoints are declared via `.openapi(createRoute)` and **do** appear in the auto-generated OpenAPI spec at `GET /doc` (`/api/admin/merchants`, `/api/admin/merchants/{id}`, `/api/admin/merchants/{id}/api-key`).
 
 ---
 
@@ -770,7 +798,7 @@ Update a merchant's plan and/or active status (admin). Requires the `X-Admin-Key
 | 404 | `NOT_FOUND` | No merchant with that ID |
 | 500 | `INTERNAL_ERROR` | Unexpected server error |
 
-> Note: like `GET /api/admin/merchants`, this endpoint is a plain Hono handler and does **not** appear in the OpenAPI spec at `GET /doc`.
+> Note: like `GET /api/admin/merchants`, this endpoint **does** appear in the OpenAPI spec at `GET /doc` (converted in Sweep49).
 
 ---
 
