@@ -282,15 +282,18 @@ async function generateTelegramInviteLink(
 
 /**
  * Helper to revoke a Telegram invite link.
+ * Returns true when Telegram confirms (or the link was already gone);
+ * false on transport/API failure — the caller still expires the row
+ * (access ends by status), the boolean is only for observability.
  */
 export async function revokeTelegramInviteLink(
 	botToken: string,
 	chatId: string,
 	inviteLink: string,
-): Promise<void> {
+): Promise<boolean> {
 	try {
 		const url = `${TELEGRAM_API}/bot${botToken}/revokeChatInviteLink`;
-		await fetch(url, {
+		const res = await fetch(url, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
@@ -299,9 +302,18 @@ export async function revokeTelegramInviteLink(
 			}),
 			signal: AbortSignal.timeout(30_000),
 		});
+		if (!res.ok) {
+			logger.warn("Nexus: revoke invite link rejected", {
+				status: res.status,
+				body: await res.text().catch(() => ""),
+			});
+			return false;
+		}
+		return true;
 	} catch (err: unknown) {
 		logger.warn("Nexus: failed to revoke invite link", {
 			error: err instanceof Error ? err.message : String(err),
 		});
+		return false;
 	}
 }

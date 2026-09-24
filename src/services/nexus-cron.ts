@@ -95,7 +95,7 @@ export async function handleExpiredSubscriptions(): Promise<void> {
 		// Revoke invite if we have bot config
 		const botToken =
 			config.NEXUS_TELEGRAM_BOT_TOKEN || config.TELEGRAM_BOT_TOKEN;
-		if (botToken && row.telegram_invite_link) {
+		if (botToken && row.telegram_invite_link && row.telegram_chat_id) {
 			await revokeTelegramInviteLink(
 				botToken,
 				String(row.telegram_chat_id),

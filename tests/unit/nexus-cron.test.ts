@@ -131,6 +131,58 @@ describe("handleExpiredSubscriptions", () => {
 	});
 });
 
+describe("revokeTelegramInviteLink result", () => {
+	test("returns true on Telegram ok, false on reject or throw", async () => {
+		const { revokeTelegramInviteLink } = await import(
+			"../../src/services/nexus-fulfillment"
+		);
+		const prev = globalThis.fetch;
+		try {
+			globalThis.fetch = (async () =>
+				new Response(JSON.stringify({ ok: true }), { status: 200 })) as typeof fetch;
+			expect(await revokeTelegramInviteLink("tok", "chat", "link")).toBe(true);
+			globalThis.fetch = (async () =>
+				new Response("bad", { status: 400 })) as typeof fetch;
+			expect(await revokeTelegramInviteLink("tok", "chat", "link")).toBe(false);
+			globalThis.fetch = (() => Promise.reject(new Error("down"))) as typeof fetch;
+			expect(await revokeTelegramInviteLink("tok", "chat", "link")).toBe(false);
+		} finally {
+			globalThis.fetch = prev;
+		}
+	});
+});
+
+describe("handleExpiredSubscriptions skips API without chat_id", () => {
+	test("no fetch call when invite link present but chat_id missing", async () => {
+		process.env.NEXUS_TELEGRAM_BOT_TOKEN = "test-bot-token";
+		resetConfigCache();
+		const calls: string[] = [];
+		const prev = globalThis.fetch;
+		globalThis.fetch = (async (input: unknown) => {
+			calls.push(String(input));
+			return new Response(JSON.stringify({ ok: true }), { status: 200 });
+		}) as typeof fetch;
+		try {
+			const sub = await seedSub({
+				customerEmail: "noch@example.com",
+				expiresOffsetMs: -3600_000,
+				inviteLink: "https://t.me/+invite9",
+			});
+			await handleExpiredSubscriptions();
+			expect(calls.length).toBe(0);
+			const r = await db.execute({
+				sql: "SELECT status FROM nexus_subscriptions WHERE id = ?",
+				args: [sub],
+			});
+			expect(String((r.rows[0] as Record<string, unknown>).status)).toBe("expired");
+		} finally {
+			globalThis.fetch = prev;
+			delete process.env.NEXUS_TELEGRAM_BOT_TOKEN;
+			resetConfigCache();
+		}
+	});
+});
+
 describe("sendExpiryReminders", () => {
 	test("stamps reminder for subscriptions expiring within 48h (log-only, no token)", async () => {
 		const sub = await seedSub({
