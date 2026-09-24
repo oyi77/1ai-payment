@@ -42,6 +42,30 @@ export interface FulfillmentResult {
 }
 
 /**
+ * Scrub customer PII at the boundary (Sweep176).
+ *
+ * Email/name arrive as free-form webhook fields with no size cap — an
+ * overlong or malformed value would ride verbatim into nexus_customers
+ * (and its backups) forever. Cap to the same limits as the payment
+ * customer schema (254/128); a non-email-shaped value degrades to
+ * anonymous fulfillment (the payment is still honored — only the email
+ * link is lost) instead of storing junk.
+ */
+export function sanitizeCustomerEmail(raw: unknown): string | undefined {
+	if (typeof raw !== "string") return undefined;
+	const v = raw.trim().slice(0, 254);
+	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return undefined;
+	return v;
+}
+
+export function sanitizeCustomerName(raw: unknown): string | undefined {
+	if (typeof raw !== "string") return undefined;
+	const v = raw.trim();
+	if (!v) return undefined;
+	return v.slice(0, 128);
+}
+
+/**
  * Main entry: called from webhook route when a Scalev payment
  * arrives with no matching order (direct checkout).
  */
@@ -89,8 +113,8 @@ export async function handleNexusPayment(
 	try {
 		return await fulfillOrder(
 			product,
-			customerEmail,
-			customerName,
+			sanitizeCustomerEmail(customerEmail),
+			sanitizeCustomerName(customerName),
 			scalevOrderId,
 		);
 	} catch (err: unknown) {
