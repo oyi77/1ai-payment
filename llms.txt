@@ -43,12 +43,12 @@ across 13 gateways
 - src/middleware/auth.ts: X-API-Key authentication for /api/* — sha256 lookup in merchants table, sets merchantId/name/plan, env API_KEY fallback
 - src/middleware/admin-auth.ts: X-Admin-Key check (timing-safe) for admin endpoints
 - src/middleware/rate-limit.ts: In-memory rate limiter — /api/* 60/min, /webhook/* 120/min, /api/register 5/hr; plan tiers (free 30 / pro 120 / enterprise 600 per min) keyed by merchant, 429 + Retry-After
-- src/middleware/metrics.ts: prom-client counters + payment duration histogram, exposed at GET /metrics (no auth)
+- src/middleware/metrics.ts: prom-client counters + payment duration histogram, exposed at GET /metrics (X-Admin-Key required)
 
 - src/services/order.service.ts: Order registry CRUD, idempotent creates, merchant-scoped lookups, status transitions
 - src/services/forwarder.service.ts: Async event forwarding to callback_url — HMAC signature header, 3 retries with backoff, dead-letter on final failure
 - src/services/gateway.service.ts: Gateway health status, available gateways, methods listing
-- src/services/refund.service.ts: Refund creation (partial/full), gateway refund call or manual pending, order → refunded on full refund
+- src/services/refund.service.ts: Refund creation (partial/full), gateway refund call or manual pending, order → refunded on cumulative cover
 - src/services/nexus-config.service.ts: Scalev variant → tier/duration mapping (NEXUS_VARIANT_MAP env JSON)
 - src/services/nexus-fulfillment.service.ts: Scalev payment → customer/subscription upsert → Telegram channel invite (24h, 1 use)
 - src/services/nexus-cron.service.ts: 6h cron — expire past-due subscriptions, 48h expiry reminders

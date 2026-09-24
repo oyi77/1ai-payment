@@ -68,9 +68,9 @@ On first start the SQLite database is created and schema migrations run automati
 | `/api/merchants/:id` | GET / PATCH | API key | Get / update merchant |
 | `/api/merchants/:id/api-key` | POST | API key | Rotate merchant API key |
 | `/api/merchants/:id/gateways` | GET / PUT / PATCH / DELETE | API key | Manage per-merchant gateway credentials |
-| `/api/admin/merchants` | GET | Admin key | Admin: list all merchants (plain handler, not in OpenAPI) |
-| `/api/admin/merchants/:id` | PATCH | Admin key | Admin: set plan / active (plain handler, not in OpenAPI) |
-| `/api/admin/merchants/:id/api-key` | POST | Admin key | Admin: recovery key reset (plain handler, not in OpenAPI) |
+| `/api/admin/merchants` | GET | Admin key | Admin: list all merchants (in OpenAPI since Sweep49) |
+| `/api/admin/merchants/:id` | PATCH | Admin key | Admin: set plan / active (in OpenAPI since Sweep49) |
+| `/api/admin/merchants/:id/api-key` | POST | Admin key | Admin: recovery key reset (in OpenAPI since Sweep49) |
 | `/webhook/:gateway` | POST | Signature | Receive gateway callback |
 | `/`, `/dashboard` | GET | — | Landing page + dashboard (static) |
 
