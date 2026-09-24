@@ -4,9 +4,9 @@
  * and admin routes must declare AdminKeyAuth (X-Admin-Key), not ApiKeyAuth.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { resetConfigCache } from "../../src/config/env";
 
 const TEST_DB = join(tmpdir(), `1pay-docsec-${Date.now()}.db`);
@@ -19,8 +19,8 @@ process.env.ENCRYPTION_KEY =
 	"f0bbe8000253a9997331287d3ebdadd3854720a049233b18a37dd401b61b4c6f";
 resetConfigCache();
 
-import { initDatabase } from "../../src/config/database";
 import type { app as AppType } from "../../src/app";
+import { initDatabase } from "../../src/config/database";
 
 let app: typeof AppType;
 
@@ -113,5 +113,20 @@ describe("GET /doc security schemes", () => {
 			}
 		}
 		expect(missing).toEqual([]);
+	});
+
+	test("every authed GET path 401s without a key (runtime, Sweep117)", async () => {
+		const paths = [
+			"/api/gateways",
+			"/api/transactions",
+			"/api/refunds",
+			"/api/merchants",
+			"/api/saved-methods",
+			"/api/webhook-deliveries",
+		];
+		for (const p of paths) {
+			const res = await app.request(p);
+			expect(res.status).toBe(401);
+		}
 	});
 });

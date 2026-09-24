@@ -142,7 +142,8 @@ paymentsRouter.openapi(createPaymentRoute, async (c) => {
 						success: false as const,
 						error: {
 							code: "DUPLICATE_ORDER",
-							message: "Idempotency key already used for a different payment (gateway/amount/currency mismatch)",
+							message:
+								"Idempotency key already used for a different payment (gateway/amount/currency mismatch)",
 						},
 					},
 					409,
