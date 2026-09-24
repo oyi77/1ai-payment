@@ -7,6 +7,7 @@
  */
 
 import { getConfig, resolveGatewayConfig } from "../../config/env";
+import { GatewayError } from "../../utils/errors";
 import type {
 	CreatePaymentParams,
 	CreatePaymentResult,
@@ -27,9 +28,16 @@ function pickNetwork(_amount: number): string {
 	return getConfig().X402_NETWORK || "eip155:8453";
 }
 
-/** Convert amount to USDC smallest unit (6 decimals) */
+/** Convert amount to USDC smallest unit (6 decimals).
+ *
+ * params.amount is MINOR units (cents) — same contract as PayPal/NOWPayments.
+ * Divide by 100 first (Sweep112: the old code treated cents as dollars and
+ * overcharged 100x — a $10 order billed 1000 USDC). IDR has no cents, but
+ * x402 settles in USDC so IDR orders are rejected by the currency guard in
+ * the gateway class (methods list USD only).
+ */
 function toUSDCUnit(amount: number): string {
-	return BigInt(Math.round(amount * 1_000_000)).toString();
+	return BigInt(Math.round((amount / 100) * 1_000_000)).toString();
 }
 
 /**
@@ -38,6 +46,14 @@ function toUSDCUnit(amount: number): string {
 export async function buildPaymentRequirement(
 	params: CreatePaymentParams,
 ): Promise<CreatePaymentResult> {
+	// x402 settles in USDC (USD only per getPaymentMethods). An IDR amount
+	// passed through unconverted would bill rupiah-nominal as USDC.
+	if ((params.currency ?? "USD").toUpperCase() !== "USD") {
+		throw new GatewayError(
+			"x402",
+			`x402 settles USDC only, got currency ${params.currency}`,
+		);
+	}
 	const network = pickNetwork(params.amount);
 	const cfg = getConfig();
 	const mCfg = params.merchantId
@@ -75,7 +91,7 @@ export async function buildPaymentRequirement(
 		x402Version: X402_VERSION,
 		resource: {
 			url: `${cfg.PUBLIC_BASE_URL.replace(/\/$/, "")}/api/payments/${params.orderId}/status`,
-			description: `Payment of ${params.amount} USDC`,
+			description: `Payment of ${(params.amount / 100).toFixed(2)} USDC`,
 		},
 		accepts,
 	};

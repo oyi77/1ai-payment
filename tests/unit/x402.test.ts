@@ -35,7 +35,7 @@ const gateway = new X402Gateway();
 describe('X402Gateway.createPayment', () => {
   test('returns payment requirement with USDC details', async () => {
     const result = await gateway.createPayment({
-      amount: 1,
+      amount: 100, // 100 cents = $1.00 = 1000000 micro-USDC
       currency: 'USD',
       orderId: 'order_123',
     });
@@ -53,15 +53,21 @@ describe('X402Gateway.createPayment', () => {
     expect(result.expiresAt).toBeTruthy();
   });
 
-  test('converts amount correctly: 1.50 USD -> 1500000 smallest unit', async () => {
+  test('converts amount correctly: 150 cents ($1.50) -> 1500000 smallest unit', async () => {
     const result = await gateway.createPayment({
-      amount: 1.5,
+      amount: 150,
       currency: 'USD',
       orderId: 'order_150',
     });
 
     const parsed = JSON.parse(result.paymentUrl);
     expect(parsed.accepts[0].amount).toBe('1500000');
+  });
+
+  test('rejects non-USD currency (no silent rupiah-as-USDC)', async () => {
+    await expect(
+      gateway.createPayment({ amount: 50000, currency: 'IDR', orderId: 'order_idr' }),
+    ).rejects.toThrow(/USDC only/);
   });
 
   test('throws if X402_WALLET_ADDRESS is missing', async () => {
