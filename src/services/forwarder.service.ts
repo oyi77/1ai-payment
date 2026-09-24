@@ -13,7 +13,7 @@ import {
 	generateEventId,
 	signPayload,
 } from "../utils/crypto";
-import { logger } from "../utils/logger";
+import { logger, upstreamPreview } from "../utils/logger";
 import { fetchPublic } from "../utils/ssrf";
 import { getOrderById, markForwarded } from "./order.service";
 import type { Order } from "./order.service";
@@ -156,7 +156,7 @@ export async function forwardEvent(
 				}
 
 				lastError = new Error(
-					`HTTP ${response.status}: ${await response.text().catch(() => "unknown")}`,
+					`HTTP ${response.status}: ${upstreamPreview(await response.text().catch(() => "unknown"))}`,
 				);
 				lastStatus = response.status;
 			}

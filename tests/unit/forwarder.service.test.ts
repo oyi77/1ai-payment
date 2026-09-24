@@ -177,6 +177,25 @@ describe("forwardEvent with mocked fetch", () => {
 		expect(match!.attempts).toBe(3);
 	});
 
+	test("dead-letter error stores a truncated preview, not the full body (Sweep175)", async () => {
+		const order = await makeOrder({
+			callback_url: "https://example.com/huge-error",
+		});
+		const huge = `E${"x".repeat(5000)}`;
+		globalThis.fetch = (() => {
+			return Promise.resolve(new Response(huge, { status: 502 }));
+		}) as unknown as typeof fetch;
+
+		await withInstantTimers(() => forwardEvent(baseEvent, order, "secret"));
+
+		const letters = await listDeadLetter();
+		const match = letters.find((l) => l.order_id === order.id);
+		expect(match).toBeDefined();
+		expect(match!.error).toContain("HTTP 502");
+		expect(match!.error.length).toBeLessThan(huge.length);
+		expect(match!.error).toContain("[truncated]");
+	});
+
 	test("retries on network error and writes dead letter", async () => {
 		const order = await makeOrder({
 			callback_url: "https://nonexistent.example.com/fail",
