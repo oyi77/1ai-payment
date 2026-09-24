@@ -98,4 +98,20 @@ describe("GET /doc security schemes", () => {
 			}
 		}
 	});
+
+	test("every authed /api/* path declares ApiKeyAuth (Sweep110)", async () => {
+		const doc = await getDoc();
+		const PUBLIC = new Set(["/api/register", "/health"]);
+		const missing: string[] = [];
+		for (const [path, ops] of Object.entries(doc.paths)) {
+			if (!path.startsWith("/api/") || PUBLIC.has(path)) continue;
+			if (path.includes("/admin/")) continue; // AdminKeyAuth, covered above
+			for (const [method, op] of Object.entries(ops)) {
+				const names = (op.security ?? []).flatMap((s) => Object.keys(s));
+				if (!names.includes("ApiKeyAuth"))
+					missing.push(`${method.toUpperCase()} ${path}`);
+			}
+		}
+		expect(missing).toEqual([]);
+	});
 });

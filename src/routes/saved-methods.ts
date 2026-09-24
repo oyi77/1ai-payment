@@ -36,6 +36,7 @@ router.openapi(
 	createRoute({
 		method: "get",
 		path: "/saved-methods",
+		security: [{ ApiKeyAuth: [] }],
 		responses: {
 			200: {
 				description: "List of saved payment methods for the merchant",
@@ -64,6 +65,7 @@ router.openapi(
 	createRoute({
 		method: "post",
 		path: "/saved-methods",
+		security: [{ ApiKeyAuth: [] }],
 		request: {
 			body: {
 				content: {
@@ -110,6 +112,7 @@ router.openapi(
 	createRoute({
 		method: "get",
 		path: "/saved-methods/{methodId}",
+		security: [{ ApiKeyAuth: [] }],
 		request: {
 			params: savedMethodIdParamsSchema,
 		},
@@ -161,6 +164,7 @@ router.openapi(
 	createRoute({
 		method: "patch",
 		path: "/saved-methods/{methodId}",
+		security: [{ ApiKeyAuth: [] }],
 		request: {
 			params: savedMethodIdParamsSchema,
 			body: {
@@ -220,6 +224,7 @@ router.openapi(
 	createRoute({
 		method: "delete",
 		path: "/saved-methods/{methodId}",
+		security: [{ ApiKeyAuth: [] }],
 		request: {
 			params: savedMethodIdParamsSchema,
 		},
