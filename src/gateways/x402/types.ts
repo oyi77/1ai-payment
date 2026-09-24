@@ -60,10 +60,6 @@ export interface X402VerificationResult {
 	/** Reason if verification failed */
 	error?: string;
 }
-
-/** Supported x402 environments */
-export type X402Env = "sandbox" | "production";
-
 /** Default x402 constants */
 export const X402_VERSION = 2;
 export const X402_DEFAULT_TIMEOUT = 300; // 5 min
