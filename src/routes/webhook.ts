@@ -430,6 +430,22 @@ for (const gatewayName of GATEWAY_NAMES) {
 			return c.json({ ok: true as const }, 200);
 		}
 
+		// Saweria has no webhook signature: anyone who knows an order_id can
+		// forge a success callback. Amount-match is the reconciliation floor —
+		// reject underpay forgeries (paid X, claim Y>X). Overpay passes
+		// (donors tip extra; amount_raw includes fees). Residue: exact-amount
+		// forgery with zero payment is still possible — full mitigation needs
+		// a Saweria transaction-status API, which does not exist publicly.
+		// 200-skip (not 4xx): the fact will not change on retry; log the warn.
+		if (gatewayName === "saweria" && event.amount < order.amount) {
+			logger.warn("Saweria: underpay forgery rejected", {
+				order_id: order.id,
+				order_amount: order.amount,
+				claimed_amount: event.amount,
+			});
+			return c.json({ ok: true as const }, 200);
+		}
+
 		// Re-normalize with metadata from order
 		const fullEvent = gateway.normalizeEvent(body, order.metadata);
 
