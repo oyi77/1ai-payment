@@ -116,6 +116,17 @@ describe("merchant-key webhook verification", () => {
 		).toBe(true);
 	});
 
+	test("tripay verifySignature forwards opts to raw (contract)", async () => {
+		const gw = new TripayGateway();
+		const body = { merchant_ref: "pay_mv4", status: "PAID" };
+		const rawBody = JSON.stringify(body);
+		const merchantSig = crypto.createHmac("sha256", "merchant-tp-priv").update(rawBody).digest("hex");
+		const mHeaders = { "x-signature": merchantSig };
+		// verifySignature must honor opts.merchantId, not silently drop it
+		expect(await gw.verifySignature(body, mHeaders, { merchantId: "merch_mv" })).toBe(true);
+		expect(await gw.verifySignature(body, mHeaders)).toBe(false);
+	});
+
 	test("tripay raw: merchant HMAC verifies via opts, platform path rejects it", async () => {
 		const gw = new TripayGateway();
 		const rawBody = JSON.stringify({ merchant_ref: "pay_mv3", status: "PAID" });

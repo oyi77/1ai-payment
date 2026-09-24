@@ -149,9 +149,11 @@ export class TripayGateway implements PaymentGateway {
 	async verifySignature(
 		body: unknown,
 		headers: Record<string, string>,
+		opts?: GatewayVerifyOpts,
 	): Promise<boolean> {
-		// Signature is HMAC over the raw request body — delegate to raw
-		return this.verifySignatureRaw(JSON.stringify(body), headers);
+		// Signature is HMAC over the raw request body — delegate to raw,
+		// forwarding opts so merchant-key verification keeps working.
+		return this.verifySignatureRaw(JSON.stringify(body), headers, opts);
 	}
 
 	async verifySignatureRaw(
