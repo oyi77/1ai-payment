@@ -14,6 +14,9 @@ beforeAll(() => {
   process.env.PAYPAL_CLIENT_SECRET = 'test_client_secret';
   process.env.PAYPAL_WEBHOOK_ID = 'wh_id';
   process.env.PAYPAL_WEBHOOK_SECRET = 'wh_secret';
+  // Bun auto-loads the repo .env: a future live PAYPAL_ENVIRONMENT (or
+  // extra creds) must not change these hermetic expectations (Sweep172).
+  delete process.env.PAYPAL_ENVIRONMENT;
 });
 
 function makeWebhookEvent(eventType: string, resourceStatus: string, overrides: Record<string, unknown> = {}) {

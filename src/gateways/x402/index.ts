@@ -64,7 +64,7 @@ export class X402Gateway implements PaymentGateway {
 		}
 
 		// Fail closed without credentials — nothing to verify against.
-		const cfg = getConfig() as unknown as Record<string, string | undefined>;
+		const cfg = getConfig();
 		if (!cfg.X402_WALLET_ADDRESS) return false;
 
 		const result = await verifyAndCachePayment(signature);

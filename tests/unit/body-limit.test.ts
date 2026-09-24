@@ -18,7 +18,10 @@ process.env.NODE_ENV = "test";
 process.env.ADMIN_API_KEY = "test-admin-key-bodylimit";
 process.env.ENCRYPTION_KEY =
 	"f0bbe8000253a9997331287d3ebdadd3854720a049233b18a37dd401b61b4c6f";
-resetConfigCache();
+// Bun auto-loads the repo .env into the test process — the live
+// CORS_ORIGIN there would override the test-env "*" default this file's
+// CORS test relies on. Delete it so the default applies (Sweep172).
+delete process.env.CORS_ORIGIN;
 
 import { initDatabase } from "../../src/config/database";
 import type { app as AppType } from "../../src/app";

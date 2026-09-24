@@ -22,6 +22,11 @@ process.env.NODE_ENV = "test";
 process.env.ADMIN_API_KEY = "test-admin-key-nexus-revoke";
 process.env.ENCRYPTION_KEY =
 	"f0bbe8000253a9997331287d3ebdadd3854720a049233b18a37dd401b61b4c6f";
+// Bun auto-loads the repo .env: live NEXUS tokens would make revoke hit
+// the real Telegram API with the production bot token (Sweep172).
+delete process.env.NEXUS_TELEGRAM_BOT_TOKEN;
+delete process.env.TELEGRAM_BOT_TOKEN;
+delete process.env.NEXUS_TELEGRAM_CHANNEL_ID;
 resetConfigCache();
 
 import type { Client } from "@libsql/client";

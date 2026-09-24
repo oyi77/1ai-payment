@@ -54,7 +54,7 @@ function networkToChain(network: string): Chain {
 
 /** Get RPC URL for a network — falls back to public endpoints */
 function getRpcUrl(network: string): string | undefined {
-	const cfg = getConfig() as unknown as Record<string, string | undefined>;
+	const cfg = getConfig();
 	const urls: Record<string, string> = {
 		"eip155:8453": cfg.X402_RPC_URL || "https://mainnet.base.org",
 		"eip155:84532": cfg.X402_RPC_URL || "https://sepolia.base.org",
@@ -65,7 +65,7 @@ function getRpcUrl(network: string): string | undefined {
 
 /** Get the merchant's configured wallet address for receiving payments */
 function getMerchantWallet(): string {
-	const cfg = getConfig() as unknown as Record<string, string | undefined>;
+	const cfg = getConfig();
 	const addr = cfg.X402_WALLET_ADDRESS;
 	if (!addr) {
 		throw new Error("X402_WALLET_ADDRESS is not configured");
@@ -81,7 +81,7 @@ function getMerchantWallet(): string {
  * default USDC address.
  */
 function resolveAsset(network: string): string | undefined {
-	const cfg = getConfig() as unknown as Record<string, string | undefined>;
+	const cfg = getConfig();
 	const configured = cfg.X402_USDC_ADDRESS;
 	if (configured && isAddress(configured)) return getAddress(configured);
 	const fallback = DEFAULT_USDC_ADDRESSES[network];
