@@ -445,6 +445,19 @@ describe("listOrders", () => {
 		expect(normalizeDateBound("2026-09-24", true)).toBe("2026-09-24 23:59:59");
 	});
 
+	test("quote-break input is parameterized, never executed (no 500)", async () => {
+		const result = await listOrders({
+			project_id: "x' OR '1'='1",
+			status: "success' OR '1'='1' --",
+			gateway: '"; DROP TABLE orders; --',
+		});
+		expect(result.total).toBe(0);
+		expect(result.orders).toHaveLength(0);
+		// orders table still intact
+		const check = await listOrders({});
+		expect(check.total).toBeGreaterThanOrEqual(0);
+	});
+
 	test("empty result for non-matching filter", async () => {
 		const result = await listOrders({ gateway: "nonexistent_gateway" });
 		expect(result.orders).toHaveLength(0);
