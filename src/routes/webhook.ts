@@ -25,7 +25,10 @@ import {
 	webhookErrorSchema,
 } from "../schemas";
 import { forwardEvent, trackForward } from "../services/forwarder.service";
-import { handleNexusPayment } from "../services/nexus-fulfillment";
+import {
+	handleNexusPayment,
+	revokeNexusAccess,
+} from "../services/nexus-fulfillment";
 import {
 	getOrderByGatewayRef,
 	getOrderById,
@@ -452,6 +455,36 @@ for (const gatewayName of GATEWAY_NAMES) {
 				if (result.success) {
 					logger.info("Nexus: fulfillment complete for direct checkout", {
 						subId: result.subscriptionId,
+					});
+				}
+			}
+			// B2-revoke (Sweep145): a terminal-negative Scalev event
+			// (cancelled/expired/failed/refunded) for a fulfilled order must end
+			// paid access — otherwise a refunded customer keeps Telegram access
+			// until expires_at. No-op when no active subscription matches.
+			if (
+				gatewayName === "scalev" &&
+				(event.status === "cancelled" ||
+					event.status === "expired" ||
+					event.status === "failed" ||
+					event.status === "refunded")
+			) {
+				const scalevOrderId =
+					event.gateway_reference ||
+					String(
+						(body as Record<string, unknown>).id ??
+							(body as Record<string, unknown>).order_id ??
+							"",
+					);
+				const { revoked } = await revokeNexusAccess(
+					scalevOrderId,
+					event.status,
+				);
+				if (revoked > 0) {
+					logger.info("Nexus: access revoked on terminal event", {
+						scalev_order_id: scalevOrderId,
+						status: event.status,
+						revoked,
 					});
 				}
 			}

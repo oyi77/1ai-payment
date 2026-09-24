@@ -324,6 +324,11 @@ export class ScalevGateway implements PaymentGateway {
 		if (status === "failed") return "failed";
 		if (status === "cancelled") return "cancelled";
 		if (status === "expired") return "expired";
+		// Defensive (Sweep145): the live payload shape is still unconfirmed
+		// (pending 1 real test order). Any refund-like status must land on
+		// "refunded" so the webhook layer revokes Nexus access — falling
+		// through to "pending" would leave a refunded customer active.
+		if (status.includes("refund")) return "refunded";
 		return "pending";
 	}
 

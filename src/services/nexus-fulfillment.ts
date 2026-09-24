@@ -316,3 +316,47 @@ export async function revokeTelegramInviteLink(
 		return false;
 	}
 }
+
+/**
+ * Revoke paid access after a terminal-negative Scalev event (Sweep145).
+ *
+ * Refunds/chargebacks/cancels arrive as webhooks for a scalev_order_id whose
+ * subscription is still 'active' — without this, a fully-refunded customer
+ * keeps Telegram access until expires_at. Only touches ACTIVE rows (a
+ * second event for the same order is a no-op returning 0); access ends by
+ * status even when the Telegram revoke call fails (same fire-safe pattern
+ * as the expiry cron).
+ */
+export async function revokeNexusAccess(
+	scalevOrderId: string,
+	reason: string,
+): Promise<{ revoked: number }> {
+	if (!scalevOrderId) return { revoked: 0 };
+	const db = getDb();
+	const config = getConfig();
+	const now = new Date().toISOString().replace("T", " ").slice(0, 19);
+	const rows = await db.execute({
+		sql: `SELECT id, telegram_invite_link, telegram_chat_id FROM nexus_subscriptions
+          WHERE scalev_order_id = ? AND status = 'active'`,
+		args: [scalevOrderId],
+	});
+	if (rows.rows.length === 0) return { revoked: 0 };
+	const botToken = config.NEXUS_TELEGRAM_BOT_TOKEN || config.TELEGRAM_BOT_TOKEN;
+	let revoked = 0;
+	for (const row of rows.rows) {
+		const r = row as Record<string, unknown>;
+		const subId = String(r.id ?? "");
+		const link = String(r.telegram_invite_link ?? "");
+		const chatId = String(r.telegram_chat_id ?? "");
+		if (botToken && link && chatId) {
+			await revokeTelegramInviteLink(botToken, chatId, link);
+		}
+		await db.execute({
+			sql: "UPDATE nexus_subscriptions SET status = 'revoked', updated_at = ? WHERE id = ?",
+			args: [now, subId],
+		});
+		logger.info("Nexus: subscription revoked", { subId, reason });
+		revoked++;
+	}
+	return { revoked };
+}
