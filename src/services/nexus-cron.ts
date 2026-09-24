@@ -74,7 +74,7 @@ async function sendTelegramMessage(
 	}
 }
 
-async function handleExpiredSubscriptions(): Promise<void> {
+export async function handleExpiredSubscriptions(): Promise<void> {
 	const db = getDb();
 	const config = getConfig();
 	const now = new Date().toISOString().replace("T", " ").slice(0, 19);
@@ -117,7 +117,7 @@ async function handleExpiredSubscriptions(): Promise<void> {
  * Sends a real Telegram DM when the subscription row has a telegram_chat_id
  * AND a bot token is configured; otherwise falls back to log-only.
  */
-async function sendExpiryReminders(): Promise<void> {
+export async function sendExpiryReminders(): Promise<void> {
 	const db = getDb();
 	const config = getConfig();
 	const botToken = config.NEXUS_TELEGRAM_BOT_TOKEN || config.TELEGRAM_BOT_TOKEN;
