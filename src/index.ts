@@ -29,15 +29,19 @@ logger.info(`1ai-payment ready on http://localhost:${config.PORT}`);
 logger.info(`Swagger UI: http://localhost:${config.PORT}/reference`);
 logger.info(`OpenAPI spec: http://localhost:${config.PORT}/doc`);
 
-// Graceful shutdown — stop accepting, drain, exit
+// Graceful shutdown — stop accepting, drain, exit.
+// Budget (Sweep143): live PM2 kill_timeout is 5000ms, so EVERYTHING here
+// must finish below that — drain 3000ms + forced exit at 4500ms. Budgets
+// above 5000ms never run: PM2 SIGKILLs first. Keep in sync with
+// ecosystem.config.cjs (kill_timeout) if either changes.
 function shutdown(signal: string) {
 	logger.info(`Received ${signal}, starting graceful shutdown...`);
 	stopNexusCron();
 	const forceExit = setTimeout(() => {
 		logger.error("Graceful shutdown timed out, forcing exit");
 		process.exit(1);
-	}, 10_000).unref();
-	// Drain in-flight forwards first (Sweep141): up to ~8s for active
+	}, 4_500).unref();
+	// Drain in-flight forwards first (Sweep141): up to 3s for active
 	// attempts; anything still sleeping in backoff gets a replayable dead
 	// letter instead of vanishing. Then stop the server and exit.
 	const finish = () => {
@@ -50,7 +54,7 @@ function shutdown(signal: string) {
 	(async () => {
 		try {
 			const { drainForwards } = await import("./services/forwarder.service");
-			const drained = await drainForwards(8000);
+			const drained = await drainForwards(3_000);
 			if (drained.settled + drained.deadLettered > 0) {
 				logger.info("Forward drain complete", drained);
 			}

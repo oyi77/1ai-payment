@@ -53,7 +53,9 @@ export function trackForward(
 }
 
 export async function drainForwards(
-	timeoutMs = 8000,
+	// Default fits inside the live PM2 kill_timeout (5000ms, Sweep143):
+	// callers without an explicit budget inherit the safe one.
+	timeoutMs = 3000,
 ): Promise<{ settled: number; deadLettered: number }> {
 	if (inflight.size === 0) return { settled: 0, deadLettered: 0 };
 	const entries = [...inflight];
