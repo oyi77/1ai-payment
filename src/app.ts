@@ -14,6 +14,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { getConfig } from "./config/env";
 import { adminAuthMiddleware } from "./middleware/admin-auth";
 import { authMiddleware } from "./middleware/auth";
+import { bodyLimitMiddleware } from "./middleware/body-limit";
 import { metricsHandler } from "./middleware/metrics";
 import { rateLimitMiddleware } from "./middleware/rate-limit";
 import { adminRoutes } from "./routes/admin";
@@ -49,7 +50,7 @@ app.openAPIRegistry.registerComponent("securitySchemes", "AdminKeyAuth", {
 
 // Middleware
 app.use("*", secureHeaders());
-app.use("*", cors({ origin: getConfig().CORS_ORIGIN }));
+app.use("*", bodyLimitMiddleware);
 
 // Pre-auth IP abuse guard — runs BEFORE auth so unauthenticated floods
 // (wrong/missing API key, webhook brute attempts) cannot bypass rate

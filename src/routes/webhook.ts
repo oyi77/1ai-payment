@@ -16,6 +16,7 @@ import { getDb } from "../config/database";
 import { MERCHANT_CREDENTIAL_KEYS, getConfig } from "../config/env";
 import { getGateway } from "../gateways";
 import type { NormalizedPaymentEvent } from "../gateways/base";
+import { MAX_BODY_BYTES } from "../middleware/body-limit";
 import { webhooksReceivedCounter } from "../middleware/metrics";
 import {
 	GATEWAY_NAMES,
@@ -220,6 +221,10 @@ for (const gatewayName of GATEWAY_NAMES) {
 				description: "Signature verification failed.",
 				content: errorJson,
 			},
+			413: {
+				description: "Payload too large.",
+				content: errorJson,
+			},
 			501: { description: "Gateway not yet implemented.", content: errorJson },
 		},
 	});
@@ -249,11 +254,16 @@ for (const gatewayName of GATEWAY_NAMES) {
 			return c.json({ error: "HTTPS required" }, 400);
 		}
 
-		// Parse body — read raw text first so HMAC gateways verify over raw bytes
+		// Parse body — read raw text first so HMAC gateways verify over raw bytes.
+		// Length gate: giants are cut here (413) before HMAC/DB ever see them.
+		// c.req.text() reuses Hono's cached body (safe after OpenAPI parsing).
 		let rawBody: string;
 		let body: unknown;
 		try {
 			rawBody = await c.req.text();
+			if (rawBody.length > MAX_BODY_BYTES) {
+				return c.json({ error: "Payload too large" }, 413);
+			}
 			body = rawBody ? JSON.parse(rawBody) : {};
 		} catch {
 			logger.warn(`Webhook ${gatewayName}: invalid JSON body`);
