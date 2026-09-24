@@ -115,3 +115,22 @@ describe("PUT /api/merchants/:id/gateways/:gateway (SET validation)", () => {
 		expect(res.status).toBe(403);
 	});
 });
+
+describe("GET /api/merchants/:id/gateways (Sweep146 read isolation)", () => {
+	test("rejects cross-merchant read (403, before any DB lookup)", async () => {
+		const res = await app.request("/api/merchants/merch_other/gateways", {
+			headers: { "X-API-Key": mKey },
+		});
+		expect(res.status).toBe(403);
+	});
+
+	test("own list never exposes stored credentials", async () => {
+		const res = await app.request("/api/merchants/merch_gwcon/gateways", {
+			headers: { "X-API-Key": mKey },
+		});
+		expect(res.status).toBe(200);
+		const text = await res.text();
+		expect(text).not.toContain("merchant-mt-key");
+		expect(text).not.toContain("credentials");
+	});
+});
