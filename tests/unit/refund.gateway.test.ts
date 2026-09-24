@@ -125,6 +125,33 @@ describe("createRefund with gateway confirmation", () => {
 		expect(await orderStatus(orderId)).toBe("refunded");
 	});
 
+	test("flips order to refunded when partial successes cumulatively cover the total", async () => {
+		const orderId = await createConfirmedOrder(50000);
+		registerGateway(
+			"fake_refund",
+			fakeRefundGateway(async () => ({
+				gatewayRefundId: `gw_cum_${Date.now()}`,
+				status: "success",
+			})),
+		);
+
+		const first = await createRefund({
+			order_id: orderId,
+			merchant_id: "merch_refund_gw",
+			amount: 25000,
+		});
+		expect(first.status).toBe("success");
+		expect(await orderStatus(orderId)).toBe("success");
+
+		const second = await createRefund({
+			order_id: orderId,
+			merchant_id: "merch_refund_gw",
+			amount: 25000,
+		});
+		expect(second.status).toBe("success");
+		expect(await orderStatus(orderId)).toBe("refunded");
+	});
+
 	test("keeps order success on partial refund even when gateway confirms", async () => {
 		const orderId = await createConfirmedOrder(50000);
 		registerGateway(

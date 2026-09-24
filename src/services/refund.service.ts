@@ -232,12 +232,22 @@ export async function createRefund(
 		args: [refundStatus, gatewayRefundId, id],
 	});
 
-	// Flip the order to refunded only when the full amount has been refunded.
-	if (refundStatus === "success" && refundAmount >= order.amount) {
-		await db.execute({
-			sql: "UPDATE orders SET status = 'refunded', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-			args: [params.order_id],
-		});
+	// Flip the order to refunded when the CUMULATIVE successful refunds cover
+	// the full amount — not just when a single refund does. Two partial
+	// successes summing to the total must also close the order; otherwise a
+	// fully-refunded order forever reads "success".
+	if (refundStatus === "success") {
+		const successTotal = (
+			await getRefundsByOrder(params.order_id, params.merchant_id)
+		)
+			.filter((r) => r.status === "success")
+			.reduce((sum, r) => sum + r.amount, 0);
+		if (successTotal >= order.amount) {
+			await db.execute({
+				sql: "UPDATE orders SET status = 'refunded', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+				args: [params.order_id],
+			});
+		}
 	}
 
 	return getRefundById(id) as Promise<Refund>;
