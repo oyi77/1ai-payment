@@ -132,6 +132,15 @@ describe("PATCH /api/admin/merchants/:id (admin update)", () => {
 		expect(res.status).toBe(400);
 	});
 
+	test("400 for unknown field (strict body)", async () => {
+		const res = await app.request("/api/admin/merchants/merch_adm_a", {
+			method: "PATCH",
+			headers: { ...ADMIN, "Content-Type": "application/json" },
+			body: JSON.stringify({ plan: "pro", webhook_secret: "try-steal" }),
+		});
+		expect(res.status).toBe(400);
+	});
+
 	test("rejects without admin key", async () => {
 		const res = await app.request("/api/admin/merchants/merch_adm_a", {
 			method: "PATCH",

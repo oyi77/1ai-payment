@@ -234,6 +234,7 @@ export const adminMerchantUpdateBodySchema = z
 			.openapi({ example: "pro" }),
 		active: z.boolean().optional().openapi({ example: true }),
 	})
+	.strict()
 	.openapi("AdminUpdateMerchantBody");
 
 export const merchantResponseSchema = z
