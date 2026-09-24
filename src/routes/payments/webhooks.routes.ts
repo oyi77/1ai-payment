@@ -243,7 +243,7 @@ webhooksRouter.openapi(replayWebhookDeliveryRoute, async (c) => {
 			);
 		}
 
-		const replay = await replayDeadLetter(id);
+		const replay = await replayDeadLetter(id, merchantId);
 		if (!replay.ok) {
 			// Internal detail (DB/forward/secret state) stays in ops log; never leak to caller.
 			logger.warn("Dead letter replay failed", {

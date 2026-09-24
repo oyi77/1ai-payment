@@ -247,8 +247,15 @@ export interface ReplayResult {
  * original forward). Marks the dead-letter row as replayed on success.
  *
  * @param id dead_letter_events.id
+ * @param expectedMerchantId optional owner check (defense in depth — the
+ * route already 404s cross-merchant, but the service must never forward
+ * another merchant's event even if a future caller forgets). Mismatch
+ * returns the same "Order not found" as a missing order (indistinguishable).
  */
-export async function replayDeadLetter(id: string): Promise<ReplayResult> {
+export async function replayDeadLetter(
+	id: string,
+	expectedMerchantId?: string,
+): Promise<ReplayResult> {
 	const db = getDb();
 
 	const result = await db.execute({
@@ -266,6 +273,16 @@ export async function replayDeadLetter(id: string): Promise<ReplayResult> {
 	}
 
 	const order = await getOrderById(orderId);
+	if (!order) {
+		return { ok: false, error: "Order not found" };
+	}
+	if (
+		expectedMerchantId &&
+		order.merchant_id !== expectedMerchantId &&
+		order.project_id !== expectedMerchantId
+	) {
+		return { ok: false, error: "Order not found" };
+	}
 	if (!order) {
 		return { ok: false, error: "Order not found" };
 	}

@@ -267,3 +267,33 @@ describe("POST /api/webhook-deliveries/{id}/replay", () => {
 		expect(body.error.code).toBe("UNAUTHORIZED");
 	});
 });
+
+describe("replayDeadLetter owner check (Sweep163 service defense)", () => {
+	test("wrong expectedMerchantId returns Order-not-found and never forwards", async () => {
+		const order = await createReplayFixture("merch_replay", "dl_replay_owner");
+		const { replayDeadLetter } = await import("../../src/services/forwarder.service");
+		let fetchCalls = 0;
+		globalThis.fetch = (() => {
+			fetchCalls++;
+			return Promise.resolve(new Response("ok", { status: 200 }));
+		}) as unknown as typeof fetch;
+		const result = await replayDeadLetter("dl_replay_owner", "merch_someone_else");
+		expect(result.ok).toBe(false);
+		expect(result.error).toBe("Order not found");
+		expect(fetchCalls).toBe(0);
+		expect(order.merchant_id).toBe("merch_replay");
+	});
+
+	test("matching owner proceeds to forward", async () => {
+		await createReplayFixture("merch_replay", "dl_replay_owner_ok");
+		const { replayDeadLetter } = await import("../../src/services/forwarder.service");
+		let fetchCalls = 0;
+		globalThis.fetch = (() => {
+			fetchCalls++;
+			return Promise.resolve(new Response("ok", { status: 200 }));
+		}) as unknown as typeof fetch;
+		const result = await replayDeadLetter("dl_replay_owner_ok", "merch_replay");
+		expect(result.ok).toBe(true);
+		expect(fetchCalls).toBe(1);
+	});
+});
