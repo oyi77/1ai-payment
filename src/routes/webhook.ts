@@ -396,6 +396,11 @@ for (const gatewayName of GATEWAY_NAMES) {
 				logger.error("Failed to log webhook for unknown order", {
 					error: String(dbErr),
 				});
+				// Non-dedupe DB failure: the event was NOT recorded, so it
+				// must NOT be processed further — Nexus fulfillment below
+				// would create a subscription with no audit row. Still 200
+				// per the webhook contract (no gateway retry on poison).
+				return c.json({ ok: true as const }, 200);
 			}
 
 			// B2: Try nexus fulfillment for direct Scalev checkout (no order in DB)
