@@ -688,6 +688,11 @@ const order = await payment.create({
       const ownMap = {};
       if (owned && owned.success) (owned.data || []).forEach(o => { ownMap[o.gateway] = o; });
       document.getElementById('gwList').innerHTML = visible.map(g => {
+        // Allowlist (Sweep153): gateway names are concatenated raw into ids,
+        // onclick handlers and attribute values below. Today's names come
+        // from server code, but a rogue name (quote/bracket) would be stored
+        // XSS — skip anything outside the registry charset.
+        if (!/^[a-z0-9_]+$/.test(g.gateway || '')) return '';
         const fields = GW_FIELDS[g.gateway];
         const own = ownMap[g.gateway];
         if (!fields) {
