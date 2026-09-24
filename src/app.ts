@@ -76,6 +76,9 @@ app.use("/api/register", rateLimitMiddleware({ windowMs: 3_600_000, max: 5 }));
 // Post-auth per-merchant tiering (free=30/pro=120/enterprise=600) — keys by
 // merchantId set by authMiddleware above; falls back to IP keying (unauth).
 app.use("/api/*", rateLimitMiddleware({ windowMs: 60_000, max: 60 }));
+// Rate-limit /metrics too — admin-key brute force must not be unlimited
+// (the /api/* IP guard does not cover this path).
+app.use("/metrics", rateLimitMiddleware({ windowMs: 60_000, max: 60 }));
 
 // Metrics — admin auth required
 app.get("/metrics", adminAuthMiddleware(), metricsHandler);
