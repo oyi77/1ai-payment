@@ -205,16 +205,15 @@ app.notFound((c) =>
 	),
 );
 
-// Swagger UI at /reference — pre-fills API key from query param
+// Swagger UI at /reference — API keys NEVER in query params (Sweep142:
+// ?key= leaked keys into access logs/history for zero benefit — the value
+// was never injected, only toggled persistAuthorization). Auth via the
+// Authorize dialog header; persistence always on.
 app.get("/reference", (c) => {
-	const key = c.req.query("key");
-	if (key) {
-		return swaggerUI({ url: "/doc", persistAuthorization: true })(
-			c,
-			async () => {},
-		);
-	}
-	return swaggerUI({ url: "/doc" })(c, async () => {});
+	return swaggerUI({ url: "/doc", persistAuthorization: true })(
+		c,
+		async () => {},
+	);
 });
 
 export { app };

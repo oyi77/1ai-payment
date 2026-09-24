@@ -402,22 +402,22 @@ what the API offers.
 
 ### Step 5.2 — Per-merchant API docs
 
-**Status: 🟡 Partial**
+**Status: ✅ Done (re-scoped, Sweep142)**
 
-**Files:** `src/index.ts` (Swagger `/reference`)
+**Files:** `src/app.ts` (Swagger `/reference`), `README.md`, `docs/02-api-reference.md`
 
 **Shipped:**
-- `/reference` accepts `?key=`; Swagger UI is configured with
-  `persistAuthorization: true`.
+- `/reference` serves Swagger UI with `persistAuthorization: true` always on.
+- Auth via the Authorize dialog (`X-API-Key` header) — documented in README.
 
-**Gap:** The key is **not injected** into Swagger's authorization state — the
-query param only persists the UI toggle. "Try it out" requests still need the
-user to manually paste the key into the Authorize dialog. The original goal
-("Swagger pre-fills the API key") is unmet.
+**Re-scope (Sweep142):** the original `?key=` query-param plan is REMOVED, not
+completed — it leaked keys into access logs/browser history for zero benefit
+(the value was never injected into Swagger auth state, only toggled a
+persist flag). Seeding `localStorage` from a key-bearing URL would keep the
+leak. The secure pattern (paste once into the Authorize dialog, persisted by
+Swagger) replaces it. API keys are never accepted in query params.
 
-**Target:** seed `localStorage`/Swagger auth with the `?key=` value on load.
-
-**Rollback:** Remove key handling (keep `/reference` open).
+**Rollback:** N/A (removal — nothing to roll back).
 
 ---
 
@@ -502,7 +502,7 @@ Genuinely-future items, roughly by dependency order. None block current use.
    (API lists merchants and can update plan/active; no web UI / detail actions
    yet).
 9. ~~Dashboard Webhooks page~~ — **done**: Deliveries tab with replay button ships in the dashboard.
-10. **Complete 5.2 (partial)** — `?key=` is read and `persistAuthorization` is on, but the key is not injected into Swagger auth on load; manual paste still required.
+10. ~~Per-merchant API docs (5.2)~~ — **done re-scoped (Sweep142)**: `?key=` removed (log/history leak for zero benefit); `/reference` serves Swagger with `persistAuthorization` always on, auth via Authorize dialog header.
 11. **SDK maturity (partial)** — test suite ships (`packages/sdk/tests/index.test.ts`, mocked fetch); remaining: CI publish (currently private).
 12. **Distributed rate limiting** — replace the in-memory `Map` with a shared
     store (Redis/libSQL) so limits hold across instances.
@@ -515,6 +515,6 @@ Genuinely-future items, roughly by dependency order. None block current use.
 | Phase 2: History & Refunds | 3 steps | 2 done, 1 partial | 1-2 weeks | **P1** — merchant needs |
 | Phase 3: Merchant Gateways | 3 steps | 2 done, 1 partial | 1-2 weeks | **P1** — platform differentiation |
 | Phase 4: Rate & Billing | 3 steps | 1 done, 2 partial | 1 week | **P2** — monetization |
-| Phase 5: Dashboard & SDK | 3 steps | 2 done, 1 partial | 2-3 weeks | **P2** — adoption |
+| Phase 5: Dashboard & SDK | 3 steps | 3 done | 2-3 weeks | **P2** — adoption |
 
-**Remaining to finish all 18 steps:** one 🟡 gap (4.3 fee computation) and two 🟡 polish items (4.2 webhook tiers, 5.2 key pre-fill) — under a week. Closed since: 3.2 wiring, 2.2 refunds + idempotency, 5.3 SDK tests, Webhooks page, webhook-secret rotation (Sweep115), 1.6 per-merchant idempotency (Sweep132). Everything after that (billing, admin UI) is net-new backlog.
+**Remaining to finish all 18 steps:** one 🟡 gap (4.3 fee computation) and one 🟡 polish item (4.2 webhook tiers) — under a week. Closed since: 3.2 wiring, 2.2 refunds + idempotency, 5.3 SDK tests, Webhooks page, webhook-secret rotation (Sweep115), 1.6 per-merchant idempotency (Sweep132), 5.2 re-scoped (Sweep142, `?key=` removed). Everything after that (billing, admin UI) is net-new backlog.

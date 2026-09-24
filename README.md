@@ -202,10 +202,10 @@ OpenAPI spec is **auto-generated from Zod schemas** in `src/schemas.ts` and rout
 
 | Endpoint | Description |
 |----------|-------------|
-| `/reference` | Interactive Swagger UI (try-it-out, auth persistence) |
+| `/reference` | Interactive Swagger UI (try-it-out, auth persistence always on) |
 | `/doc` | Auto-generated OpenAPI 3.1 JSON spec |
 
-Opening `/reference?key=<your-api-key>` enables persisted authorization in the Swagger UI (it toggles `persistAuthorization`, so try-it-out calls re-use the key you enter once). The key itself is not injected into requests; you still paste it into the Authorize dialog.
+Open `/reference`, click Authorize, paste your API key as the `X-API-Key` header value. `persistAuthorization` keeps it across reloads. API keys are never accepted in query params (they leak into access logs and browser history).
 
 ## Documentation
 

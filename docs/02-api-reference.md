@@ -820,7 +820,7 @@ Prometheus metrics endpoint. Requires the `X-Admin-Key` header. Not rate limited
 | `GET /favicon.svg` | Favicon |
 | `GET /doc` | OpenAPI JSON spec (OpenAPI 3.1.0, title `1ai-payment`, version `0.1.0`) — always in sync with the code |
 | `GET /payment/finish`, `/payment/cancel`, `/payment/success`, `/payment/virtual-account` | Buyer redirect landing (gateway default when the merchant sets no successUrl/cancelUrl; VA number rendered from query) |
-| `GET /reference` | Swagger UI (auto-generated). `persistAuthorization` is enabled when the URL contains `?key=` |
+| `GET /reference` | Swagger UI (auto-generated). `persistAuthorization` always on — auth via the Authorize dialog (`X-API-Key` header). API keys are never accepted in query params (log/history leak). |
 
 ---
 
