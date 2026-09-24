@@ -1,6 +1,6 @@
 /**
  * OpenAPI /doc contract: every `security` ref must resolve to a defined
- * securityScheme (Sweep68 found 24 refs to a never-defined ApiKeyAuth),
+ * securityScheme (Sweep68 found 21 refs to a never-defined ApiKeyAuth),
  * and admin routes must declare AdminKeyAuth (X-Admin-Key), not ApiKeyAuth.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
