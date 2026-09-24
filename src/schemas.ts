@@ -378,6 +378,11 @@ export const createMerchantResponseSchema = z
 				description: "API key — shown ONCE, store it securely",
 				example: "1pay_abc123...",
 			}),
+			webhook_secret: z.string().openapi({
+				description:
+					"Signing secret for forwarded-event verification — shown ONCE, store it securely. Never returned again; rotate on loss.",
+				example: "whsec_abc123...",
+			}),
 		}),
 	})
 	.openapi("CreateMerchantResponse");
@@ -394,6 +399,19 @@ export const rotateKeyResponseSchema = z
 		}),
 	})
 	.openapi("RotateKeyResponse");
+
+export const rotateSecretResponseSchema = z
+	.object({
+		success: z.literal(true),
+		data: z.object({
+			merchant_id: z.string().openapi({ example: "merch_abc123" }),
+			webhook_secret: z.string().openapi({
+				description: "New signing secret — shown ONCE, store it securely",
+				example: "whsec_xyz789...",
+			}),
+		}),
+	})
+	.openapi("RotateSecretResponse");
 
 // ── Phase 2 schemas ────────────────────────────────────────────
 

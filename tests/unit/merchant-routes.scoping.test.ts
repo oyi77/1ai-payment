@@ -129,3 +129,36 @@ describe("POST /api/merchants/:id/api-key (scoping)", () => {
 		expect(res.status).toBe(403);
 	});
 });
+
+describe("POST /api/merchants/:id/webhook-secret (Sweep115)", () => {
+	test("rotates own secret, returns once, old forward signature breaks", async () => {
+		const res = await app.request("/api/merchants/merch_u_a/webhook-secret", {
+			method: "POST",
+			headers: { "X-API-Key": merchantAKey, "Content-Type": "application/json" },
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as {
+			success: boolean;
+			data: { merchant_id: string; webhook_secret: string };
+		};
+		expect(body.success).toBe(true);
+		expect(body.data.merchant_id).toBe("merch_u_a");
+		expect(body.data.webhook_secret).toMatch(/^whsec_/);
+	});
+
+	test("rejects rotate of other merchant (403)", async () => {
+		const res = await app.request("/api/merchants/merch_i_dont_own/webhook-secret", {
+			method: "POST",
+			headers: { "X-API-Key": merchantAKey, "Content-Type": "application/json" },
+		});
+		expect(res.status).toBe(403);
+	});
+
+	test("rejects without key (401)", async () => {
+		const res = await app.request("/api/merchants/merch_u_a/webhook-secret", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+		});
+		expect(res.status).toBe(401);
+	});
+});

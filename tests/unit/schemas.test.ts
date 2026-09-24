@@ -81,11 +81,13 @@ describe('createMerchantResponseSchema', () => {
           updated_at: '2026-07-12T00:00:00.000Z',
         },
         api_key: '1pay_abc123def456',
+        webhook_secret: 'whsec_abc123def456',
       },
     };
     const result = createMerchantResponseSchema.parse(payload);
     expect(result.data.merchant.id).toBe('merch_abc123');
     expect(result.data.api_key).toBe('1pay_abc123def456');
+    expect(result.data.webhook_secret).toBe('whsec_abc123def456');
   });
 
   test('rejects missing api_key', async () => {

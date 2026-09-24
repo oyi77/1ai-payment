@@ -31,8 +31,8 @@ const registerRoute = createRoute({
 	tags: ["Registration"],
 	summary: "Register a new merchant",
 	description:
-		"Creates a merchant account and returns the merchant details plus a freshly generated API key. " +
-		"The API key is shown ONCE and cannot be retrieved later.",
+		"Creates a merchant account and returns the merchant details plus a freshly generated API key and webhook signing secret. " +
+		"Both are shown ONCE and cannot be retrieved later (rotate on loss).",
 	request: {
 		body: {
 			content: { "application/json": { schema: createMerchantBodySchema } },
@@ -97,6 +97,7 @@ registerRoutes.openapi(registerRoute, async (c) => {
 						updated_at: new Date().toISOString(),
 					},
 					api_key: apiKey,
+					webhook_secret: webhookSecret,
 				},
 			},
 			201,

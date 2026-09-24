@@ -56,6 +56,7 @@ describe('POST /api/register', () => {
     expect(body.data.merchant.default_callback_url).toBeNull();
 
     expect(body.data.api_key).toMatch(/^1pay_/);
+    expect(body.data.webhook_secret).toMatch(/^whsec_/);
   });
 
   test('accepts default_callback_url', async () => {

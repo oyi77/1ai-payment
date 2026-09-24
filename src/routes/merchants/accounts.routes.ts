@@ -12,6 +12,7 @@ import {
 	merchantGatewayResponseSchema,
 	merchantResponseSchema,
 	rotateKeyResponseSchema,
+	rotateSecretResponseSchema,
 	setGatewayCredentialsBodySchema,
 	toggleGatewayBodySchema,
 	updateMerchantBodySchema,
@@ -105,6 +106,7 @@ accountsRouter.openapi(createMerchantRoute, async (c) => {
 						updated_at: new Date().toISOString(),
 					},
 					api_key: apiKey,
+					webhook_secret: webhookSecret,
 				},
 			},
 			201,
@@ -460,6 +462,88 @@ accountsRouter.openapi(rotateKeyRoute, async (c) => {
 			data: {
 				merchant_id: id,
 				api_key: newApiKey,
+			},
+		},
+		200,
+	);
+});
+
+// ── POST /api/merchants/:id/webhook-secret ─────────────────────
+
+const rotateSecretRoute = createRoute({
+	method: "post",
+	path: "/merchants/{id}/webhook-secret",
+	tags: ["Merchants"],
+	summary: "Rotate webhook signing secret",
+	description:
+		"Generates a new webhook signing secret. The old secret is immediately invalidated. New secret shown ONCE.",
+	security: [{ ApiKeyAuth: [] }],
+	request: {
+		params: z.object({ id: z.string().openapi({ example: "merch_abc123" }) }),
+	},
+	responses: {
+		200: {
+			description: "Webhook secret rotated.",
+			content: { "application/json": { schema: rotateSecretResponseSchema } },
+		},
+		401: {
+			description: "Unauthorized.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		403: {
+			description: "Forbidden.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		404: {
+			description: "Merchant not found.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+	},
+});
+
+accountsRouter.openapi(rotateSecretRoute, async (c) => {
+	const { id } = c.req.valid("param");
+	const requesterId = c.get("merchantId");
+	if (id !== requesterId) {
+		return c.json(
+			{
+				success: false as const,
+				error: { code: "FORBIDDEN", message: "Forbidden" },
+			},
+			403,
+		);
+	}
+	const db = getDb();
+
+	const existing = await db.execute({
+		sql: "SELECT id FROM merchants WHERE id = ?",
+		args: [id],
+	});
+	if (existing.rows.length === 0) {
+		return c.json(
+			{
+				success: false as const,
+				error: { code: "NOT_FOUND", message: `Merchant not found: ${id}` },
+			},
+			404,
+		);
+	}
+
+	const newSecret = generateWebhookSecret();
+
+	await db.execute({
+		sql: "UPDATE merchants SET webhook_secret = ?, updated_at = datetime('now') WHERE id = ?",
+		args: [newSecret, id],
+	});
+
+	logger.info("Merchant webhook secret rotated", { id });
+
+	return c.json(
+		{
+			success: true as const,
+			data: {
+				merchant_id: id,
+				webhook_secret: newSecret,
 			},
 		},
 		200,

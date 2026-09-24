@@ -150,6 +150,14 @@
         <button class="copy-btn" onclick="copyKey()">Copy</button>
       </div>
 
+      <h2 style="margin-top:20px">✉️ Your Webhook Secret</h2>
+      <p class="subtitle">Sign-check forwarded events with this secret. It will <strong>not</strong> be shown again — rotate it in Settings if lost.</p>
+
+      <div class="api-key-box" id="apiSecretDisplay">
+        <span id="apiSecretValue"></span>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('apiSecretValue').textContent)">Copy</button>
+      </div>
+
       <div class="warning-box">
         ⚠️ <strong>Lost your key?</strong> Rotation needs the current key. If the key is fully lost, contact the platform admin for a recovery reset — there is no self-service recovery yet.
       </div>
@@ -356,6 +364,15 @@
             </div>
           </div>
           <div class="settings-group">
+            <h3>Webhook Secret</h3>
+            <p style="font-size:13px;color:#94a3b8;margin-bottom:12px">Verify forwarded-event signatures with this secret. Rotating immediately invalidates the current one — update your callback verifier at once.</p>
+            <button class="btn btn-secondary btn-small" onclick="rotateSecret()">Rotate Webhook Secret</button>
+            <div id="newSecretDisplay" class="hidden" style="margin-top:12px">
+              <div class="api-key-box"><span id="newSecretValue"></span><button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('newSecretValue').textContent)">Copy</button></div>
+              <div class="warning-box">⚠️ Save this secret now — it won't be shown again.</div>
+            </div>
+          </div>
+          <div class="settings-group">
             <h3>API Reference</h3>
             <p style="font-size:13px;color:#94a3b8">Full API documentation with try-it-out:</p>
             <a href="/reference" target="_blank" style="font-size:14px">Open Swagger UI →</a>
@@ -434,9 +451,10 @@
           showError(err, errData.error?.message || 'Registration failed.');
           return;
         }
-
         const data = await res.json();
         if (!data.success) { showError(err, data.error?.message || 'Registration failed.'); return; }
+
+        document.getElementById('apiSecretValue').textContent = data.data.webhook_secret || '(not returned — rotate in Settings)';
 
         // Store key and show reveal page
         token = data.data.api_key;
@@ -762,6 +780,17 @@ const order = await payment.create({
       localStorage.setItem('1pay_key', token);
       document.getElementById('newKeyValue').textContent = result.data.api_key;
       document.getElementById('newKeyDisplay').classList.remove('hidden');
+    }
+
+    async function rotateSecret() {
+      if (!confirm('Rotate your webhook secret? Callbacks signed with the current secret will fail verification immediately.')) return;
+      const merchants = await api('GET', '/api/merchants');
+      if (!merchants || !merchants.data || merchants.data.length === 0) return;
+      const id = merchants.data[0].id;
+      const result = await api('POST', `/api/merchants/${id}/webhook-secret`);
+      if (!result || !result.success || !result.data) return;
+      document.getElementById('newSecretValue').textContent = result.data.webhook_secret;
+      document.getElementById('newSecretDisplay').classList.remove('hidden');
     }
 
     // ── Auto-login ───────────────────────────────────
