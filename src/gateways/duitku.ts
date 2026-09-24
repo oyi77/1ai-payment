@@ -55,6 +55,13 @@ export class DuitkuGateway implements PaymentGateway {
 	async createPayment(
 		params: CreatePaymentParams,
 	): Promise<CreatePaymentResult> {
+		// Duitku settles IDR only — a USD amount would bill dollar-nominal as rupiah.
+		if ((params.currency ?? "IDR").toUpperCase() !== "IDR") {
+			throw new GatewayError(
+				"duitku",
+				`Duitku supports IDR only, got ${params.currency}`,
+			);
+		}
 		const base = getConfig();
 		const m = params.merchantId
 			? ((await resolveGatewayConfig(

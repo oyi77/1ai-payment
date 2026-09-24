@@ -141,5 +141,12 @@ describe('DuitkuGateway.verifySignature', () => {
       process.env.DUITKU_API_KEY = prev;
     }
   });
+});
 
+describe('DuitkuGateway.createPayment currency guard', () => {
+  test('rejects non-IDR currency (no dollar-as-rupiah billing)', async () => {
+    await expect(
+      gateway.createPayment({ amount: 1000, currency: 'USD', orderId: 'ord_fx' }),
+    ).rejects.toThrow(/IDR only/);
+  });
 });

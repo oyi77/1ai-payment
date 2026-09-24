@@ -58,6 +58,13 @@ export class IPaymuGateway implements PaymentGateway {
 	async createPayment(
 		params: CreatePaymentParams,
 	): Promise<CreatePaymentResult> {
+		// iPaymu settles IDR only — a USD amount would bill dollar-nominal as rupiah.
+		if ((params.currency ?? "IDR").toUpperCase() !== "IDR") {
+			throw new GatewayError(
+				"ipaymu",
+				`iPaymu supports IDR only, got ${params.currency}`,
+			);
+		}
 		const base = getConfig();
 		const m = params.merchantId
 			? ((await resolveGatewayConfig(

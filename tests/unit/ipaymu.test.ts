@@ -115,3 +115,12 @@ describe('IPaymuGateway.verifySignature', () => {
     expect(await gateway.verifySignature({ order_id: 'x', status: 'x', amount: 'x' }, {})).toBe(false);
   });
 });
+describe('IPaymuGateway.createPayment currency guard', () => {
+  test('rejects non-IDR currency (no dollar-as-rupiah billing)', async () => {
+    const { IPaymuGateway } = await import('../../src/gateways/ipaymu');
+    const gw = new IPaymuGateway();
+    await expect(
+      gw.createPayment({ amount: 1000, currency: 'USD', orderId: 'ord_fx' }),
+    ).rejects.toThrow(/IDR only/);
+  });
+});

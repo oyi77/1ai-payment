@@ -126,3 +126,12 @@ describe('TripayGateway.verifySignature', () => {
     expect(await gateway.verifySignature(payload, {})).toBe(false);
   });
 });
+describe('TripayGateway.createPayment currency guard', () => {
+  test('rejects non-IDR currency (no dollar-as-rupiah billing)', async () => {
+    const { TripayGateway } = await import('../../src/gateways/tripay');
+    const gw = new TripayGateway();
+    await expect(
+      gw.createPayment({ amount: 1000, currency: 'USD', orderId: 'ord_fx' }),
+    ).rejects.toThrow(/IDR only/);
+  });
+});
