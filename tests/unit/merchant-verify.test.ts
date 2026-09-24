@@ -138,4 +138,19 @@ describe("merchant-key webhook verification", () => {
 		expect(await gw.verifySignatureRaw(rawBody, mHeaders)).toBe(false);
 		expect(await gw.verifySignatureRaw(rawBody, pHeaders)).toBe(true);
 	});
+
+	test("corrupt ciphertext falls back to platform config (loud, no throw)", async () => {
+		const { resolveGatewayConfig } = await import("../../src/config/env");
+		// Garbage ciphertext — simulates a post-rotation undecryptable row.
+		await db.execute({
+			sql: `INSERT INTO merchant_gateways (id, merchant_id, gateway, credentials, environment, enabled)
+			      VALUES (?, ?, ?, ?, ?, 1)`,
+			args: ["mgw_corrupt_midtrans", "merch_corrupt", "midtrans", "NOT-VALID-BASE64!!!", "sandbox"],
+		});
+		const cfg = (await resolveGatewayConfig("midtrans", "merch_corrupt")) as Record<string, unknown>;
+		// Platform fallback: resolves to the platform server key, not merchant data.
+		expect(cfg.apiKey).toBe("platform-mt-key");
+		const gw = new MidtransGateway();
+		expect(await gw.verifySignature(midtransPayload("platform-mt-key"), {})).toBe(true);
+	});
 });

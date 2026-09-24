@@ -366,6 +366,17 @@ export async function resolveGatewayConfig(
 				(result.rows[0].environment as string) ?? platform.environment,
 		};
 	} catch {
+		// Loud fallback: silent platform-fallback after a key rotation would
+		// charge the PLATFORM account with merchant orders. Dynamic import
+		// avoids the logger→env import cycle (hot path unaffected — catch only).
+		const { logger } = await import("../utils/logger");
+		logger.warn(
+			"Merchant gateway credentials undecryptable, using platform fallback",
+			{
+				merchant_id: merchantId,
+				gateway,
+			},
+		);
 		return platform;
 	}
 }
