@@ -241,7 +241,6 @@ paymentsRouter.openapi(createPaymentRoute, async (c) => {
 			order_id: updatedOrder.id,
 			gateway: body.gateway,
 			gateway_reference: result.gatewayReference,
-			amount: body.amount,
 		});
 
 		paymentsCreatedCounter.inc({ gateway: body.gateway, status: "success" });
