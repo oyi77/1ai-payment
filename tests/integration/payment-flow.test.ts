@@ -276,6 +276,27 @@ describe('POST /api/payments', () => {
       expect(res.status).toBe(400);
     }
   });
+
+  test('rejects oversized URLs with 400 (Sweep177)', async () => {
+    const long = (host: string) => `https://${host}.example.com/` + 'p'.repeat(2100);
+    for (const body of [
+      { callback_url: long('cb') },
+      { success_url: long('ok') },
+      { cancel_url: long('no') },
+    ]) {
+      const res = await app.request('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': 'test-api-key-flow' },
+        body: JSON.stringify({
+          gateway: 'midtrans',
+          amount: 10000,
+          currency: 'IDR',
+          ...body,
+        }),
+      });
+      expect(res.status).toBe(400);
+    }
+  });
 });
 
 describe('POST /webhook/:gateway', () => {

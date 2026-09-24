@@ -374,3 +374,19 @@ describe("GET /api/saved-methods pagination (Sweep158)", () => {
 		expect(res.status).toBe(400);
 	});
 });
+
+describe("POST /api/saved-methods size bounds (Sweep177)", () => {
+	test("400 for oversized token and code", async () => {
+		for (const body of [
+			{ gateway_token: "t".repeat(3000) },
+			{ method_code: "c".repeat(128) },
+		]) {
+			const res = await app.request("/api/saved-methods", {
+				method: "POST",
+				headers: { "X-API-Key": merchantAKey, "Content-Type": "application/json" },
+				body: JSON.stringify({ ...VALID_BODY, ...body }),
+			});
+			expect(res.status).toBe(400);
+		}
+	});
+});

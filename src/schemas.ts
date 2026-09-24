@@ -73,6 +73,7 @@ export const customerSchema = z
 export const callbackUrlSchema = z
 	.string()
 	.url()
+	.max(2048)
 	.refine(
 		(url) => {
 			try {
@@ -134,6 +135,7 @@ export const createPaymentBodySchema = z
 		success_url: z
 			.string()
 			.url()
+			.max(2048)
 			.refine(
 				(u) => ["http:", "https:"].includes(mayParse(u)?.protocol ?? ""),
 				{
@@ -147,6 +149,7 @@ export const createPaymentBodySchema = z
 		cancel_url: z
 			.string()
 			.url()
+			.max(2048)
 			.refine(
 				(u) => ["http:", "https:"].includes(mayParse(u)?.protocol ?? ""),
 				{
@@ -343,9 +346,9 @@ export const savedPaymentMethodSchema = z
 export const createSavedMethodBodySchema = z
 	.object({
 		gateway: gatewayNameSchema,
-		method_code: z.string().min(1).openapi({ example: "card" }),
+		method_code: z.string().min(1).max(64).openapi({ example: "card" }),
 		method_name: z.string().min(1).max(128).openapi({ example: "BCA Visa" }),
-		gateway_token: z.string().min(1).openapi({
+		gateway_token: z.string().min(1).max(2048).openapi({
 			description: "Gateway-issued opaque token/reference (never raw PAN)",
 			example: "tok_secure_abc",
 		}),
@@ -541,7 +544,7 @@ export const webhookDeliverySchema = z
 
 export const setGatewayCredentialsBodySchema = z
 	.object({
-		credentials: z.record(z.string(), z.string()).openapi({
+		credentials: z.record(z.string().max(64), z.string().max(4096)).openapi({
 			description:
 				"Gateway credentials as key-value pairs (e.g. apiKey, privateKey, merchantCode)",
 			example: { apiKey: "your-key", privateKey: "your-secret" },
