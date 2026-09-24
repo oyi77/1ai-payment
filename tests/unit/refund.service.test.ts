@@ -228,4 +228,10 @@ describe("listRefunds", () => {
 		expect(total).toBeGreaterThanOrEqual(2);
 		expect(refunds.length).toBeGreaterThanOrEqual(2);
 	});
+
+	test("caps absurd limit and negative offset at service layer", async () => {
+		const { refunds, total } = await listRefunds("merch_refund", 999999, -50);
+		expect(total).toBeGreaterThanOrEqual(2);
+		expect(refunds.length).toBeLessThanOrEqual(100);
+	});
 });

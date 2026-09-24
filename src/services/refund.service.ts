@@ -54,6 +54,9 @@ export async function listRefunds(
 	offset = 0,
 ): Promise<{ refunds: Refund[]; total: number }> {
 	const db = getDb();
+	// Defense-in-depth cap (route schema already caps 100 — service never trusts callers).
+	const safeLimit = Math.min(Math.max(limit, 1), 100);
+	const safeOffset = Math.max(offset, 0);
 	const countResult = await db.execute({
 		sql: "SELECT COUNT(*) AS total FROM refunds WHERE merchant_id = ?",
 		args: [merchantId],
@@ -63,7 +66,7 @@ export async function listRefunds(
 	);
 	const result = await db.execute({
 		sql: "SELECT * FROM refunds WHERE merchant_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
-		args: [merchantId, limit, offset],
+		args: [merchantId, safeLimit, safeOffset],
 	});
 	return {
 		refunds: result.rows.map((row) =>
