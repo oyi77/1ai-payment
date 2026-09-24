@@ -194,3 +194,42 @@ describe("list pagination boundaries", () => {
 		}
 	});
 });
+
+describe("SQL injection resistance (Sweep169)", () => {
+	test("quoted status filter matches nothing (bound arg, not syntax)", async () => {
+		const res = await app.request(
+			"/api/transactions?status=' OR '1'='1",
+			{ headers: { "X-API-Key": merchantAKey } },
+		);
+		expect(res.status).toBe(200);
+		const body = await res.json();
+		expect(body.data.total).toBe(0);
+		expect(JSON.stringify(body)).not.toContain("ord_b_1");
+	});
+
+	test("stacked-query order_id filter matches nothing", async () => {
+		const res = await app.request(
+			"/api/webhook-deliveries?order_id=ord_a_1'; DROP TABLE orders;--",
+			{ headers: { "X-API-Key": merchantAKey } },
+		);
+		expect(res.status).toBe(200);
+		const body = await res.json();
+		expect(body.data.total).toBe(0);
+		// Table survives: merchant A still lists its own transaction.
+		const check = await app.request("/api/transactions", {
+			headers: { "X-API-Key": merchantAKey },
+		});
+		expect(((await check.json()) as { data: { total: number } }).data.total).toBe(1);
+	});
+
+	test("UNION probe in gateway filter matches nothing", async () => {
+		const res = await app.request(
+			"/api/transactions?gateway=midtrans' UNION SELECT * FROM merchants--",
+			{ headers: { "X-API-Key": merchantAKey } },
+		);
+		expect(res.status).toBe(200);
+		const body = await res.json();
+		expect(body.data.total).toBe(0);
+		expect(JSON.stringify(body)).not.toContain("merch_list_b");
+	});
+});
