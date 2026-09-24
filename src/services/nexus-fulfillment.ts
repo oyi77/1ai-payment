@@ -15,8 +15,16 @@
  * Invite delivery is store-link + admin-manual-share by design: Scalev checkout
  * captures no customer Telegram identifier, so a customer DM is structurally
  * blocked, not unfinished work.
+ *
+ * LIFETIME MODEL (Sweep170 — read before touching expiry): the invite LINK
+ * expires with the subscription (expire_date = created + durationDays), but
+ * link expiry/revocation NEVER removes already-joined members — Telegram
+ * links gate entry, not membership. True member removal needs the member's
+ * user_id (banChatMember+unbanChatMember kick), which no flow captures today
+ * (see header NOTE above). So: expiry/revoke stop NEW joins; joined members
+ * stay until a bot-admin flow with user_id capture ships (bot must be
+ * channel admin + customer must /start the bot or pay via invoice payload).
  */
-
 import { getDb } from "../config/database";
 import { getConfig } from "../config/env";
 import { generateEventId } from "../utils/crypto";
@@ -322,10 +330,11 @@ export async function revokeTelegramInviteLink(
  *
  * Refunds/chargebacks/cancels arrive as webhooks for a scalev_order_id whose
  * subscription is still 'active' — without this, a fully-refunded customer
- * keeps Telegram access until expires_at. Only touches ACTIVE rows (a
- * second event for the same order is a no-op returning 0); access ends by
+ * keeps the link until expires_at. Only touches ACTIVE rows (a
+ * second event for the same order is a no-op returning 0); the row ends by
  * status even when the Telegram revoke call fails (same fire-safe pattern
- * as the expiry cron).
+ * as the expiry cron). Stops NEW joins only — joined members stay (see
+ * LIFETIME MODEL above; member removal needs user_id).
  */
 export async function revokeNexusAccess(
 	scalevOrderId: string,

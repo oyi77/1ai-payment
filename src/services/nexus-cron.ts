@@ -87,7 +87,9 @@ export async function pruneOldWebhookEvents(): Promise<number> {
 
 /**
  * Mark subscriptions past expires_at as 'expired'.
- * Optionally revoke the Telegram invite link if bot token is configured.
+ * Revokes the Telegram invite LINK (stops new joins) if bot token is
+ * configured. Does NOT remove already-joined members — see LIFETIME MODEL
+ * in nexus-fulfillment.ts (needs member user_id, not captured today).
  */
 /**
  * Send a Telegram DM via Bot API. Throws on API failure so callers can
