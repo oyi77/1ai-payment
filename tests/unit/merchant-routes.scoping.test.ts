@@ -99,6 +99,20 @@ describe("PATCH /api/merchants/:id (scoping)", () => {
 		const body = (await check.json()) as { data: { plan: string } };
 		expect(body.data.plan).toBe(beforePlan);
 	});
+
+	test("400 for private/localhost default_callback_url (Sweep178 SSRF)", async () => {
+		for (const url of [
+			"http://169.254.169.254/x",
+			"https://localhost:3000/callback",
+		]) {
+			const res = await app.request("/api/merchants/merch_u_a", {
+				method: "PATCH",
+				headers: { "X-API-Key": merchantAKey, "Content-Type": "application/json" },
+				body: JSON.stringify({ default_callback_url: url }),
+			});
+			expect(res.status).toBe(400);
+		}
+	});
 });
 
 describe("POST /api/merchants/:id/api-key (scoping)", () => {

@@ -100,6 +100,21 @@ describe('POST /api/register', () => {
     expect(body.error.code).toBe('INVALID_BODY');
   });
 
+  test('rejects private/localhost default_callback_url (Sweep178 SSRF)', async () => {
+    for (const url of [
+      'http://169.254.169.254/latest/meta-data/',
+      'http://localhost:3000/callback',
+      'http://10.0.0.5/callback',
+    ]) {
+      const res = await app.request('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Evil Store', default_callback_url: url }),
+      });
+      expect(res.status).toBe(400);
+    }
+  });
+
   test('handles concurrent duplicate gracefully (no unique constraint on name)', async () => {
     // Name is not UNIQUE in the DB — duplicate names are allowed
     const res1 = await app.request('/api/register', {
