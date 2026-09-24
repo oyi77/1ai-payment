@@ -60,7 +60,7 @@ Public self-service merchant registration. Creates a merchant and returns its AP
 ```typescript
 {
   name: string;                    // 1–100 chars
-  default_callback_url?: string;   // Optional URL
+  default_callback_url?: string;   // Optional URL (stored only — NOT auto-used as payment callback_url; same SSRF rules apply)
 }
 ```
 
@@ -182,7 +182,7 @@ Idempotency-Key: <unique_key>    # Optional (alternative to body idempotency_key
   amount: number;                  // Integer, positive, in smallest currency unit (IDR = full Rupiah)
   currency?: string;               // Default: 'IDR'
   payment_method?: string;         // Gateway-specific method code (e.g. 'qris', 'bca_va', 'gopay')
-  callback_url: string;            // REQUIRED — URL the normalized event is forwarded to
+  callback_url: string;            // REQUIRED — public https URL the normalized event is forwarded to (private IPs/localhost/non-https rejected 400; DNS + redirect hops re-validated per forward, blocked forwards retry then dead-letter)
   success_url?: string;            // Where to redirect the buyer after payment completes (else platform default)
   cancel_url?: string;             // Where to redirect the buyer after cancelling (else platform default)
   idempotency_key?: string;        // Client-generated key; body field OR Idempotency-Key header
@@ -228,6 +228,7 @@ Replaying a request with the same `idempotency_key` returns the original order w
 | 409 | `DUPLICATE_ORDER` | Idempotency key already used |
 | 502 | `GATEWAY_ERROR` | Gateway API returned an error (order is marked `failed`) |
 | 500 | `INTERNAL_ERROR` | Unexpected server error |
+| 413 | `PAYLOAD_TOO_LARGE` | Request body over 1MB (declared Content-Length or webhook length gate) |
 
 ---
 
@@ -576,7 +577,7 @@ Update a merchant. Requires `X-API-Key`.
 ```typescript
 {
   name?: string;                    // 1–100 chars
-  default_callback_url?: string;    // URL
+  default_callback_url?: string;    // URL (stored only — NOT auto-used as payment callback_url)
 }
 ```
 
@@ -818,6 +819,7 @@ Prometheus metrics endpoint. Requires the `X-Admin-Key` header. Not rate limited
 | `GET /dashboard`, `GET /dashboard/` | Dashboard (`src/dashboard/index.html`, `Cache-Control: no-cache`) |
 | `GET /favicon.svg` | Favicon |
 | `GET /doc` | OpenAPI JSON spec (OpenAPI 3.1.0, title `1ai-payment`, version `0.1.0`) — always in sync with the code |
+| `GET /payment/finish`, `/payment/cancel`, `/payment/success`, `/payment/virtual-account` | Buyer redirect landing (gateway default when the merchant sets no successUrl/cancelUrl; VA number rendered from query) |
 | `GET /reference` | Swagger UI (auto-generated). `persistAuthorization` is enabled when the URL contains `?key=` |
 
 ---
@@ -854,6 +856,8 @@ Webhook endpoints use a simpler shape instead: `{ error: string }` (e.g. `{ erro
 | 404 | `GATEWAY_ERROR` | Order not found on refund (message contains "not found") |
 | 409 | `DUPLICATE` | Merchant name already in use |
 | 409 | `DUPLICATE_ORDER` | Idempotency key already used |
+| 413 | `PAYLOAD_TOO_LARGE` | Request body over 1MB |
+| 403 | `GATEWAY_DISABLED` | Gateway explicitly disabled for this merchant |
 | 429 | `RATE_LIMITED` | Rate limit exceeded (includes `Retry-After` header) |
 | 500 | `INTERNAL_ERROR` | Unexpected server error |
 | 502 | `GATEWAY_ERROR` | Gateway API returned an error |
