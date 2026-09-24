@@ -7,7 +7,7 @@
  */
 
 import { getConfig, resolveGatewayConfig } from "../../config/env";
-import { GatewayError } from "../../utils/errors";
+import { GatewayError, ValidationError } from "../../utils/errors";
 import type {
 	CreatePaymentParams,
 	CreatePaymentResult,
@@ -49,7 +49,7 @@ export async function buildPaymentRequirement(
 	// x402 settles in USDC (USD only per getPaymentMethods). An IDR amount
 	// passed through unconverted would bill rupiah-nominal as USDC.
 	if ((params.currency ?? "USD").toUpperCase() !== "USD") {
-		throw new GatewayError(
+		throw new ValidationError(
 			"x402",
 			`x402 settles USDC only, got currency ${params.currency}`,
 		);

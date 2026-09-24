@@ -65,6 +65,25 @@ export class GatewayError extends PaymentError {
 	}
 }
 
+/**
+ * Caller-side validation failure inside a gateway (Sweep122).
+ *
+ * Currency guards etc. reject a request the merchant can fix — that is a
+ * 400, not a 502: telling the caller to "retry" a deterministically bad
+ * request burns their retry budget and hides the real message. Unlike
+ * GatewayError (redacted, upstream may leak), details here are always
+ * merchant-safe (currency names, field names — never keys or amounts).
+ */
+export class ValidationError extends PaymentError {
+	constructor(
+		gateway: string,
+		public readonly details: string,
+	) {
+		super(`Gateway ${gateway} error: ${details}`, "VALIDATION_ERROR", 400);
+		this.name = "ValidationError";
+	}
+}
+
 export class ForwardError extends Error {
 	constructor(
 		message: string,

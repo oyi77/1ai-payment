@@ -1,5 +1,5 @@
 import { getGatewayConfig, resolveGatewayConfig } from "../config/env";
-import { GatewayError } from "../utils/errors";
+import { GatewayError, ValidationError } from "../utils/errors";
 import { logger } from "../utils/logger";
 import type {
 	CreatePaymentParams,
@@ -112,7 +112,7 @@ export class SaweriaGateway implements PaymentGateway {
 			);
 		}
 		if (params.currency !== "IDR") {
-			throw new GatewayError(
+			throw new ValidationError(
 				"saweria",
 				`Saweria supports IDR only, got ${params.currency}`,
 			);

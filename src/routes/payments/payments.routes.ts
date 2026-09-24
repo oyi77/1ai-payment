@@ -33,7 +33,11 @@ import {
 	listOrders,
 	updateOrderStatus,
 } from "../../services/order.service";
-import { DuplicateOrderError, GatewayError } from "../../utils/errors";
+import {
+	DuplicateOrderError,
+	GatewayError,
+	ValidationError,
+} from "../../utils/errors";
 import { logger } from "../../utils/logger";
 
 type MerchantEnv = {
@@ -278,6 +282,22 @@ paymentsRouter.openapi(createPaymentRoute, async (c) => {
 		// Mark order as failed if gateway errored
 		await updateOrderStatus(order.id, "failed");
 
+		if (err instanceof ValidationError) {
+			// Caller-fixable (wrong currency etc.): 400 with the specific
+			// message — details are merchant-safe by construction (Sweep122).
+			logger.warn("Payment validation error", {
+				gateway: body.gateway,
+				order_id: order.id,
+				error: err.message,
+			});
+			return c.json(
+				{
+					success: false as const,
+					error: { code: "VALIDATION_ERROR", message: err.details },
+				},
+				400,
+			);
+		}
 		if (err instanceof GatewayError) {
 			logger.warn("Gateway error during payment creation", {
 				gateway: body.gateway,

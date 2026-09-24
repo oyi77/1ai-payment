@@ -9,7 +9,7 @@
 
 import crypto from "node:crypto";
 import { getConfig, resolveGatewayConfig } from "../config/env";
-import { GatewayError } from "../utils/errors";
+import { GatewayError, ValidationError } from "../utils/errors";
 import { logger } from "../utils/logger";
 import type {
 	CreatePaymentParams,
@@ -61,7 +61,7 @@ export class TripayGateway implements PaymentGateway {
 	): Promise<CreatePaymentResult> {
 		// Tripay settles IDR only — a USD amount would bill dollar-nominal as rupiah.
 		if ((params.currency ?? "IDR").toUpperCase() !== "IDR") {
-			throw new GatewayError(
+			throw new ValidationError(
 				"tripay",
 				`Tripay supports IDR only, got ${params.currency}`,
 			);
