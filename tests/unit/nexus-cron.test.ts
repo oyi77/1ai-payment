@@ -26,6 +26,7 @@ import type { Client } from "@libsql/client";
 import { initDatabase, getDb } from "../../src/config/database";
 import {
 	handleExpiredSubscriptions,
+	pruneOldWebhookEvents,
 	sendExpiryReminders,
 } from "../../src/services/nexus-cron";
 
@@ -267,5 +268,34 @@ describe("backupDatabase", () => {
 		expect(second).toBe(first);
 		expect(existsSync(second)).toBe(true);
 		rmSync(second);
+	});
+});
+
+describe("pruneOldWebhookEvents (Sweep161)", () => {
+	async function seedEvent(id: string, createdAt: string): Promise<void> {
+		await db.execute({
+			sql: "INSERT INTO webhook_events (id, gateway, order_id, gateway_reference, status, created_at) VALUES (?, 'midtrans', ?, 'ref', 'success', ?)",
+			args: [id, `ord_prune_${id}`, createdAt],
+		});
+	}
+
+	test("deletes rows past retention, keeps fresh rows", async () => {
+		const old = `we_old_${Date.now()}`;
+		const fresh = `we_fresh_${Date.now()}`;
+		await seedEvent(old, "2020-01-01 00:00:00");
+		await seedEvent(fresh, new Date().toISOString().replace("T", " ").slice(0, 19));
+		const pruned = await pruneOldWebhookEvents();
+		expect(pruned).toBeGreaterThanOrEqual(1);
+		const rows = await db.execute({
+			sql: "SELECT id FROM webhook_events WHERE id IN (?, ?)",
+			args: [old, fresh],
+		});
+		const ids = rows.rows.map((r) => String((r as Record<string, unknown>).id));
+		expect(ids).not.toContain(old);
+		expect(ids).toContain(fresh);
+	});
+
+	test("empty prune returns 0 without error", async () => {
+		await expect(pruneOldWebhookEvents()).resolves.toBeGreaterThanOrEqual(0);
 	});
 });

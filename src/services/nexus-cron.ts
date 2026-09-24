@@ -4,7 +4,8 @@
  * Runs every 6 hours:
  *   1. Send expiry reminders (48h before expiry)
  *   2. Revoke access for expired subscriptions (set status → 'expired')
- *   3. Clean up stale invite links
+ *   3. Prune webhook audit rows older than retention (Sweep161)
+ *   4. Snapshot the DB (VACUUM INTO backup)
  *
  * Sends expiry-reminder DMs when NEXUS_TELEGRAM_BOT_TOKEN/TELEGRAM_BOT_TOKEN
  * is set and the subscription row carries a telegram_chat_id; otherwise
@@ -35,11 +36,11 @@ export function stopNexusCron(): void {
 		logger.info("Nexus cron: stopped");
 	}
 }
-
 async function runNexusMaintenance(): Promise<void> {
 	try {
 		await handleExpiredSubscriptions();
 		await sendExpiryReminders();
+		await pruneOldWebhookEvents();
 		// Backup failures must never fail maintenance (own try/catch + warn).
 		try {
 			const { backupDatabase } = await import("../config/database");
@@ -55,6 +56,33 @@ async function runNexusMaintenance(): Promise<void> {
 			error: err instanceof Error ? err.message : String(err),
 		});
 	}
+}
+
+/**
+ * Prune webhook audit rows past retention (Sweep161).
+ *
+ * webhook_events grows one row per callback forever (raw payloads
+ * included) — the only unbounded table. 90-day retention keeps dispute
+ * forensics while bounding disk on a 99%-full volume. Orders, refunds,
+ * dead letters (replayable), and subscriptions (access record) are
+ * financial/legal rows and are NEVER pruned here.
+ */
+export const WEBHOOK_RETENTION_DAYS = 90;
+
+export async function pruneOldWebhookEvents(): Promise<number> {
+	const db = getDb();
+	const result = await db.execute({
+		sql: "DELETE FROM webhook_events WHERE created_at < datetime('now', ?)",
+		args: [`-${WEBHOOK_RETENTION_DAYS} days`],
+	});
+	const pruned = Number(result.rowsAffected ?? 0);
+	if (pruned > 0) {
+		logger.info("Nexus cron: pruned old webhook events", {
+			pruned,
+			retention_days: WEBHOOK_RETENTION_DAYS,
+		});
+	}
+	return pruned;
 }
 
 /**
