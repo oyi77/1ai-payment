@@ -12,6 +12,7 @@ import { isHttpsRequest } from "../../src/routes/webhook";
 const originalEnv = {
 	NODE_ENV: process.env.NODE_ENV,
 	REQUIRE_HTTPS: process.env.REQUIRE_HTTPS,
+	CORS_ORIGIN: process.env.CORS_ORIGIN,
 };
 
 afterEach(() => {
@@ -19,6 +20,8 @@ afterEach(() => {
 	else process.env.NODE_ENV = originalEnv.NODE_ENV;
 	if (originalEnv.REQUIRE_HTTPS === undefined) delete process.env.REQUIRE_HTTPS;
 	else process.env.REQUIRE_HTTPS = originalEnv.REQUIRE_HTTPS;
+	if (originalEnv.CORS_ORIGIN === undefined) delete process.env.CORS_ORIGIN;
+	else process.env.CORS_ORIGIN = originalEnv.CORS_ORIGIN;
 	resetConfigCache();
 });
 

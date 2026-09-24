@@ -74,4 +74,27 @@ describe("bodyLimitMiddleware routes", () => {
 		const res = await app.request("/health");
 		expect(res.status).toBe(200);
 	});
+
+	test("CORS wired: preflight on /api/* returns ACAO (test env wildcard)", async () => {
+		const res = await app.request("/api/payments", {
+			method: "OPTIONS",
+			headers: {
+				Origin: "https://evil.example",
+				"Access-Control-Request-Method": "POST",
+			},
+		});
+		expect(res.status).toBe(204);
+		expect(res.headers.get("access-control-allow-origin")).toBe("*");
+	});
+
+	test("CORS scoped: preflight off /api/* carries no ACAO", async () => {
+		const res = await app.request("/health", {
+			method: "OPTIONS",
+			headers: {
+				Origin: "https://evil.example",
+				"Access-Control-Request-Method": "GET",
+			},
+		});
+		expect(res.headers.get("access-control-allow-origin")).toBeNull();
+	});
 });

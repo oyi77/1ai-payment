@@ -51,6 +51,23 @@ app.openAPIRegistry.registerComponent("securitySchemes", "AdminKeyAuth", {
 // Middleware
 app.use("*", secureHeaders());
 app.use("*", bodyLimitMiddleware);
+// CORS for merchant browser-apps — origin resolved PER REQUEST so the
+// hardened CORS_ORIGIN is honored even if config reloads; wildcard only
+// when explicitly configured (dev/test default, prod boots refuse it).
+app.use(
+	"/api/*",
+	cors({
+		origin: (o) => {
+			try {
+				const allowed = getConfig().CORS_ORIGIN;
+				if (allowed === "*") return "*";
+				return o === allowed ? allowed : null;
+			} catch {
+				return null;
+			}
+		},
+	}),
+);
 
 // Pre-auth IP abuse guard — runs BEFORE auth so unauthenticated floods
 // (wrong/missing API key, webhook brute attempts) cannot bypass rate
