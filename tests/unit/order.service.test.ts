@@ -520,4 +520,10 @@ describe("listOrders", () => {
 		expect(result.orders).toHaveLength(0);
 		expect(result.total).toBe(0);
 	});
+
+	test("clamps absurd limit and negative offset at service layer (Sweep136)", async () => {
+		const result = await listOrders({ limit: 999999, offset: -50 });
+		expect(result.orders.length).toBeLessThanOrEqual(100);
+		expect(result.total).toBeGreaterThanOrEqual(result.orders.length);
+	});
 });

@@ -279,8 +279,8 @@ export async function listOrders(params: {
 
 	const where =
 		conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-	const limit = Math.min(params.limit ?? 50, 100);
-	const offset = params.offset ?? 0;
+	const limit = Math.min(Math.max(params.limit ?? 50, 1), 100);
+	const offset = Math.max(params.offset ?? 0, 0);
 
 	const countResult = await db.execute({
 		sql: `SELECT COUNT(*) as count FROM orders ${where}`,
