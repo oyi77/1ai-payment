@@ -15,7 +15,7 @@ Phase 0 (Foundation) is **complete**. The in-repo pieces of Phase 5 (Commerciali
 13 gateways registered (midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria)
 
 **Verification:**
-- `bun test` — 609 pass / 0 fail (verified 2026-09-24, 61 files)
+- `bun test` — 622 pass / 0 fail (verified 2026-09-24, 61 files)
 - `bun x tsc --noEmit` — exit 0
 
 **In-place production features (verified in source):**
@@ -46,7 +46,7 @@ Phase 0 (Foundation) is **complete**. The in-repo pieces of Phase 5 (Commerciali
 
 **Acceptance:**
 - `bun run typecheck` — zero errors ✅ (exit 0, verified 2026-08-01)
-- `bun test` — all pass ✅ (609 pass / 0 fail, verified 2026-09-24)
+- `bun test` — all pass ✅ (622 pass / 0 fail, verified 2026-09-24)
 - `curl localhost:3100/health` — 200 ✅ (route implemented in `src/routes/health.ts`)
 
 **Rollback:** N/A (no production traffic)
@@ -169,6 +169,9 @@ all 13 gateways
 - Forward success rate per project — partial: `forward_failures_total` shipped; per-project breakdown needs Prometheus scraping + dashboards (ops work, not in repo)
 - Latency percentiles (p50, p95, p99) — histogram shipped; percentile queries need a Prometheus/Grafana deployment
 - Revenue per gateway — not exposed as a metric; fee/net columns exist on orders (business reporting, open item)
+
+### Backups — ✅ implemented (`backupDatabase`, wired into the 6h Nexus maintenance)
+- Atomic `VACUUM INTO <db>.backup` snapshot on every maintenance run (consistent under write load); verified by a row-parity test. Restores are a file copy while the server is stopped. Off-box copy still open (single-disk risk).
 
 ### Alerts (future)
 - Forward failure rate > 5% — triggerable from `forward_failures_total` once Prometheus is running

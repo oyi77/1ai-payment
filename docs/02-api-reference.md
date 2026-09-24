@@ -180,12 +180,12 @@ Idempotency-Key: <unique_key>    # Optional (alternative to body idempotency_key
   gateway: 'midtrans' | 'tripay' | 'duitku' | 'nowpayments' | 'ipaymu' | 'scalev'
          | 'xendit' | 'telegram_stars' | 'telegram_payments' | 'paypal' | 'x402' | 'erc8183' | 'saweria';
   amount: number;                  // Integer, positive, in smallest currency unit (IDR = full Rupiah)
-  currency?: string;               // Default: 'IDR'
-  payment_method?: string;         // Gateway-specific method code (e.g. 'qris', 'bca_va', 'gopay')
+  currency?: string;               // Default: 'IDR' — IDR-only gateways (duitku/ipaymu/tripay/saweria) and USDC-only x402 reject other currencies 400
+  payment_method?: string;         // Gateway-specific method code (e.g. 'qris', 'bca_va', 'gopay') — shape-validated (letters/digits/_/-, max 32), hostile shapes 400
   callback_url: string;            // REQUIRED — public https URL the normalized event is forwarded to (private IPs/localhost/non-https rejected 400; DNS + redirect hops re-validated per forward, blocked forwards retry then dead-letter)
-  success_url?: string;            // Where to redirect the buyer after payment completes (else platform default)
-  cancel_url?: string;             // Where to redirect the buyer after cancelling (else platform default)
-  idempotency_key?: string;        // Client-generated key; body field OR Idempotency-Key header
+  success_url?: string;            // Where to redirect the buyer after payment completes — http(s) only (javascript:/data: rejected 400)
+  cancel_url?: string;             // Where to redirect the buyer after cancelling (else platform default) — http(s) only
+  idempotency_key?: string;        // Client-generated key; body field OR Idempotency-Key header (scoped per merchant; reuse with different amount/currency/gateway → 409)
   project_order_id?: string;       // Your own order/invoice ID, passed through to callbacks
   customer?: {
     name?: string;
@@ -581,7 +581,7 @@ Update a merchant. Requires `X-API-Key`.
 }
 ```
 
-Only `name` and `default_callback_url` are applied — any `active`/`plan` fields in the body are ignored; plan/active changes are admin-only (see `PATCH /api/admin/merchants/{id}`).
+Only `name` and `default_callback_url` are applied — `active`/`plan`/unknown fields are rejected 400 (strict body); plan/active changes are admin-only (see `PATCH /api/admin/merchants/{id}`).
 
 **Response (200):** `{ success: true, data: Merchant }`
 
@@ -845,6 +845,7 @@ Webhook endpoints use a simpler shape instead: `{ error: string }` (e.g. `{ erro
 | Status | Code | When |
 |--------|------|------|
 | 400 | `INVALID_BODY` | Missing/invalid fields |
+| 400 | `VALIDATION_ERROR` | Caller-fixable gateway rejection (wrong currency, bad payment_method shape) — message names the fix |
 | 400 | `GATEWAY_ERROR` | Refund rejected (order not refundable, amount exceeds, not the merchant's order) |
 | 401 | `UNAUTHORIZED` | Missing/invalid API key |
 | 401 | `INVALID_SIGNATURE` | Webhook signature mismatch |

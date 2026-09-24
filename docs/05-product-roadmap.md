@@ -164,18 +164,7 @@ forward; project receives correctly signed payload.
   same key from the same merchant returns the existing order (200, unchanged).
 - `idx_orders_merchant_idempotency` added on `(merchant_id, idempotency_key)`.
 
-**Gap:** The **global** `UNIQUE(idempotency_key)` constraint is still on
-`orders` (it predates merchants), and the new index is **not unique** (it was
-meant to replace the global constraint). Consequence: the same idempotency key
-used by **two different merchants** still fails at the DB layer with
-`409 DUPLICATE_ORDER` instead of creating two separate orders — exactly the
-cross-tenant collision the roadmap wanted to eliminate.
-
-**Target:** drop the global UNIQUE and recreate the constraint as
-`CREATE UNIQUE INDEX ... ON orders(merchant_id, idempotency_key) WHERE idempotency_key IS NOT NULL`
-(needs a small migration that first de-dupes existing rows).
-
-**Rollback:** Keep the current state (global UNIQUE still active).
+**Closed (Sweep132):** keys are stored namespaced (`<merchant_id>:<key>`, stripped on read) so cross-merchant collisions are impossible; migration 008 backfilled legacy rows + added the per-merchant partial UNIQUE (`idx_orders_merchant_idempotency_unique`). The legacy global UNIQUE stays as a no-op backstop (SQLite cannot drop it without a rebuild — it can never fire on namespaced values).
 
 ---
 
@@ -528,4 +517,4 @@ Genuinely-future items, roughly by dependency order. None block current use.
 | Phase 4: Rate & Billing | 3 steps | 1 done, 2 partial | 1 week | **P2** — monetization |
 | Phase 5: Dashboard & SDK | 3 steps | 2 done, 1 partial | 2-3 weeks | **P2** — adoption |
 
-**Remaining to finish all 18 steps:** two 🟡 gaps (1.6 cross-merchant idempotency migration, 4.3 fee computation) and two 🟡 polish items (4.2 webhook tiers, 5.2 key pre-fill) — under a week. Closed since: 3.2 wiring, 2.2 refunds + idempotency, 5.3 SDK tests, Webhooks page, webhook-secret rotation (Sweep115). Everything after that (billing, admin UI) is net-new backlog.
+**Remaining to finish all 18 steps:** one 🟡 gap (4.3 fee computation) and two 🟡 polish items (4.2 webhook tiers, 5.2 key pre-fill) — under a week. Closed since: 3.2 wiring, 2.2 refunds + idempotency, 5.3 SDK tests, Webhooks page, webhook-secret rotation (Sweep115), 1.6 per-merchant idempotency (Sweep132). Everything after that (billing, admin UI) is net-new backlog.
