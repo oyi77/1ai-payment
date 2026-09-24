@@ -81,6 +81,11 @@ function getDefaultVariantMap(): Record<string, NexusProduct> {
 /** Lazy-loaded singleton */
 let variantMap: Record<string, NexusProduct> | null = null;
 
+/** Reset the cached map. Used in tests so NEXUS_VARIANT_MAP changes apply. */
+export function resetVariantMap(): void {
+	variantMap = null;
+}
+
 export function getVariantMap(): Record<string, NexusProduct> {
 	if (!variantMap) variantMap = loadVariantMap();
 	return variantMap;
