@@ -66,3 +66,40 @@ describe("CORS origin hardening (P0 #002)", () => {
 		expect(cfg.CORS_ORIGIN).toBe("*");
 	});
 });
+
+describe("CORS preflight enforcement (Sweep156)", () => {
+	// HTTP-level proof that the pinned origin is echoed and everything
+	// else gets NO allow-origin header: evil, suffix-spoof, null, missing.
+	async function preflight(origin?: string): Promise<Response> {
+		process.env.NODE_ENV = "production";
+		process.env.CORS_ORIGIN = "https://app.example.com";
+		resetConfigCache();
+		const { app } = await import("../../src/app");
+		const headers: Record<string, string> = {
+			"Access-Control-Request-Method": "GET",
+			"Access-Control-Request-Headers": "X-API-Key",
+		};
+		if (origin !== undefined) headers.Origin = origin;
+		return app.request("/api/gateways", { method: "OPTIONS", headers });
+	}
+
+	test("pinned origin is echoed", async () => {
+		const res = await preflight("https://app.example.com");
+		expect(res.headers.get("access-control-allow-origin")).toBe("https://app.example.com");
+	});
+
+	test("evil origin gets no allow-origin", async () => {
+		const res = await preflight("https://evil.example.com");
+		expect(res.headers.get("access-control-allow-origin")).toBeNull();
+	});
+
+	test("suffix-spoof origin gets no allow-origin", async () => {
+		const res = await preflight("https://app.example.com.evil.com");
+		expect(res.headers.get("access-control-allow-origin")).toBeNull();
+	});
+
+	test("null and missing origins get no allow-origin", async () => {
+		expect((await preflight("null")).headers.get("access-control-allow-origin")).toBeNull();
+		expect((await preflight(undefined)).headers.get("access-control-allow-origin")).toBeNull();
+	});
+});
