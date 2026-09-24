@@ -24,7 +24,7 @@ import {
 	webhookAckSchema,
 	webhookErrorSchema,
 } from "../schemas";
-import { forwardEvent } from "../services/forwarder.service";
+import { forwardEvent, trackForward } from "../services/forwarder.service";
 import { handleNexusPayment } from "../services/nexus-fulfillment";
 import {
 	getOrderByGatewayRef,
@@ -553,12 +553,19 @@ for (const gatewayName of GATEWAY_NAMES) {
 			return c.json({ ok: true as const }, 200);
 		}
 
-		forwardEvent(fullEvent, order, webhookSecret).catch((err: unknown) => {
-			logger.error("Async forward failed", {
-				order_id: order?.id,
-				error: err instanceof Error ? err.message : String(err),
-			});
-		});
+		// Tracked for shutdown drain (Sweep141): a restart mid-forward no
+		// longer loses the event silently — drain writes a replayable dead
+		// letter for anything still in flight past the budget.
+		trackForward(
+			forwardEvent(fullEvent, order, webhookSecret).catch((err: unknown) => {
+				logger.error("Async forward failed", {
+					order_id: order?.id,
+					error: err instanceof Error ? err.message : String(err),
+				});
+			}),
+			order,
+			fullEvent,
+		);
 
 		return c.json({ ok: true as const }, 200);
 	});

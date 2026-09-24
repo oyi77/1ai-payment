@@ -37,11 +37,30 @@ function shutdown(signal: string) {
 		logger.error("Graceful shutdown timed out, forcing exit");
 		process.exit(1);
 	}, 10_000).unref();
-	// Let Bun finish draining open connections before exiting.
-	server.stop().then(() => {
-		clearTimeout(forceExit);
-		logger.info("Graceful shutdown complete");
-	});
+	// Drain in-flight forwards first (Sweep141): up to ~8s for active
+	// attempts; anything still sleeping in backoff gets a replayable dead
+	// letter instead of vanishing. Then stop the server and exit.
+	const finish = () => {
+		// Let Bun finish draining open connections before exiting.
+		server.stop().then(() => {
+			clearTimeout(forceExit);
+			logger.info("Graceful shutdown complete");
+		});
+	};
+	(async () => {
+		try {
+			const { drainForwards } = await import("./services/forwarder.service");
+			const drained = await drainForwards(8000);
+			if (drained.settled + drained.deadLettered > 0) {
+				logger.info("Forward drain complete", drained);
+			}
+		} catch (err) {
+			logger.error("Forward drain failed", {
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
+		finish();
+	})();
 }
 
 process.on("SIGTERM", () => shutdown("SIGTERM"));

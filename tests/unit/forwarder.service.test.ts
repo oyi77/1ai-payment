@@ -280,4 +280,39 @@ describe("forwardEvent with mocked fetch", () => {
 		expect(match).toBeDefined();
 		expect(match!.error).toMatch(/SSRF-blocked/);
 	});
+
+	test("drainForwards settles a done forward without dead-lettering it (Sweep141)", async () => {
+		const { drainForwards, trackForward } = await import(
+			"../../src/services/forwarder.service"
+		);
+		const order = await makeOrder();
+		trackForward(Promise.resolve(), order, baseEvent);
+		// Must return within budget (never hang on co-running files' forwards).
+		const drained = await drainForwards(100);
+		expect(drained.settled + drained.deadLettered).toBeGreaterThanOrEqual(1);
+		// OUR done entry settled — never dead-lettered. (Other files' stuck
+		// forwards may legitimately dead-letter here; not asserted.)
+		const letters = await listDeadLetter();
+		expect(letters.find((l) => l.order_id === order.id)).toBeUndefined();
+	});
+
+	test("drainForwards dead-letters a stuck forward past budget (Sweep141)", async () => {
+		const { drainForwards, trackForward } = await import(
+			"../../src/services/forwarder.service"
+		);
+		const order = await makeOrder();
+		// Never-settling forward: drain must not hang, must dead-letter it.
+		let resolveIt!: () => void;
+		const stuck = new Promise<void>((resolve) => {
+			resolveIt = resolve;
+		});
+		trackForward(stuck, order, baseEvent);
+		const drained = await drainForwards(20);
+		expect(drained.deadLettered).toBe(1);
+		const letters = await listDeadLetter();
+		const match = letters.find((l) => l.order_id === order.id);
+		expect(match).toBeDefined();
+		expect(match!.error).toMatch(/interrupted by server shutdown/);
+		resolveIt();
+	});
 });

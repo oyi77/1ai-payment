@@ -23,6 +23,63 @@ const MAX_RETRIES = 3;
 const BACKOFF_MS = [5_000, 30_000, 300_000];
 
 /**
+ * In-flight forward tracking for graceful shutdown (Sweep141).
+ *
+ * The webhook route fires forwardEvent without awaiting (webhook must 200
+ * fast). A restart mid-forward previously killed the promise silently: no
+ * delivery, no dead letter, order left success with a blind merchant.
+ * Tracked forwards are drained on shutdown; ones still sleeping in backoff
+ * past the drain budget get a dead letter ("interrupted by shutdown") so
+ * they stay replayable instead of vanishing.
+ */
+interface InflightForward {
+	promise: Promise<unknown>;
+	order: Order;
+	event: NormalizedPaymentEvent;
+}
+const inflight = new Set<InflightForward>();
+
+export function trackForward(
+	promise: Promise<unknown>,
+	order: Order,
+	event: NormalizedPaymentEvent,
+): Promise<unknown> {
+	const entry: InflightForward = { promise, order, event };
+	inflight.add(entry);
+	void promise.finally(() => {
+		inflight.delete(entry);
+	});
+	return promise;
+}
+
+export async function drainForwards(
+	timeoutMs = 8000,
+): Promise<{ settled: number; deadLettered: number }> {
+	if (inflight.size === 0) return { settled: 0, deadLettered: 0 };
+	const entries = [...inflight];
+	await Promise.race([
+		Promise.allSettled(entries.map((e) => e.promise)),
+		sleep(timeoutMs),
+	]);
+	let deadLettered = 0;
+	for (const e of entries) {
+		// Still present = did not settle within budget. The original promise
+		// may settle later (harmless duplicate dead letter at worst —
+		// replays share the stable event_id, so merchants dedupe).
+		if (inflight.has(e)) {
+			inflight.delete(e);
+			await writeDeadLetter(
+				e.order,
+				e.event,
+				"interrupted by server shutdown (replay to retry)",
+				0,
+			).catch(() => {});
+			deadLettered++;
+		}
+	}
+	return { settled: entries.length - deadLettered, deadLettered };
+}
+/**
  * Forward a normalized payment event to a project callback URL.
  * Returns immediately (async) — does not block webhook response.
  *
