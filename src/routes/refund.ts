@@ -88,6 +88,12 @@ refundRoutes.openapi(createRefundRoute, async (c) => {
 		return c.json({ success: true as const, data: refund }, 201);
 	} catch (err: unknown) {
 		if (err instanceof GatewayError) {
+			// Ops context only: order/merchant IDs, never the amount (no-amount log rule).
+			logger.warn("Refund rejected", {
+				order_id: body.order_id,
+				merchant_id: merchantId,
+				reason: err.message,
+			});
 			// 404 for order-existence failures (not found OR cross-merchant) so
 			// attackers cannot distinguish "exists but not mine" from "missing".
 			// Status/amount errors stay 400 — they only fire after ownership
