@@ -50,7 +50,7 @@ const listTransactionsRoute = createRoute({
 	tags: ["Transactions"],
 	summary: "List transactions",
 	description:
-		"Returns transaction history for the authenticated merchant with filters.",
+		"Returns transaction history for the authenticated merchant with filters. List rows are a lightweight subset (no payment_url, metadata, updated_at) — fetch GET /api/payments/{id} for the full order.",
 	security: [{ ApiKeyAuth: [] }],
 	request: {
 		query: z.object({
