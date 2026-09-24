@@ -9,6 +9,7 @@
 
 import { extendZodWithOpenApi } from "@hono/zod-openapi";
 import { ZodError, z } from "zod";
+import { containsPanLike } from "./utils/crypto";
 import { isPublicHostname } from "./utils/ssrf";
 
 extendZodWithOpenApi(z);
@@ -335,6 +336,25 @@ export const createSavedMethodBodySchema = z
 			.openapi({ example: "2027-07-06T10:00:00.000Z" }),
 	})
 	.strict()
+	.superRefine((body, ctx) => {
+		// PAN guard (Sweep155): raw card numbers must never reach the vault
+		// (PCI-DSS scope). Gateway tokens are opaque references, not PANs.
+		for (const field of [
+			"gateway_token",
+			"method_code",
+			"method_name",
+			"masked_identifier",
+		] as const) {
+			if (containsPanLike(body[field])) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: [field],
+					message:
+						"Looks like a raw card number — store the gateway-issued token, not the PAN",
+				});
+			}
+		}
+	})
 	.openapi("CreateSavedMethodBody");
 
 export const savedMethodsListSchema = z
@@ -370,6 +390,19 @@ export const updateSavedMethodBodySchema = z
 			.openapi({ example: "2027-07-06T10:00:00.000Z" }),
 	})
 	.strict()
+	.superRefine((body, ctx) => {
+		// Same PAN guard as create (Sweep155): PATCH fields are free text too.
+		for (const field of ["method_name", "masked_identifier"] as const) {
+			if (containsPanLike(body[field])) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: [field],
+					message:
+						"Looks like a raw card number — store the gateway-issued token, not the PAN",
+				});
+			}
+		}
+	})
 	.openapi("UpdateSavedMethodBody");
 
 export const createMerchantResponseSchema = z

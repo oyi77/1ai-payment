@@ -84,6 +84,44 @@ describe("POST /api/saved-methods (route)", () => {
 		expect(JSON.stringify(body)).not.toContain("tok_route_secret");
 	});
 
+	test("400 when gateway_token looks like a raw PAN (Sweep155)", async () => {
+		const res = await app.request("/api/saved-methods", {
+			method: "POST",
+			headers: {
+				"X-API-Key": merchantAKey,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ ...VALID_BODY, gateway_token: "4111111111111111" }),
+		});
+		expect(res.status).toBe(400);
+		const body = await res.json();
+		expect(body.error.code).toBe("INVALID_BODY");
+		expect(JSON.stringify(body)).toContain("gateway_token");
+	});
+
+	test("400 when method_name smuggles a spaced PAN (Sweep155)", async () => {
+		const res = await app.request("/api/saved-methods", {
+			method: "POST",
+			headers: {
+				"X-API-Key": merchantAKey,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ ...VALID_BODY, method_name: "my 5500 0055 5555 5559 card" }),
+		});
+		expect(res.status).toBe(400);
+	});
+
+	test("201 when token is numeric but not PAN-like (Sweep155)", async () => {
+		const res = await app.request("/api/saved-methods", {
+			method: "POST",
+			headers: {
+				"X-API-Key": merchantAKey,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ ...VALID_BODY, method_name: "VA Acct", gateway_token: "1234567890123456" }),
+		});
+		expect(res.status).toBe(201);
+	});
 	test("returns 401 without API key", async () => {
 		const res = await app.request("/api/saved-methods", {
 			method: "POST",

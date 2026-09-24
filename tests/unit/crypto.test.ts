@@ -15,6 +15,7 @@ process.env.NODE_ENV = "test";
 resetConfigCache();
 
 import {
+	containsPanLike,
 	decryptWebhookSecret,
 	decrypt,
 	encrypt,
@@ -187,5 +188,44 @@ describe("webhook-secret storage (Sweep154)", () => {
 
 	test("wrong-key ciphertext decrypts to null (no throw)", () => {
 		expect(decryptWebhookSecret("aGVsbG8td29ybGQ=")).toBeNull();
+	});
+});
+
+describe("containsPanLike (Sweep155 vault guard)", () => {
+	test("flags textbook PANs (Visa/Mastercard test numbers)", () => {
+		expect(containsPanLike("4111111111111111")).toBe(true);
+		expect(containsPanLike("5500005555555559")).toBe(true);
+	});
+
+	test("flags PANs with spaces/dashes", () => {
+		expect(containsPanLike("4111 1111 1111 1111")).toBe(true);
+		expect(containsPanLike("5500-0055-5555-5559")).toBe(true);
+	});
+
+	test("flags PAN embedded in surrounding text", () => {
+		expect(containsPanLike("my card 4111111111111111 here")).toBe(true);
+	});
+
+	test("ignores opaque tokens, names, masked tails", () => {
+		expect(containsPanLike("tok_secure_abc")).toBe(false);
+		expect(containsPanLike("BCA Visa")).toBe(false);
+		expect(containsPanLike("•••• 4242")).toBe(false);
+		expect(containsPanLike("tok_abc123")).toBe(false);
+	});
+
+	test("ignores digit runs outside 13–19 (VA-length, phones)", () => {
+		expect(containsPanLike("123456789012")).toBe(false);
+		expect(containsPanLike("081234567890")).toBe(false);
+		expect(containsPanLike("12345678901234567890")).toBe(false);
+	});
+
+	test("ignores numeric-lookalikes that fail Luhn", () => {
+		expect(containsPanLike("1234567890123456")).toBe(false);
+	});
+
+	test("non-strings never match", () => {
+		expect(containsPanLike(null)).toBe(false);
+		expect(containsPanLike(undefined)).toBe(false);
+		expect(containsPanLike(4242)).toBe(false);
 	});
 });

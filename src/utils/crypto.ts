@@ -126,3 +126,41 @@ export function decryptWebhookSecret(stored: unknown): string | null {
 		return null;
 	}
 }
+
+// PAN guard (Sweep155): the saved-methods vault must never hold raw card
+// numbers — storing PAN drags the whole DB into PCI-DSS scope. Gateway
+// tokens are opaque references (tok_...), never 13–19 digit Luhn-passing
+// runs. Scan every free-text vault field at the API boundary and reject.
+function luhnPasses(digits: string): boolean {
+	let sum = 0;
+	let double = false;
+	for (let i = digits.length - 1; i >= 0; i--) {
+		let d = digits.charCodeAt(i) - 48;
+		if (double) {
+			d *= 2;
+			if (d > 9) d -= 9;
+		}
+		sum += d;
+		double = !double;
+	}
+	return sum % 10 === 0;
+}
+
+/**
+ * True when text contains a PAN-like run: 13–19 digits (spaces/dashes
+ * tolerated inside the run) that passes Luhn. Short runs (masked tails
+ * like "4242"), phone numbers under 13 digits, and alphanumeric tokens
+ * never match.
+ */
+export function containsPanLike(text: unknown): boolean {
+	if (typeof text !== "string") return false;
+	// Join digit groups split only by spaces/dashes (how PANs are typed).
+	const runs = text.replace(/[^\d \-]/g, "|").split("|");
+	for (const run of runs) {
+		const digits = run.replace(/[\s\-]/g, "");
+		if (digits.length < 13 || digits.length > 19) continue;
+		if (!/^\d+$/.test(digits)) continue;
+		if (luhnPasses(digits)) return true;
+	}
+	return false;
+}
