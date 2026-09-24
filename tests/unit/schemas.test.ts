@@ -3,8 +3,11 @@
  */
 import { describe, expect, test } from 'bun:test';
 import {
+  amountSchema,
   createMerchantBodySchema,
   createMerchantResponseSchema,
+  createPaymentBodySchema,
+  createRefundBodySchema,
   merchantResponseSchema,
   errorSchema,
 } from '../../src/schemas';
@@ -137,4 +140,39 @@ describe('errorSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+});
+
+describe('amountSchema (Sweep171 minor-units ceiling)', () => {
+	test('accepts normal minor-unit amounts', () => {
+		expect(amountSchema.safeParse(100000).success).toBe(true);
+		expect(amountSchema.safeParse(1).success).toBe(true);
+	});
+
+	test('rejects zero, negative, and fractional amounts', () => {
+		expect(amountSchema.safeParse(0).success).toBe(false);
+		expect(amountSchema.safeParse(-500).success).toBe(false);
+		expect(amountSchema.safeParse(10.5).success).toBe(false);
+	});
+
+	test('rejects magnitudes past MAX_SAFE_INTEGER', () => {
+		expect(amountSchema.safeParse(Number.MAX_SAFE_INTEGER).success).toBe(true);
+		expect(amountSchema.safeParse(Number.MAX_SAFE_INTEGER + 1).success).toBe(false);
+		expect(amountSchema.safeParse(1e30).success).toBe(false);
+	});
+
+	test('create+refund bodies inherit the ceiling', () => {
+		const base = {
+			gateway: 'midtrans',
+			callback_url: 'https://example.com/callback',
+		};
+		expect(
+			createPaymentBodySchema.safeParse({ ...base, amount: 1e30 }).success,
+		).toBe(false);
+		expect(
+			createPaymentBodySchema.safeParse({ ...base, amount: 10.5 }).success,
+		).toBe(false);
+		expect(
+			createRefundBodySchema.safeParse({ order_id: 'pay_x', amount: 1e30 }).success,
+		).toBe(false);
+	});
 });

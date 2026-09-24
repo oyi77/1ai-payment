@@ -37,7 +37,17 @@ export const gatewayNameSchema = z.enum(GATEWAY_NAMES).openapi({
 	example: "midtrans",
 });
 
-// ── Schemas ────────────────────────────────────────────────────
+/**
+ * Shared minor-units amount (Sweep171): positive integer within
+ * Number.MAX_SAFE_INTEGER. Floats (10.5) and absurd magnitudes (1e30)
+ * never reach gateway math — Floats would silently round in toFixed/
+ * division paths, magnitudes overflow PayPal decimals and USDC BigInt.
+ */
+export const amountSchema = z
+	.number()
+	.int()
+	.positive()
+	.max(Number.MAX_SAFE_INTEGER);
 
 export const customerSchema = z
 	.object({
@@ -91,7 +101,7 @@ function mayParse(u: string): URL | undefined {
 export const createPaymentBodySchema = z
 	.object({
 		gateway: gatewayNameSchema,
-		amount: z.number().int().positive().openapi({
+		amount: amountSchema.openapi({
 			description:
 				"Payment amount in smallest currency unit (IDR = full Rupiah)",
 			example: 100000,
@@ -468,7 +478,7 @@ export const rotateSecretResponseSchema = z
 export const createRefundBodySchema = z
 	.object({
 		order_id: z.string().min(1).openapi({ example: "pay_abc123" }),
-		amount: z.number().int().positive().optional().openapi({
+		amount: amountSchema.optional().openapi({
 			description: "Refund amount. Omit for full refund.",
 			example: 50000,
 		}),
