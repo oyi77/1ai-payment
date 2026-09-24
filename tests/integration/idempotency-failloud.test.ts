@@ -135,4 +135,33 @@ describe("POST /api/payments idempotency fail-loud (issue #4)", () => {
 			statuses[0] === 200 || statuses[0] === 201,
 		).toBe(true);
 	});
+
+	test("same key different amount: 409 key-in-use (not silent old order)", async () => {
+		const key = `idem-mismatch-${Date.now()}`;
+		const first = await app.request("/api/payments", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"x-api-key": "test-api-key-idemfailloud",
+			},
+			body: JSON.stringify(payBody(key)),
+		});
+		expect(first.status).toBe(201);
+
+		const second = await app.request("/api/payments", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"x-api-key": "test-api-key-idemfailloud",
+			},
+			body: JSON.stringify({ ...payBody(key), amount: 99999 }),
+		});
+		expect(second.status).toBe(409);
+		const b = (await second.json()) as {
+			success: boolean;
+			error: { code: string };
+		};
+		expect(b.success).toBe(false);
+		expect(b.error.code).toBe("DUPLICATE_ORDER");
+	});
 });

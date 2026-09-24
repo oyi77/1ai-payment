@@ -127,6 +127,27 @@ paymentsRouter.openapi(createPaymentRoute, async (c) => {
 		// is the atomic backstop for the check-then-insert race.
 		const existing = await getOrderByIdempotencyKey(idempotencyKey, merchantId);
 		if (existing) {
+			// Key reuse with DIFFERENT money parameters is a caller bug, not a
+			// retry: same key must mean the same operation (Stripe parity —
+			// retries are byte-identical by construction). Comparing only the
+			// money core (gateway/amount/currency): optional fields like
+			// metadata/callback may legitimately vary across retries.
+			if (
+				existing.gateway !== body.gateway ||
+				existing.amount !== body.amount ||
+				existing.currency !== (body.currency ?? "IDR")
+			) {
+				return c.json(
+					{
+						success: false as const,
+						error: {
+							code: "DUPLICATE_ORDER",
+							message: "Idempotency key already used for a different payment (gateway/amount/currency mismatch)",
+						},
+					},
+					409,
+				);
+			}
 			return c.json(
 				{ success: true as const, data: orderToResponse(existing) },
 				200,
