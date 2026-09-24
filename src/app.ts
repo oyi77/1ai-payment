@@ -32,6 +32,21 @@ export { config };
 
 const app = new OpenAPIHono({ defaultHook });
 
+// OpenAPI security schemes — every `security: [{ X }]` ref below must
+// resolve here, or strict validators flag dangling refs (Sweep68 found
+// 24 refs to a scheme that was never defined). Two headers, two schemes:
+// merchants send X-API-Key, admins send X-Admin-Key.
+app.openAPIRegistry.registerComponent("securitySchemes", "ApiKeyAuth", {
+	type: "apiKey",
+	in: "header",
+	name: "X-API-Key",
+});
+app.openAPIRegistry.registerComponent("securitySchemes", "AdminKeyAuth", {
+	type: "apiKey",
+	in: "header",
+	name: "X-Admin-Key",
+});
+
 // Middleware
 app.use("*", secureHeaders());
 app.use("*", cors({ origin: getConfig().CORS_ORIGIN }));

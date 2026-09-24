@@ -31,7 +31,7 @@ export const adminRoutes = new OpenAPIHono<AdminEnv>({ defaultHook });
 // Apply admin auth to all admin routes
 adminRoutes.use("*", adminAuthMiddleware());
 
-const adminSecurity = [{ ApiKeyAuth: [] }];
+const adminSecurity = [{ AdminKeyAuth: [] }];
 const merchantIdParam = z.object({
 	id: z.string().openapi({ example: "merch_abc123" }),
 });
