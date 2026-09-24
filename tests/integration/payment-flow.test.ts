@@ -367,6 +367,43 @@ describe('POST /webhook/:gateway', () => {
     expect(webhookRes.status).toBe(501);
   });
 
+  test('tripay second success with NEW reference is recorded, exact retry is not (Sweep159)', async () => {
+    const crypto = await import('crypto');
+    const { getDb } = await import("../../src/config/database");
+    const db = getDb();
+    const orderId = `tripay_d2_${Date.now()}`;
+    await db.execute({
+      sql: "INSERT INTO orders (id, project_id, merchant_id, gateway, amount, currency, status, callback_url, created_at, updated_at) VALUES (?, 'merch_default', 'merch_default', 'tripay', 50000, 'IDR', 'pending', 'https://example.com/callback', datetime('now'), datetime('now'))",
+      args: [orderId],
+    });
+    const signed = (reference: string) => {
+      const payload = { merchant_ref: orderId, reference, status: 'PAID', amount: 50000, payment_method: 'BCA' };
+      const raw = JSON.stringify(payload);
+      const sig = crypto.createHmac('sha256', 'tripay_test_private_key').update(raw).digest('hex');
+      return { raw, sig };
+    };
+    const post = (raw: string, sig: string) => app.request('/webhook/tripay', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-signature': sig },
+      body: raw,
+    });
+    const countEvents = async () => {
+      const r = await db.execute({ sql: "SELECT COUNT(*) AS n FROM webhook_events WHERE order_id = ?", args: [orderId] });
+      return Number((r.rows[0] as Record<string, unknown>).n);
+    };
+    // First payment: recorded, order closes.
+    const first = signed('REF-A-1');
+    expect((await post(first.raw, first.sig)).status).toBe(200);
+    expect(await countEvents()).toBe(1);
+    // Exact retry (same reference): deduped, still 1 row.
+    expect((await post(first.raw, first.sig)).status).toBe(200);
+    expect(await countEvents()).toBe(1);
+    // Genuine second payment (new reference): recorded, not dropped.
+    const second = signed('REF-A-2');
+    expect((await post(second.raw, second.sig)).status).toBe(200);
+    expect(await countEvents()).toBe(2);
+  });
+
   test('invalid JSON returns 400', async () => {
     const webhookRes = await app.request('/webhook/midtrans', {
       method: 'POST',

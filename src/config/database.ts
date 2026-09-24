@@ -78,7 +78,7 @@ export async function initDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_webhook_events_gateway ON webhook_events(gateway);
     CREATE INDEX IF NOT EXISTS idx_webhook_events_created ON webhook_events(created_at);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_webhook_events_dedup
-      ON webhook_events(order_id, gateway, status)
+      ON webhook_events(order_id, gateway, status, gateway_reference)
       WHERE order_id IS NOT NULL;
 
     CREATE TABLE IF NOT EXISTS merchants (

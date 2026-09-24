@@ -216,6 +216,24 @@ const MIGRATIONS: Migration[] = [
 			}
 		},
 	},
+	{
+		version: "010",
+		name: "Widen webhook dedupe key with gateway_reference",
+		run: async (db: Client) => {
+			// Sweep159: the dedupe key (order_id, gateway, status) dropped a
+			// genuine second payment carrying a NEW gateway reference — two
+			// real transfers for one order collapsed into one audit row and
+			// one forward. Adding gateway_reference keeps exact retries
+			// deduped (same reference) while recording distinct transfers.
+			// SQLite cannot ALTER an index: drop + recreate. NULL references
+			// are distinct per row under UNIQUE semantics, so reference-less
+			// events keep the old behavior via the partial index below.
+			await db.execute("DROP INDEX IF EXISTS idx_webhook_events_dedup");
+			await db.execute(
+				"CREATE UNIQUE INDEX IF NOT EXISTS idx_webhook_events_dedup ON webhook_events(order_id, gateway, status, gateway_reference) WHERE order_id IS NOT NULL",
+			);
+		},
+	},
 ];
 export async function runMigrations(db: Client): Promise<void> {
 	// Ensure the tracking table exists
