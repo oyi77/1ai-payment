@@ -273,6 +273,16 @@ describe("updateOrderStatus", () => {
 		expect(fetched!.net).toBe(75000);
 	});
 
+	test("refunded is absolute: later non-refunded statuses are dropped", async () => {
+		const order = await createTestOrder();
+		await updateOrderStatus(order.id, "refunded");
+		for (const stale of ["pending", "success", "failed", "expired", "cancelled"]) {
+			await updateOrderStatus(order.id, stale);
+			const updated = await getOrderById(order.id);
+			expect(updated!.status).toBe("refunded");
+		}
+	});
+
 	test("forward transitions still apply (pending to terminal)", async () => {
 		const order = await createTestOrder();
 		await updateOrderStatus(order.id, "success");

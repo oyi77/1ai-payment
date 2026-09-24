@@ -153,11 +153,16 @@ export async function updateOrderStatus(
 	paymentMethod?: string,
 ): Promise<void> {
 	const db = getDb();
-	// Terminal-regression guard: a late/duplicate "pending" callback must
-	// never rewind a terminal state. Providers move forward only — a pending
-	// arriving after terminal is stale. Creation path (fresh pending rows)
-	// is unaffected.
-	if (status === "pending") {
+	// Terminal-regression guard, two halves:
+	// (a) a late/duplicate "pending" callback must never rewind a terminal
+	//     state (success/failed/expired/cancelled/refunded);
+	// (b) "refunded" is absolute — there is no un-refund path (a failed
+	//     refund never flips the order; only a CONFIRMED refund does), so
+	//     any non-refunded status arriving after refunded is stale (e.g. a
+	//     retransmitted success after a provider-side refund) and dropped.
+	// Other forward transitions (success->failed chargeback, success->expired
+	// void) stay allowed — providers move money, we record it.
+	if (status !== "refunded") {
 		const current = await db.execute({
 			sql: "SELECT status FROM orders WHERE id = ?",
 			args: [id],
@@ -165,12 +170,16 @@ export async function updateOrderStatus(
 		const cur = current.rows[0]
 			? String((current.rows[0] as Record<string, unknown>).status)
 			: "";
+		if (cur === "refunded" && status !== "refunded") {
+			return;
+		}
 		if (
-			cur === "success" ||
-			cur === "failed" ||
-			cur === "expired" ||
-			cur === "cancelled" ||
-			cur === "refunded"
+			status === "pending" &&
+			(cur === "success" ||
+				cur === "failed" ||
+				cur === "expired" ||
+				cur === "cancelled" ||
+				cur === "refunded")
 		) {
 			return;
 		}
