@@ -152,6 +152,49 @@ describe('POST /api/payments', () => {
     });
     expect(res.status).toBe(400);
   });
+
+  test('rejects javascript: success_url (buyer-redirect scheme guard)', async () => {
+    const res = await app.request('/api/payments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'test-api-key-flow' },
+      body: JSON.stringify({
+        gateway: 'midtrans',
+        amount: 10000,
+        currency: 'IDR',
+        callback_url: 'https://example.com/callback',
+        success_url: 'javascript:alert(1)',
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test('rejects data: cancel_url but allows http dev URL', async () => {
+    const bad = await app.request('/api/payments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'test-api-key-flow' },
+      body: JSON.stringify({
+        gateway: 'midtrans',
+        amount: 10000,
+        currency: 'IDR',
+        callback_url: 'https://example.com/callback',
+        cancel_url: 'data:text/html,<script>alert(1)</script>',
+      }),
+    });
+    expect(bad.status).toBe(400);
+
+    const ok = await app.request('/api/payments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'test-api-key-flow' },
+      body: JSON.stringify({
+        gateway: 'midtrans',
+        amount: 10000,
+        currency: 'IDR',
+        callback_url: 'https://example.com/callback',
+        cancel_url: 'http://localhost:3000/cancelled',
+      }),
+    });
+    expect(ok.status).toBe(201);
+  });
 });
 
 describe('POST /webhook/:gateway', () => {

@@ -76,6 +76,15 @@ export const callbackUrlSchema = z
 		},
 	);
 
+/** Total URL parse that never throws — for scheme refines (Sweep111). */
+function mayParse(u: string): URL | undefined {
+	try {
+		return new URL(u);
+	} catch {
+		return undefined;
+	}
+}
+
 export const createPaymentBodySchema = z
 	.object({
 		gateway: gatewayNameSchema,
@@ -99,12 +108,37 @@ export const createPaymentBodySchema = z
 			description: "Client-generated unique key to prevent duplicate orders",
 			example: "order-usr123-1720180000",
 		}),
-		success_url: z.string().url().optional().openapi({
-			description: "Where to redirect the buyer after payment completes",
-		}),
-		cancel_url: z.string().url().optional().openapi({
-			description: "Where to redirect the buyer after cancelling",
-		}),
+		// Buyer-redirect URLs: http(s) only — javascript:/data:/file: schemes
+		// would execute in the buyer's browser on gateway redirect (Sweep111).
+		// http (not only https) stays allowed: merchants test against local
+		// dev servers. Unlike callback_url there is no server-side fetch, so
+		// private hosts are harmless here (resolved in the BUYER's network).
+		success_url: z
+			.string()
+			.url()
+			.refine(
+				(u) => ["http:", "https:"].includes(mayParse(u)?.protocol ?? ""),
+				{
+					message: "success_url must be an http(s) URL",
+				},
+			)
+			.optional()
+			.openapi({
+				description: "Where to redirect the buyer after payment completes",
+			}),
+		cancel_url: z
+			.string()
+			.url()
+			.refine(
+				(u) => ["http:", "https:"].includes(mayParse(u)?.protocol ?? ""),
+				{
+					message: "cancel_url must be an http(s) URL",
+				},
+			)
+			.optional()
+			.openapi({
+				description: "Where to redirect the buyer after cancelling",
+			}),
 		project_order_id: z.string().optional().openapi({
 			description:
 				"Your application's own order/invoice ID for cross-reference",
