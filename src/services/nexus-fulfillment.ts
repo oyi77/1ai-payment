@@ -75,8 +75,7 @@ export async function handleNexusPayment(
 		variant,
 		tier: product.tier,
 		durationDays: product.durationDays,
-		email: customerEmail,
-		name: customerName,
+		hasEmail: Boolean(customerEmail),
 	});
 
 	try {

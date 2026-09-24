@@ -170,7 +170,6 @@ export async function sendExpiryReminders(): Promise<void> {
 		} else {
 			logger.info("Nexus cron: expiry reminder due", {
 				subId,
-				customerName,
 				tier,
 				expiresAt,
 			});

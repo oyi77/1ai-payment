@@ -89,7 +89,7 @@ accountsRouter.openapi(createMerchantRoute, async (c) => {
 			],
 		});
 
-		logger.info("Merchant created", { id, name: body.name, plan: "free" });
+		logger.info("Merchant created", { id, plan: "free" });
 
 		return c.json(
 			{

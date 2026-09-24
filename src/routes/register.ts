@@ -80,7 +80,6 @@ registerRoutes.openapi(registerRoute, async (c) => {
 
 		logger.info("Merchant registered", {
 			id,
-			name: body.name,
 			plan: "free",
 		});
 
