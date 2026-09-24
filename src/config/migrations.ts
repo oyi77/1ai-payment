@@ -176,6 +176,25 @@ const MIGRATIONS: Migration[] = [
 			);
 		},
 	},
+	{
+		version: "008",
+		name: "Namespace order idempotency keys per merchant",
+		run: async (db: Client) => {
+			// Sweep132: orders.idempotency_key was globally UNIQUE, so two
+			// merchants reusing the same key 409'd each other. Keys are now
+			// stored as "<merchant_id>:<key>" (service layer); backfill
+			// legacy bare rows the same way. Rows already prefixed (or NULL)
+			// are left untouched — the migration is idempotent on re-run.
+			// (merchant_id itself was backfilled for legacy rows at boot, so
+			// it is never NULL here; the COALESCE guards entirely-empty tables.)
+			await db.execute(
+				"UPDATE orders SET idempotency_key = COALESCE(merchant_id, project_id, '') || ':' || idempotency_key WHERE idempotency_key IS NOT NULL AND idempotency_key NOT LIKE '%:%'",
+			);
+			await db.execute(
+				"CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_merchant_idempotency_unique ON orders(merchant_id, idempotency_key) WHERE idempotency_key IS NOT NULL",
+			);
+		},
+	},
 ];
 export async function runMigrations(db: Client): Promise<void> {
 	// Ensure the tracking table exists

@@ -48,6 +48,23 @@ export interface CreateOrderParams {
 	idempotency_key?: string;
 }
 
+/**
+ * Namespace an idempotency key by merchant (Sweep132).
+ *
+ * The `orders.idempotency_key` column carries a GLOBAL UNIQUE constraint
+ * (predates merchants; SQLite cannot drop it without a table rebuild), so
+ * two merchants reusing the same key would 409 each other. Prefixing the
+ * stored value with the merchant id makes cross-merchant collisions
+ * impossible while the global constraint stays as a no-op backstop.
+ * Keys are opaque dedupe tokens, never returned by any API — the prefix
+ * is invisible to callers. Migration 008 backfills legacy bare keys.
+ */
+export function namespacedIdempotencyKey(
+	key: string,
+	merchantId: string,
+): string {
+	return `${merchantId}:${key}`;
+}
 export async function createOrder(params: CreateOrderParams): Promise<Order> {
 	const db = getDb();
 	const id = generateOrderId();
@@ -68,10 +85,14 @@ export async function createOrder(params: CreateOrderParams): Promise<Order> {
 				params.payment_method ?? null,
 				params.payment_url ?? null,
 				params.metadata ? JSON.stringify(params.metadata) : null,
-				params.idempotency_key ?? null,
+				params.idempotency_key != null
+					? namespacedIdempotencyKey(
+							params.idempotency_key,
+							params.merchant_id ?? params.project_id,
+						)
+					: null,
 			],
 		});
-
 		logger.info("Order created", {
 			id,
 			gateway: params.gateway,
@@ -133,8 +154,11 @@ export async function getOrderByIdempotencyKey(
 	merchantId?: string,
 ): Promise<Order | null> {
 	const db = getDb();
+	// Namespace the lookup exactly like the write path (Sweep132).
+	const storedKey =
+		merchantId != null ? namespacedIdempotencyKey(key, merchantId) : key;
 	let sql = "SELECT * FROM orders WHERE idempotency_key = ?";
-	const args: Array<string | null> = [key];
+	const args: Array<string | null> = [storedKey];
 	if (merchantId) {
 		sql += " AND merchant_id = ?";
 		args.push(merchantId);
@@ -285,10 +309,21 @@ function mapRow(row: Record<string, unknown>): Order {
 		}
 	}
 
+	// Strip the Sweep132 merchant namespace on read: callers (and tests)
+	// see the bare key they wrote. Legacy bare rows (pre-migration) pass
+	// through untouched.
+	const merchantId = (row.merchant_id as string) ?? (row.project_id as string);
+	const rawKey = (row.idempotency_key as string) ?? null;
+	const prefix = merchantId != null ? `${merchantId}:` : null;
+	const idempotencyKey =
+		rawKey != null && prefix != null && rawKey.startsWith(prefix)
+			? rawKey.slice(prefix.length)
+			: rawKey;
+
 	return {
 		id: row.id as string,
 		project_id: row.project_id as string,
-		merchant_id: (row.merchant_id as string) ?? (row.project_id as string),
+		merchant_id: merchantId,
 		project_order_id: (row.project_order_id as string) ?? null,
 		callback_url: row.callback_url as string,
 		gateway: row.gateway as string,
@@ -299,7 +334,7 @@ function mapRow(row: Record<string, unknown>): Order {
 		payment_url: (row.payment_url as string) ?? null,
 		status: (row.status as string) ?? "pending",
 		metadata,
-		idempotency_key: (row.idempotency_key as string) ?? null,
+		idempotency_key: idempotencyKey,
 		fee: Number(row.fee ?? 0),
 		// net is derived (amount - fee): no gateway computes fees yet, so the
 		// stored net column is always 0 — serving raw 0 misleads consumers.

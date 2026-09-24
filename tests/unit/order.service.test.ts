@@ -191,12 +191,31 @@ describe("getOrderByProjectOrder", () => {
 });
 
 describe("getOrderByIdempotencyKey", () => {
-	test("finds order by idempotency key without merchant filter", async () => {
+	test("finds order by idempotency key with matching merchant (bare key contract)", async () => {
 		const key = "idem-lookup-1";
 		await createTestOrder({ idempotency_key: key });
-		const found = await getOrderByIdempotencyKey(key);
+		const found = await getOrderByIdempotencyKey(key, "merchant_test");
 		expect(found).not.toBeNull();
 		expect(found!.idempotency_key).toBe(key);
+	});
+
+	test("same key across two merchants creates two independent orders (Sweep132)", async () => {
+		const key = `idem-shared-${Date.now()}`;
+		const a = await createTestOrder({
+			idempotency_key: key,
+			merchant_id: "merchant_ns_a",
+			project_id: "merchant_ns_a",
+		});
+		const b = await createTestOrder({
+			idempotency_key: key,
+			merchant_id: "merchant_ns_b",
+			project_id: "merchant_ns_b",
+		});
+		expect(a.id).not.toBe(b.id);
+		const foundA = await getOrderByIdempotencyKey(key, "merchant_ns_a");
+		const foundB = await getOrderByIdempotencyKey(key, "merchant_ns_b");
+		expect(foundA!.id).toBe(a.id);
+		expect(foundB!.id).toBe(b.id);
 	});
 
 	test("finds order by idempotency key with matching merchant", async () => {
@@ -288,6 +307,44 @@ describe("updateOrderStatus", () => {
 		await updateOrderStatus(order.id, "success");
 		const updated = await getOrderById(order.id);
 		expect(updated!.status).toBe("success");
+	});
+});
+
+describe("migration 008 backfill (Sweep132)", () => {
+	test("legacy bare keys gain merchant prefix; per-merchant UNIQUE enforced", async () => {
+		const { getDb } = await import("../../src/config/database");
+		const { runMigrations } = await import("../../src/config/migrations");
+		const db = getDb();
+		// Simulate pre-008 rows: bare keys, same value, two merchants.
+		await db.execute({
+			sql: "INSERT INTO orders (id, project_id, merchant_id, callback_url, gateway, amount, idempotency_key) VALUES (?, ?, ?, ?, ?, ?, ?)",
+			args: ["ord_legacy_a", "m_legacy_a", "m_legacy_a", "https://example.com/cb", "midtrans", 10000, "shared-legacy-key"],
+		});
+		await db.execute({
+			sql: "INSERT INTO orders (id, project_id, merchant_id, callback_url, gateway, amount, idempotency_key) VALUES (?, ?, ?, ?, ?, ?, ?)",
+			args: ["ord_legacy_b", "m_legacy_b", "m_legacy_b", "https://example.com/cb", "midtrans", 10000, "shared-legacy-key2"],
+		});
+		// Force re-run of 008 only.
+		await db.execute("DELETE FROM _migrations WHERE version = '008'");
+		await runMigrations(db);
+		const rows = await db.execute({
+			sql: "SELECT id, idempotency_key FROM orders WHERE id LIKE 'ord_legacy_%' ORDER BY id",
+			args: [],
+		});
+		const byId = Object.fromEntries(
+			rows.rows.map((r) => [
+				String((r as Record<string, unknown>).id),
+				String((r as Record<string, unknown>).idempotency_key),
+			]),
+		);
+		expect(byId["ord_legacy_a"]).toBe("m_legacy_a:shared-legacy-key");
+		expect(byId["ord_legacy_b"]).toBe("m_legacy_b:shared-legacy-key2");
+		// Partial unique index exists.
+		const idx = await db.execute({
+			sql: "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_orders_merchant_idempotency_unique'",
+			args: [],
+		});
+		expect(idx.rows.length).toBe(1);
 	});
 });
 
