@@ -32,12 +32,6 @@ import {
 	verifyAttestationSignature,
 } from "./webhook";
 
-/**
- * Simple in-memory store for escrow state.
- * In production, escrow state lives on-chain.
- */
-const escrowStore = new Map<string, { status: string; updatedAt: string }>();
-
 export class ERC8183Gateway implements PaymentGateway {
 	readonly name = "erc8183";
 
@@ -48,12 +42,10 @@ export class ERC8183Gateway implements PaymentGateway {
 	async createPayment(
 		params: CreatePaymentParams,
 	): Promise<CreatePaymentResult> {
-		const result = await createEscrow(params);
-		escrowStore.set(result.gatewayReference, {
-			status: "pending",
-			updatedAt: new Date().toISOString(),
-		});
-		return result;
+		// No in-memory escrow map: escrow state is returned to the caller in
+		// the paymentUrl JSON and settled on-chain via attestation. (A prior
+		// write-only Map grew unbounded and was never read — removed Sweep128.)
+		return createEscrow(params);
 	}
 
 	getPaymentMethods(): PaymentMethod[] {
