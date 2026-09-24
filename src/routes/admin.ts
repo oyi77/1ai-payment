@@ -64,6 +64,18 @@ const listMerchantsRoute = createRoute({
 	description:
 		"Returns every merchant account (admin only, X-Admin-Key). No API keys — hashes only.",
 	security: adminSecurity,
+	request: {
+		query: z.object({
+			limit: z.coerce
+				.number()
+				.int()
+				.min(1)
+				.max(100)
+				.default(100)
+				.openapi({ example: 100 }),
+			offset: z.coerce.number().int().min(0).default(0).openapi({ example: 0 }),
+		}),
+	},
 	responses: {
 		200: {
 			description: "Merchant list.",
@@ -73,6 +85,7 @@ const listMerchantsRoute = createRoute({
 						success: z.literal(true),
 						data: z.object({
 							merchants: z.array(merchantResponseSchema),
+							total: z.number().openapi({ example: 17 }),
 						}),
 					}),
 				},
@@ -85,11 +98,19 @@ const listMerchantsRoute = createRoute({
 
 adminRoutes.openapi(listMerchantsRoute, async (c) => {
 	const db = getDb();
+	const query = c.req.valid("query");
 
 	try {
-		const result = await db.execute(
-			"SELECT id, name, default_callback_url, active, plan, created_at, updated_at FROM merchants ORDER BY created_at DESC",
+		const totalResult = await db.execute(
+			"SELECT COUNT(*) as count FROM merchants",
 		);
+		const total = Number(
+			(totalResult.rows[0] as Record<string, unknown>).count ?? 0,
+		);
+		const result = await db.execute({
+			sql: "SELECT id, name, default_callback_url, active, plan, created_at, updated_at FROM merchants ORDER BY created_at DESC LIMIT ? OFFSET ?",
+			args: [query.limit, query.offset],
+		});
 
 		const merchants = result.rows.map((row) => ({
 			id: row.id as string,
@@ -101,7 +122,7 @@ adminRoutes.openapi(listMerchantsRoute, async (c) => {
 			updated_at: row.updated_at as string,
 		}));
 
-		return c.json({ success: true, data: { merchants } }, 200);
+		return c.json({ success: true, data: { merchants, total } }, 200);
 	} catch (err) {
 		logger.error("Failed to list merchants", { error: err });
 		return c.json(

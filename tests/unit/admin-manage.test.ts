@@ -64,6 +64,24 @@ describe("GET /api/admin/merchants (admin list)", () => {
 		expect(ids).toContain("merch_adm_b");
 		// No API key material in the response
 		expect(JSON.stringify(body)).not.toContain("api_key_hash");
+		expect(body.data.total).toBeGreaterThanOrEqual(2);
+	});
+
+	test("paginates with limit/offset (Sweep138)", async () => {
+		const res = await app.request("/api/admin/merchants?limit=1&offset=0", {
+			headers: ADMIN,
+		});
+		expect(res.status).toBe(200);
+		const body = await res.json();
+		expect(body.data.merchants).toHaveLength(1);
+		expect(body.data.total).toBeGreaterThanOrEqual(2);
+	});
+
+	test("rejects out-of-range limit (400)", async () => {
+		const res = await app.request("/api/admin/merchants?limit=101", {
+			headers: ADMIN,
+		});
+		expect(res.status).toBe(400);
 	});
 
 	test("rejects without admin key", async () => {
