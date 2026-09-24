@@ -137,6 +137,18 @@ describe("POST /api/saved-methods (route)", () => {
 		const b2 = await res2.json();
 		expect(b1.data.id).toBe(b2.data.id);
 	});
+
+	test("400 for unknown field on create (strict body)", async () => {
+		const res = await app.request("/api/saved-methods", {
+			method: "POST",
+			headers: {
+				"X-API-Key": merchantAKey,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ ...VALID_BODY, merchant_id: "merch_route_b" }),
+		});
+		expect(res.status).toBe(400);
+	});
 });
 
 describe("GET /api/saved-methods (route)", () => {
@@ -227,6 +239,28 @@ describe("PATCH /api/saved-methods/:methodId (route)", () => {
 			body: JSON.stringify({ method_name: "Hacked" }),
 		});
 		expect(res.status).toBe(404);
+	});
+
+	test("400 for gateway_token rewrite attempt on patch (strict + immutable)", async () => {
+		const createRes = await app.request("/api/saved-methods", {
+			method: "POST",
+			headers: {
+				"X-API-Key": merchantAKey,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ ...VALID_BODY, gateway_token: "tok_strict_patch" }),
+		});
+		const { data } = await createRes.json();
+
+		const res = await app.request(`/api/saved-methods/${data.id}`, {
+			method: "PATCH",
+			headers: {
+				"X-API-Key": merchantAKey,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ gateway_token: "tok_rewritten" }),
+		});
+		expect(res.status).toBe(400);
 	});
 });
 

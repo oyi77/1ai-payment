@@ -292,6 +292,7 @@ export const createSavedMethodBodySchema = z
 			.optional()
 			.openapi({ example: "2027-07-06T10:00:00.000Z" }),
 	})
+	.strict()
 	.openapi("CreateSavedMethodBody");
 
 export const savedMethodsListSchema = z
@@ -320,12 +321,9 @@ export const updateSavedMethodBodySchema = z
 			.optional()
 			.nullable()
 			.openapi({ example: "•••• 4242" }),
-		expires_at: z
-			.string()
-			.optional()
-			.nullable()
-			.openapi({ example: "2027-07-06T10:00:00.000Z" }),
+		expires_at: z.string().optional().nullable().openapi({ example: "2027-07-06T10:00:00.000Z" }),
 	})
+	.strict()
 	.openapi("UpdateSavedMethodBody");
 
 export const createMerchantResponseSchema = z
