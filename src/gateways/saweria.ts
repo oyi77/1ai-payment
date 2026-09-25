@@ -196,9 +196,9 @@ export class SaweriaGateway implements PaymentGateway {
 		];
 	}
 
-	// Saweria does not sign webhooks. Per AGENTS.md the webhook MUST be verified:
-	// we reconcile by requiring both the Saweria transaction `id` and our echoed
-	// `message` (order id). The route layer will additionally look the order up.
+	// Saweria does not sign webhooks. Inbound callbacks are 501-disabled at the
+	// route head (SaweriaFix) — this presence check is now defense-in-depth only
+	// and never grants trust on its own. createPayment (outbound) is unaffected.
 	verifySignature(body: unknown): boolean {
 		if (!body || typeof body !== "object") return false;
 		const p = body as Partial<SaweriaWebhookPayload>;

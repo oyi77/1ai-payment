@@ -5,8 +5,8 @@
  * gateways whose verify honors opts.merchantId. Platform-credential
  * gateways (paypal, telegram x2, x402, erc8183) verify against platform
  * config only — retrying per merchant repeats the identical check
- * (worst case: N remote PayPal API calls per webhook). Saweria's verify
- * is credential-free reconciliation — same verdict for every candidate.
+ * (worst case: N remote PayPal API calls per webhook). Saweria webhooks are
+ * 501-disabled at the route head, so it never reaches merchant-key retry.
  */
 import { describe, expect, test } from "bun:test";
 import { MERCHANT_VERIFY_GATEWAYS } from "../../src/routes/webhook";

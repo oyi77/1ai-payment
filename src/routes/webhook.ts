@@ -244,6 +244,17 @@ for (const gatewayName of GATEWAY_NAMES) {
 	});
 
 	webhookRoutes.openapi(route, async (c) => {
+		// Saweria sends UNSIGNED webhooks (no signature scheme exists). Accepting
+		// them means anyone knowing an order_id can forge a success callback
+		// (Sweep105 acknowledged this; amount-floor only blocks underpay).
+		// Closed until Saweria exposes a signature or status-check API.
+		// createPayment is unaffected — only the inbound callback is disabled.
+		if (gatewayName === "saweria") {
+			return c.json(
+				{ error: "Saweria webhooks disabled: unsigned callbacks not accepted" },
+				501,
+			);
+		}
 		const gateway = getGateway(gatewayName);
 		if (!gateway) {
 			return c.json({ error: `Gateway not implemented: ${gatewayName}` }, 501);
@@ -498,12 +509,10 @@ for (const gatewayName of GATEWAY_NAMES) {
 		// on short money. Zero-amount events skip the check: some gateways do
 		// not report amounts (e.g. erc8183 attestations approve escrow release
 		// with no amount field) and there is nothing to reconcile. Overpay
-		// passes (tips, fee-inclusive gross). Saweria is the sharpest case —
-		// no webhook signature, so anyone knowing an order_id can forge; the
-		// same floor now protects every amount-reporting gateway. Exact-amount
-		// forgery with zero real payment on unsigned gateways is still
-		// possible — full mitigation needs a transaction-status API, which
-		// Saweria does not expose publicly.
+		// passes (tips, fee-inclusive gross). Saweria webhooks are 501-disabled
+		// at the route head (unsigned callbacks not accepted), so the "unsigned
+		// gateway" case below no longer reaches this floor — it stands for the
+		// remaining signed amount-reporting gateways.
 		// 200-skip (not 4xx): amounts never change on gateway retry; log the warn.
 		if (
 			event.status === "success" &&

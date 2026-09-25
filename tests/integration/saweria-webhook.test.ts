@@ -1,10 +1,11 @@
 /**
- * Saweria webhook reconciliation tests (Sweep105).
+ * Saweria webhook DISABLED tests (SaweriaFix).
  *
- * Saweria signs NOTHING: verifySignature only checks id+message presence.
- * Anyone who knows an order_id can forge a success callback, so the route
- * enforces an amount floor — underpay forgeries (paid X, claim Y>X) are
- * 200-skipped without touching the order, exact/overpay passes.
+ * Saweria sends UNSIGNED webhooks — no signature scheme exists. Accepting
+ * them meant anyone knowing an order_id could forge a success callback
+ * (Sweep105 acknowledged this; the amount floor only blocked underpay).
+ * POST /webhook/saweria now returns 501 unconditionally. createPayment is
+ * unaffected (outbound only, no inbound trust).
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
@@ -32,25 +33,15 @@ async function orderStatus(id: string): Promise<string> {
 	return String((r.rows[0] as Record<string, unknown>).status);
 }
 
-function webhook(overrides: Record<string, unknown> = {}) {
-	return {
-		id: "swtx_forge_001",
-		type: "donation",
-		message: orderId,
-		amount_raw: 1000,
-		cut: 0,
-		donator_name: "Forger",
-		donator_email: "forger@example.com",
-		created_at: new Date().toISOString(),
-		...overrides,
-	};
-}
-
 beforeAll(async () => {
 	const { initDatabase, getDb } = await import("../../src/config/database");
 	const { Hono } = await import("hono");
-	const { sha256Hash, generateMerchantId, generateWebhookSecret, generateOrderId } =
-		await import("../../src/utils/crypto");
+	const {
+		sha256Hash,
+		generateMerchantId,
+		generateWebhookSecret,
+		generateOrderId,
+	} = await import("../../src/utils/crypto");
 	const { webhookRoutes } = await import("../../src/routes/webhook");
 
 	await initDatabase();
@@ -74,33 +65,36 @@ afterAll(() => {
 	if (existsSync(TEST_DB)) unlinkSync(TEST_DB);
 });
 
-describe("POST /webhook/saweria (unsigned reconciliation)", () => {
-	test("underpay forgery 200-skipped, order stays pending", async () => {
+describe("POST /webhook/saweria (disabled — unsigned)", () => {
+	test("valid-looking donation body returns 501, order untouched", async () => {
 		const res = await app.request("/webhook/saweria", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(webhook({ amount_raw: 1000 })),
+			body: JSON.stringify({
+				version: "1",
+				created_at: new Date().toISOString(),
+				id: "swtx_forged_001",
+				type: "donation",
+				amount_raw: 50000,
+				cut: 0,
+				donator_name: "Attacker",
+				donator_email: "a@example.com",
+				donator_is_user: false,
+				message: orderId,
+			}),
 		});
-		expect(res.status).toBe(200);
+		expect(res.status).toBe(501);
+		const body = await res.json();
+		expect(body.error).toMatch(/unsigned/i);
 		expect(await orderStatus(orderId)).toBe("pending");
 	});
 
-	test("exact-amount callback marks success", async () => {
-		const res = await app.request("/webhook/saweria", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(webhook({ id: "swtx_real_002", amount_raw: 50000 })),
-		});
-		expect(res.status).toBe(200);
-		expect(await orderStatus(orderId)).toBe("success");
-	});
-
-	test("unsigned body without id/message still 401", async () => {
+	test("malformed body also returns 501 (gate fires before parsing)", async () => {
 		const res = await app.request("/webhook/saweria", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ nope: true }),
 		});
-		expect(res.status).toBe(401);
+		expect(res.status).toBe(501);
 	});
 });
