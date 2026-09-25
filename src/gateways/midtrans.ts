@@ -103,6 +103,10 @@ export class MidtransGateway implements PaymentGateway {
 			body.callbacks = {
 				finish: params.successUrl ?? `${publicBase}/payment/finish`,
 			};
+			// Explicit 24h window: without custom_expiry Snap falls back to
+			// the dashboard default (observed as short enough that buyers
+			// hit "link expired" on a same-day click).
+			body.custom_expiry = { expiry_duration: 24, unit: "hour" };
 		}
 
 		const auth = Buffer.from(`${serverKey}:`).toString("base64");

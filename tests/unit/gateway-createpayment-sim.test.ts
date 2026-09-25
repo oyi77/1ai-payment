@@ -281,4 +281,28 @@ describe("gateway createPayment simulations (real charge code)", () => {
 			expect(body).not.toContain("example.com/payment");
 		}
 	});
+	test("qris Snap body carries explicit 24h custom_expiry", async () => {
+		// Without custom_expiry Snap falls back to the dashboard default
+		// (observed as "link expired" on a same-day buyer click).
+		const bodies: Record<string, string> = {};
+		const prevFetch = globalThis.fetch;
+		globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+			bodies[String(input)] = String(init?.body ?? "");
+			return sandboxResponse(String(input));
+		}) as typeof fetch;
+		try {
+			await getGateway("midtrans")!.createPayment({
+				...PARAMS,
+				paymentMethod: "qris",
+			});
+		} finally {
+			globalThis.fetch = prevFetch;
+		}
+		const snapEntry = Object.entries(bodies).find(([url]) =>
+			url.includes("/snap/v1/transactions"),
+		);
+		expect(snapEntry, "Snap endpoint must be used for qris").toBeDefined();
+		const body = JSON.parse(snapEntry![1]) as Record<string, unknown>;
+		expect(body.custom_expiry).toEqual({ expiry_duration: 24, unit: "hour" });
+	});
 });
