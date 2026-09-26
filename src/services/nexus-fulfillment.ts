@@ -12,9 +12,12 @@
  *   7. Store invite link + chat_id in subscription row
  *
  * NOTE (ops): payload shape pending confirmation with 1 real Scalev test order.
- * Invite delivery is store-link + admin-manual-share by design: Scalev checkout
- * captures no customer Telegram identifier, so a customer DM is structurally
- * blocked, not unfinished work.
+ * Invite delivery (NexusDM): API-created orders carry telegram_username in
+ * order metadata (captured pre-checkout) → stored on the customer row, and
+ * fulfillment returns a personal claim link https://t.me/<bot>?start=sub_<id>
+ * (Bot API cannot DM a raw username — the customer taps, the bot delivers).
+ * Direct Scalev checkout (no order row, no username) still falls back to
+ * store-link + admin-manual-share.
  *
  * LIFETIME MODEL (Sweep170 — read before touching expiry): the invite LINK
  * expires with the subscription (expire_date = created + durationDays), but
@@ -38,6 +41,7 @@ export interface FulfillmentResult {
 	customerId?: string;
 	subscriptionId?: string;
 	inviteLink?: string;
+	claimLink?: string;
 	error?: string;
 }
 
@@ -66,6 +70,40 @@ export function sanitizeCustomerName(raw: unknown): string | undefined {
 }
 
 /**
+ * Normalize a Telegram @username at the boundary (NexusDM).
+ *
+ * Strips a leading @, lowercases, enforces Telegram's own rule
+ * (5-32 chars, letters/digits/underscore). Returns undefined for
+ * anything else — the payment is still honored, only the username
+ * link is lost (same degrade pattern as email above).
+ */
+export function normalizeTelegramUsername(raw: unknown): string | undefined {
+	if (typeof raw !== "string") return undefined;
+	const v = raw.trim().replace(/^@+/, "").toLowerCase();
+	if (!/^[a-z0-9_]{5,32}$/.test(v)) return undefined;
+	return v;
+}
+
+/**
+ * Build a personal claim link for a subscription (NexusDM).
+ *
+ * The Bot API cannot DM a raw username (sendMessage needs a chat_id the
+ * bot has seen). So instead of a doomed DM attempt, the customer gets
+ * https://t.me/<bot>?start=sub_<id>: they tap, the bot sees /start with
+ * the subscription id, looks the row up, and delivers the invite into
+ * that chat. Deterministic — no new column, reconstructible any time.
+ * Null when the public bot username is not configured.
+ */
+export function buildClaimLink(
+	botUsername: string | undefined,
+	subscriptionId: string,
+): string | undefined {
+	const u = (botUsername ?? "").trim().replace(/^@+/, "").toLowerCase();
+	if (!u || !subscriptionId) return undefined;
+	return `https://t.me/${u}?start=sub_${subscriptionId}`;
+}
+
+/**
  * Main entry: called from webhook route when a Scalev payment
  * arrives with no matching order (direct checkout).
  */
@@ -74,6 +112,7 @@ export async function handleNexusPayment(
 	body: Record<string, unknown>,
 	customerEmail: string | undefined,
 	customerName: string | undefined,
+	telegramUsername?: string | undefined,
 ): Promise<FulfillmentResult> {
 	if (gatewayName !== "scalev") {
 		return { success: false, error: "Not a Scalev payment" };
@@ -103,11 +142,13 @@ export async function handleNexusPayment(
 		return { success: false, error: `Unrecognized variant: ${variant}` };
 	}
 
+	const username = normalizeTelegramUsername(telegramUsername);
 	logger.info("Nexus: processing payment", {
 		variant,
 		tier: product.tier,
 		durationDays: product.durationDays,
 		hasEmail: Boolean(customerEmail),
+		hasUsername: Boolean(username),
 	});
 
 	try {
@@ -116,6 +157,7 @@ export async function handleNexusPayment(
 			sanitizeCustomerEmail(customerEmail),
 			sanitizeCustomerName(customerName),
 			scalevOrderId,
+			username,
 		);
 	} catch (err: unknown) {
 		const msg = err instanceof Error ? err.message : String(err);
@@ -129,6 +171,7 @@ async function fulfillOrder(
 	customerEmail: string | undefined,
 	customerName: string | undefined,
 	scalevOrderId = "",
+	telegramUsername?: string | undefined,
 ): Promise<FulfillmentResult> {
 	const db = getDb();
 	const config = getConfig();
@@ -146,25 +189,45 @@ async function fulfillOrder(
 		});
 		if (existing.rows.length > 0) {
 			dbCustomerId = String(existing.rows[0].id);
-			await db.execute({
-				sql: "UPDATE nexus_customers SET name = ?, updated_at = ? WHERE id = ?",
-				args: [customerName ?? null, now, dbCustomerId],
-			});
+			if (telegramUsername) {
+				await db.execute({
+					sql: "UPDATE nexus_customers SET name = ?, telegram_username = ?, updated_at = ? WHERE id = ?",
+					args: [customerName ?? null, telegramUsername, now, dbCustomerId],
+				});
+			} else {
+				await db.execute({
+					sql: "UPDATE nexus_customers SET name = ?, updated_at = ? WHERE id = ?",
+					args: [customerName ?? null, now, dbCustomerId],
+				});
+			}
 		} else {
 			dbCustomerId = customerId;
 			await db.execute({
-				sql: `INSERT INTO nexus_customers (id, email, name, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?)`,
-				args: [dbCustomerId, customerEmail, customerName ?? null, now, now],
+				sql: `INSERT INTO nexus_customers (id, email, name, telegram_username, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?)`,
+				args: [
+					dbCustomerId,
+					customerEmail,
+					customerName ?? null,
+					telegramUsername ?? null,
+					now,
+					now,
+				],
 			});
 		}
 	} else {
 		// No email — create anonymous customer
 		dbCustomerId = customerId;
 		await db.execute({
-			sql: `INSERT INTO nexus_customers (id, name, created_at, updated_at)
-            VALUES (?, ?, ?, ?)`,
-			args: [dbCustomerId, customerName ?? "Anonymous", now, now],
+			sql: `INSERT INTO nexus_customers (id, name, telegram_username, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)`,
+			args: [
+				dbCustomerId,
+				customerName ?? "Anonymous",
+				telegramUsername ?? null,
+				now,
+				now,
+			],
 		});
 	}
 
@@ -240,22 +303,28 @@ async function fulfillOrder(
 		throw err;
 	}
 
+	// 5. Claim link (NexusDM): the Bot API cannot DM a raw username, so the
+	//    customer gets https://t.me/<bot>?start=sub_<id> instead. They tap,
+	//    the bot sees /start with the subscription id and delivers the invite
+	//    into that chat. Deterministic — reconstructible without a new column.
+	const claimLink = buildClaimLink(config.NEXUS_TELEGRAM_BOT_USERNAME, subId);
+
 	logger.info("Nexus: subscription created", {
 		subId,
 		customerId: dbCustomerId,
 		tier: product.tier,
 		expiresAt,
 		inviteLink: inviteLink ? "created" : "none",
+		claimLink: claimLink ? "created" : "none",
+		hasUsername: Boolean(telegramUsername),
 	});
-
-	// 5. Invite link stored; admin shares manually — Scalev checkout captures
-	//    no customer Telegram identifier, so a customer DM is structurally blocked.
 
 	return {
 		success: true,
 		customerId: dbCustomerId,
 		subscriptionId: subId,
 		inviteLink,
+		claimLink,
 	};
 }
 

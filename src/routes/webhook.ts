@@ -458,11 +458,17 @@ for (const gatewayName of GATEWAY_NAMES) {
 
 			// B2: Try nexus fulfillment for direct Scalev checkout (no order in DB)
 			if (gatewayName === "scalev" && event.status === "success") {
+				const rawBody = body as Record<string, unknown>;
 				const result = await handleNexusPayment(
 					gatewayName,
-					body as Record<string, unknown>,
-					String((body as Record<string, unknown>).customer_email ?? ""),
-					String((body as Record<string, unknown>).customer_name ?? ""),
+					rawBody,
+					String(rawBody.customer_email ?? ""),
+					String(rawBody.customer_name ?? ""),
+					typeof rawBody.telegram_username === "string"
+						? rawBody.telegram_username
+						: typeof rawBody.customer_telegram === "string"
+							? rawBody.customer_telegram
+							: undefined,
 				);
 				if (result.success) {
 					logger.info("Nexus: fulfillment complete for direct checkout", {
@@ -576,6 +582,30 @@ for (const gatewayName of GATEWAY_NAMES) {
 			fullEvent.status,
 			fullEvent.gateway_reference,
 		);
+
+		// NexusDM: Scalev success on an API-created order carries the merchant's
+		// metadata (incl. telegram_username captured pre-checkout). The B2 path
+		// above only fires for direct checkout (no order row) — this covers the
+		// API path. Fulfillment is idempotent on scalev_order_id; the order row
+		// here resolves via notes so scalev_order_id = gateway_reference.
+		if (gatewayName === "scalev" && fullEvent.status === "success") {
+			const meta = order.metadata ?? {};
+			const result = await handleNexusPayment(
+				gatewayName,
+				body as Record<string, unknown>,
+				String((body as Record<string, unknown>).customer_email ?? ""),
+				String((body as Record<string, unknown>).customer_name ?? ""),
+				typeof meta.telegram_username === "string"
+					? meta.telegram_username
+					: undefined,
+			);
+			if (result.success) {
+				logger.info("Nexus: fulfillment complete for API order", {
+					order_id: order.id,
+					subId: result.subscriptionId,
+				});
+			}
+		}
 
 		// Look up merchant's webhook_secret for signing — no fallback. Only
 		// forward when a real secret exists; signing with anything else would

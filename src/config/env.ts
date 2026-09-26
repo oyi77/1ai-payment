@@ -92,6 +92,7 @@ export interface Config {
 	// Nexus — 1ai-product delivery (Telegram invite)
 	NEXUS_TELEGRAM_CHANNEL_ID: string;
 	NEXUS_TELEGRAM_BOT_TOKEN: string;
+	NEXUS_TELEGRAM_BOT_USERNAME: string; // public @username (no secret) for t.me claim links
 	NEXUS_VARIANT_MAP: string; // JSON: variant_name → tier config
 }
 
@@ -245,6 +246,7 @@ export function getConfig(): Config {
 		ERC8183_EVALUATOR_PUBLIC_KEY: optional("ERC8183_EVALUATOR_PUBLIC_KEY"),
 		NEXUS_TELEGRAM_CHANNEL_ID: optional("NEXUS_TELEGRAM_CHANNEL_ID"),
 		NEXUS_TELEGRAM_BOT_TOKEN: optional("NEXUS_TELEGRAM_BOT_TOKEN"),
+		NEXUS_TELEGRAM_BOT_USERNAME: optional("NEXUS_TELEGRAM_BOT_USERNAME"),
 		NEXUS_VARIANT_MAP: optional("NEXUS_VARIANT_MAP", "{}"),
 	};
 
