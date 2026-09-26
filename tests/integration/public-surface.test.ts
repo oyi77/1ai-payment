@@ -74,6 +74,12 @@ describe("public surface (Sweep150)", () => {
 		expect(text).not.toContain("fakegwzzz");
 	});
 
+	test("favicon.ico redirects to svg (no 404 console error on icon-less pages)", async () => {
+		const res = await app.request("/favicon.ico");
+		expect(res.status).toBe(301);
+		expect(res.headers.get("location")).toContain("/favicon.svg");
+	});
+
 	test("baseline security headers present on public routes", async () => {
 		const res = await app.request("/health");
 		expect(res.headers.get("x-content-type-options")).toBe("nosniff");

@@ -126,6 +126,12 @@ app.get("/favicon.svg", (c) => {
 		headers: { "Content-Type": "image/svg+xml" },
 	});
 });
+// Browsers auto-request /favicon.ico on any page without an explicit icon
+// (e.g. raw /doc JSON). Redirect instead of 404ing so no page ever logs
+// a console error for a missing icon.
+app.get("/favicon.ico", (c) => {
+	return c.redirect("/favicon.svg?v=2", 301);
+});
 app.get("/dashboard", async (c) => {
 	c.header("Cache-Control", "no-cache, must-revalidate");
 	return c.html(await Bun.file("./src/dashboard/index.html").text());
