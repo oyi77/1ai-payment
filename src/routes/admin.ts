@@ -329,3 +329,111 @@ adminRoutes.openapi(resetKeyRoute, async (c) => {
 		);
 	}
 });
+
+// ── GET /api/admin/nexus/claim/:subId (bot claim lookup, NexusDM) ───
+// The claim flow: customer taps https://t.me/<bot>?start=sub_<id>, the bot
+// holding X-Admin-Key calls this to resolve the invite link + status.
+// 404 when unknown, expired, or not active — the bot tells the user to
+// contact support instead of delivering a dead link.
+const claimParam = z.object({
+	subId: z.string().openapi({ example: "ns_abc123" }),
+});
+
+const claimRoute = createRoute({
+	method: "get",
+	path: "/admin/nexus/claim/{subId}",
+	tags: ["Admin"],
+	summary: "Resolve a Nexus subscription claim (bot)",
+	description:
+		"Returns invite link + tier + expiry for an active subscription (X-Admin-Key). Used by the Telegram bot handling /start sub_<id>.",
+	security: adminSecurity,
+	request: { params: claimParam },
+	responses: {
+		200: {
+			description: "Claimable subscription.",
+			content: {
+				"application/json": {
+					schema: z.object({
+						success: z.literal(true),
+						data: z.object({
+							subscription_id: z.string(),
+							tier: z.string(),
+							variant: z.string(),
+							telegram_invite_link: z.string().nullable(),
+							expires_at: z.string().nullable(),
+							telegram_username: z.string().nullable(),
+						}),
+					}),
+				},
+			},
+		},
+		401: unauthorizedResponse,
+		404: notFoundResponse,
+		500: serverErrorResponse,
+	},
+});
+
+adminRoutes.openapi(claimRoute, async (c) => {
+	const db = getDb();
+	const { subId } = c.req.valid("param");
+	try {
+		const rows = await db.execute({
+			sql: `SELECT s.tier, s.variant, s.status, s.telegram_invite_link, s.expires_at, c.telegram_username
+				FROM nexus_subscriptions s LEFT JOIN nexus_customers c ON c.id = s.customer_id
+				WHERE s.id = ?`,
+			args: [subId],
+		});
+		if (rows.rows.length === 0) {
+			return c.json(
+				{
+					success: false as const,
+					error: { code: "NOT_FOUND", message: "Subscription not found" },
+				},
+				404,
+			);
+		}
+		const r = rows.rows[0] as Record<string, unknown>;
+		if (String(r.status) !== "active") {
+			return c.json(
+				{
+					success: false as const,
+					error: {
+						code: "NOT_FOUND",
+						message: `Subscription is ${String(r.status)}`,
+					},
+				},
+				404,
+			);
+		}
+		return c.json(
+			{
+				success: true as const,
+				data: {
+					subscription_id: subId,
+					tier: String(r.tier ?? ""),
+					variant: String(r.variant ?? ""),
+					telegram_invite_link:
+						r.telegram_invite_link == null
+							? null
+							: String(r.telegram_invite_link),
+					expires_at: r.expires_at == null ? null : String(r.expires_at),
+					telegram_username:
+						r.telegram_username == null ? null : String(r.telegram_username),
+				},
+			},
+			200,
+		);
+	} catch (err) {
+		logger.error("Failed to resolve Nexus claim", {
+			subscription_id: subId,
+			error: err,
+		});
+		return c.json(
+			{
+				success: false as const,
+				error: { code: "INTERNAL_ERROR", message: "Failed to resolve claim" },
+			},
+			500,
+		);
+	}
+});

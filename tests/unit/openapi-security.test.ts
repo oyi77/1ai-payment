@@ -89,7 +89,7 @@ describe("GET /doc security schemes", () => {
 		const adminPaths = Object.keys(doc.paths).filter((p) =>
 			p.includes("/admin/"),
 		);
-		expect(adminPaths.length).toBe(3);
+		expect(adminPaths.length).toBe(4);
 		for (const p of adminPaths) {
 			for (const op of Object.values(doc.paths[p])) {
 				const names = (op.security ?? []).flatMap((s) => Object.keys(s));
