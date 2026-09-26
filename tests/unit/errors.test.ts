@@ -70,11 +70,11 @@ describe("DuplicateOrderError", () => {
 });
 
 describe("GatewayError", () => {
-	test("sets message with gateway and details, code 502", () => {
+	test("sets message, code 422, and name", () => {
 		const err = new GatewayError("midtrans", "timeout");
 		expect(err.message).toBe("Gateway midtrans error: timeout");
 		expect(err.code).toBe("GATEWAY_ERROR");
-		expect(err.statusCode).toBe(502);
+		expect(err.statusCode).toBe(422);
 		expect(err.name).toBe("GatewayError");
 	});
 

@@ -297,6 +297,32 @@ describe('POST /api/payments', () => {
       expect(res.status).toBe(400);
     }
   });
+
+  test('gateway error returns 422 JSON (not 502: CF swaps 5xx bodies for HTML)', async () => {
+    const { getGateway } = await import('../../src/gateways');
+    const { GatewayError } = await import('../../src/utils/errors');
+    const gw = getGateway('midtrans')!;
+    const orig = gw.createPayment.bind(gw);
+    gw.createPayment = async () => { throw new GatewayError('midtrans', 'boom'); };
+    try {
+      const res = await app.request('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': 'test-api-key-flow' },
+        body: JSON.stringify({
+          gateway: 'midtrans',
+          amount: 10000,
+          currency: 'IDR',
+          callback_url: 'https://example.com/callback',
+        }),
+      });
+      expect(res.status).toBe(422);
+      const body = await res.json();
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('GATEWAY_ERROR');
+    } finally {
+      gw.createPayment = orig;
+    }
+  });
 });
 
 describe('POST /webhook/:gateway', () => {

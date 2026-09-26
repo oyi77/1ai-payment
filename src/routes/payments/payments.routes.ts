@@ -55,7 +55,7 @@ const createPaymentRoute = createRoute({
 	summary: "Create a payment",
 	description:
 		"Creates an order and calls the chosen gateway to obtain a payment_url. " +
-		"Returns 201 on success, 200 on idempotent hit, 409 on duplicate, 502 on gateway error.",
+		"Returns 201 on success, 200 on idempotent hit, 409 on duplicate, 422 on gateway error.",
 	security: [{ ApiKeyAuth: [] }],
 	request: {
 		headers: z.object({
@@ -106,8 +106,9 @@ const createPaymentRoute = createRoute({
 			description: "Duplicate order conflict.",
 			content: { "application/json": { schema: errorSchema } },
 		},
-		502: {
-			description: "Gateway API error.",
+		422: {
+			description:
+				"Gateway API error (422, not 502: Cloudflare replaces 5xx origin bodies with its own error page, hiding the JSON contract).",
 			content: { "application/json": { schema: errorSchema } },
 		},
 		500: {
@@ -313,7 +314,9 @@ paymentsRouter.openapi(createPaymentRoute, async (c) => {
 						message: "Gateway error, please retry or contact support",
 					},
 				},
-				502,
+				// 422, not 502: Cloudflare swaps 5xx origin bodies for its own
+				// error page, so merchants would get HTML instead of this JSON.
+				422,
 			);
 		}
 

@@ -60,7 +60,9 @@ export class GatewayError extends PaymentError {
 		gateway: string,
 		public readonly details: string,
 	) {
-		super(`Gateway ${gateway} error: ${details}`, "GATEWAY_ERROR", 502);
+		// 422, not 502: Cloudflare swaps 5xx origin bodies for its own error
+		// page (proven live: merchants got HTML instead of the JSON contract).
+		super(`Gateway ${gateway} error: ${details}`, "GATEWAY_ERROR", 422);
 		this.name = "GatewayError";
 	}
 }
