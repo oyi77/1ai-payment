@@ -12,12 +12,17 @@
  * Swagger UI off jsdelivr + inline boot, and API/JSON routes gain nothing
  * from CSP. The middleware no-ops elsewhere so application routes stay
  * untouched.
+ *
+ * static.cloudflareinsights.com: Cloudflare injects its RUM beacon into the
+ * HTML at the edge (not in our source). Audited 2026-09-26: no storage,
+ * cookie, or key access — web-vitals only. Blocking it only spams console
+ * errors without buying security.
  */
 import type { Context, Next } from "hono";
 
 const CSP_POLICY = [
 	"default-src 'self'",
-	"script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com",
+	"script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://static.cloudflareinsights.com",
 	"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
 	"font-src 'self' https://fonts.gstatic.com",
 	"img-src 'self' data:",

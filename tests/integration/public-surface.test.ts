@@ -90,7 +90,8 @@ describe("Content-Security-Policy (Sweep165)", () => {
 			expect(csp).toContain("object-src 'none'");
 			expect(csp).toContain("frame-ancestors 'self'");
 			expect(csp).toContain("cdn.tailwindcss.com");
-			expect(csp).not.toContain("jsdelivr");
+			// Cloudflare RUM beacon (edge-injected, audited 2026-09-26)
+			expect(csp).toContain("static.cloudflareinsights.com");
 		}
 	});
 
