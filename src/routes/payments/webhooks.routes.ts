@@ -3,38 +3,11 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { getDb } from "../../config/database";
 import { authMiddleware } from "../../middleware/auth";
-import {
-	errorsCounter,
-	paymentCreationDuration,
-	paymentsCreatedCounter,
-} from "../../middleware/metrics";
-import {
-	createPaymentBodySchema,
-	defaultHook,
-	errorSchema,
-	gatewayInfoSchema,
-	gatewayNameSchema,
-	orderResponseSchema,
-	orderToResponse,
-	transactionResponseSchema,
-	webhookDeliverySchema,
-} from "../../schemas";
+
+import { defaultHook, errorSchema, webhookDeliverySchema } from "../../schemas";
 import { replayDeadLetter } from "../../services/forwarder.service";
-import {
-	getAvailableGateways,
-	getGateway,
-	getGatewayMethods,
-} from "../../services/gateway.service";
-import {
-	type CreateOrderParams,
-	type Order,
-	createOrder,
-	getOrderById,
-	getOrderByIdempotencyKey,
-	listOrders,
-	updateOrderStatus,
-} from "../../services/order.service";
-import { DuplicateOrderError, GatewayError } from "../../utils/errors";
+
+import { getOrderById } from "../../services/order.service";
 import { logger } from "../../utils/logger";
 
 type MerchantEnv = {

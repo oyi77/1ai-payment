@@ -6,24 +6,13 @@ import { MERCHANT_CREDENTIAL_KEYS } from "../../config/env";
 import { authMiddleware } from "../../middleware/auth";
 import {
 	GATEWAY_NAMES,
-	createMerchantBodySchema,
-	createMerchantResponseSchema,
 	defaultHook,
 	errorSchema,
 	merchantGatewayResponseSchema,
-	merchantResponseSchema,
-	rotateKeyResponseSchema,
 	setGatewayCredentialsBodySchema,
 	toggleGatewayBodySchema,
-	updateMerchantBodySchema,
 } from "../../schemas";
-import {
-	encrypt,
-	generateApiKey,
-	generateMerchantId,
-	generateWebhookSecret,
-	sha256Hash,
-} from "../../utils/crypto";
+import { encrypt } from "../../utils/crypto";
 import { logger } from "../../utils/logger";
 
 type MerchantEnv = {

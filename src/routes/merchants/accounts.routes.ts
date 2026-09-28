@@ -3,18 +3,14 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { getDb } from "../../config/database";
 import { authMiddleware } from "../../middleware/auth";
-import { GATEWAY_NAMES } from "../../schemas";
 import {
 	createMerchantBodySchema,
 	createMerchantResponseSchema,
 	defaultHook,
 	errorSchema,
-	merchantGatewayResponseSchema,
 	merchantResponseSchema,
 	rotateKeyResponseSchema,
 	rotateSecretResponseSchema,
-	setGatewayCredentialsBodySchema,
-	toggleGatewayBodySchema,
 	updateMerchantBodySchema,
 } from "../../schemas";
 import {
