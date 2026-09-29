@@ -234,6 +234,49 @@ const MIGRATIONS: Migration[] = [
 			);
 		},
 	},
+	{
+		version: "011",
+		name: "Encrypt saved_payment_methods.gateway_token at rest",
+		run: async (db: Client) => {
+			// Vault tokens were stored plaintext. Encrypt every row in place
+			// (AES-256-GCM) and add token_hash (SHA-256) as the new lookup
+			// key — ciphertexts use a random IV so they can never match by
+			// equality. Idempotent on re-run: rows whose hash is already set
+			// are skipped, so a second run never double-encrypts.
+			// Dynamic import avoids a logger→env→crypto cycle at module load.
+			const { encrypt, sha256Hash } = await import("../utils/crypto");
+			try {
+				await db.execute(
+					"ALTER TABLE saved_payment_methods ADD COLUMN token_hash TEXT",
+				);
+			} catch {
+				// column already exists
+			}
+			const rows = await db.execute(
+				"SELECT id, merchant_id, gateway, gateway_token, token_hash FROM saved_payment_methods",
+			);
+			for (const row of rows.rows) {
+				const r = row as Record<string, unknown>;
+				if (typeof r.token_hash === "string" && r.token_hash.length > 0)
+					continue;
+				const token = String(r.gateway_token ?? "");
+				const hash = sha256Hash(
+					`${String(r.merchant_id)}\n${String(r.gateway)}\n${token}`,
+				);
+				await db.execute({
+					sql: "UPDATE saved_payment_methods SET gateway_token = ?, token_hash = ? WHERE id = ?",
+					args: [encrypt(token), hash, String(r.id)],
+				});
+			}
+			await db.execute(
+				"CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_methods_lookup ON saved_payment_methods(merchant_id, token_hash)",
+			);
+			// The old UNIQUE(merchant_id, gateway, gateway_token) keyed on
+			// plaintext tokens — dead weight on ciphertext rows (random IVs never
+			// collide). Drop it so the hash index is the single idempotency guard.
+			await db.execute("DROP INDEX IF EXISTS idx_saved_methods_unique");
+		},
+	},
 ];
 export async function runMigrations(db: Client): Promise<void> {
 	// Ensure the tracking table exists

@@ -286,25 +286,30 @@ describe("createSavedMethod concurrency (race)", () => {
 			method_name: "Guard Card",
 			gateway_token: "tok_guard_1",
 		};
-		await createSavedMethod("merch_guard", input);
+		const created = await createSavedMethod("merch_guard", input);
 
 		const db = (await import("../../src/config/database")).getDb();
 
-		// Prove the UNIQUE index actually exists in the schema.
+		// Prove the hash lookup index actually exists in the schema.
 		const idx = await db.execute(
-			"SELECT name FROM sqlite_master WHERE type='index' AND name='idx_saved_methods_unique'",
+			"SELECT name FROM sqlite_master WHERE type='index' AND name='idx_saved_methods_lookup'",
 		);
 		expect(idx.rows.length).toBe(1);
 
-		// Raw duplicate insert MUST be rejected by the constraint.
+		// Raw duplicate insert with the SAME token_hash MUST be rejected.
+		const stored = await db.execute({
+			sql: "SELECT token_hash FROM saved_payment_methods WHERE id = ?",
+			args: [created.id],
+		});
+		const tokenHash = String((stored.rows[0] as Record<string, unknown>).token_hash);
 		let threw = false;
 		try {
 			await db.execute({
 				sql: `
 					INSERT INTO saved_payment_methods
 						(id, merchant_id, gateway, method_code, method_name,
-						 gateway_token, masked_identifier, expires_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+						 gateway_token, token_hash, masked_identifier, expires_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 				`,
 				args: [
 					"another-id",
@@ -312,7 +317,8 @@ describe("createSavedMethod concurrency (race)", () => {
 					input.gateway,
 					input.method_code,
 					input.method_name,
-					input.gateway_token,
+					"different-ciphertext-same-hash",
+					tokenHash,
 					null,
 					null,
 				],
@@ -321,6 +327,25 @@ describe("createSavedMethod concurrency (race)", () => {
 			threw = true;
 		}
 		expect(threw).toBe(true);
+	});
+
+	test("stored gateway_token is encrypted, never plaintext", async () => {
+		const created = await createSavedMethod("merch_enc", {
+			...baseInput,
+			gateway_token: "tok_secret_xyz",
+		});
+		const db = (await import("../../src/config/database")).getDb();
+		const rows = await db.execute({
+			sql: "SELECT gateway_token, token_hash FROM saved_payment_methods WHERE id = ?",
+			args: [created.id],
+		});
+		const stored = String((rows.rows[0] as Record<string, unknown>).gateway_token);
+		const hash = String((rows.rows[0] as Record<string, unknown>).token_hash);
+		// Ciphertext envelope, not the raw token
+		expect(stored).not.toContain("tok_secret_xyz");
+		expect(hash).toHaveLength(64); // SHA-256 hex
+		// Service face still returns plaintext (API layer strips it)
+		expect(created.gateway_token).toBe("tok_secret_xyz");
 	});
 });
 

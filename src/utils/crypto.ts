@@ -127,6 +127,28 @@ export function decryptWebhookSecret(stored: unknown): string | null {
 	}
 }
 
+// Vault-token storage: saved_payment_methods.gateway_token is encrypted at
+// rest with the same AES-256-GCM envelope as gateway credentials — a DB or
+// backup-file read must never yield a reusable gateway token. Equality
+// lookup (idempotency) uses a separate token_hash column (SHA-256) because
+// ciphertexts use a random IV and can never match by equality.
+export function encryptVaultToken(token: string): string {
+	return encrypt(token);
+}
+
+/**
+ * Decrypt a stored vault token. Throws on undecryptable rows (wrong key,
+ * corrupt value) — fail loud, never fall back to the raw stored value.
+ * All rows are encrypted in place by migration 011, so a plaintext row
+ * here means the migration never ran: fix the DB, don't weaken the read.
+ */
+export function decryptVaultToken(stored: unknown): string {
+	if (typeof stored !== "string" || stored.length === 0) {
+		throw new Error("Vault token missing or empty");
+	}
+	return decrypt(stored);
+}
+
 // PAN guard (Sweep155): the saved-methods vault must never hold raw card
 // numbers — storing PAN drags the whole DB into PCI-DSS scope. Gateway
 // tokens are opaque references (tok_...), never 13–19 digit Luhn-passing

@@ -10,7 +10,25 @@
 
 import { randomUUID } from "node:crypto";
 import { getDb } from "../config/database.js";
+import {
+	decryptVaultToken,
+	encryptVaultToken,
+	sha256Hash,
+} from "../utils/crypto.js";
 import { DuplicateSavedMethodError } from "../utils/errors.js";
+
+/**
+ * Lookup key for vault idempotency: SHA-256 over (merchant_id, gateway,
+ * token). Ciphertexts can never match by equality (random IV), so the
+ * pre-check and the UNIQUE backstop both key on this hash column.
+ */
+function tokenLookupHash(
+	merchantId: string,
+	gateway: string,
+	token: string,
+): string {
+	return sha256Hash(`${merchantId}\n${gateway}\n${token}`);
+}
 
 export interface SavedMethod {
 	id: string;
@@ -69,13 +87,19 @@ export async function createSavedMethod(
 	if (existing) return existing;
 
 	const id = randomUUID();
+	const tokenHash = tokenLookupHash(
+		merchantId,
+		input.gateway,
+		input.gateway_token,
+	);
+	const encryptedToken = encryptVaultToken(input.gateway_token);
 	try {
 		await db.execute({
 			sql: `
 				INSERT INTO saved_payment_methods
 					(id, merchant_id, gateway, method_code, method_name,
-					 gateway_token, masked_identifier, expires_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					 gateway_token, token_hash, masked_identifier, expires_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`,
 			args: [
 				id,
@@ -83,13 +107,14 @@ export async function createSavedMethod(
 				input.gateway,
 				input.method_code,
 				input.method_name,
-				input.gateway_token,
+				encryptedToken,
+				tokenHash,
 				input.masked_identifier ?? null,
 				input.expires_at ?? null,
 			],
 		});
 	} catch (err: unknown) {
-		// Concurrent duplicate: UNIQUE(merchant_id, gateway, gateway_token) violation.
+		// Concurrent duplicate: UNIQUE(merchant_id, token_hash) violation.
 		// Re-fetch the existing row and return it (true idempotency).
 		const existing = await findByUniqueKey(
 			merchantId,
@@ -180,10 +205,10 @@ export async function findByUniqueKey(
 			SELECT id, merchant_id, gateway, method_code, method_name,
 			       gateway_token, masked_identifier, expires_at, created_at
 			FROM saved_payment_methods
-			WHERE merchant_id = ? AND gateway = ? AND gateway_token = ?
+			WHERE merchant_id = ? AND token_hash = ?
 			LIMIT 1
 		`,
-		args: [merchantId, gateway, gateway_token],
+		args: [merchantId, tokenLookupHash(merchantId, gateway, gateway_token)],
 	});
 	const row = result.rows[0] as unknown as SavedMethod | undefined;
 	return row ? rowToSavedMethod(row) : null;
@@ -196,7 +221,9 @@ function rowToSavedMethod(row: SavedMethod): SavedMethod {
 		gateway: String(row.gateway),
 		method_code: String(row.method_code),
 		method_name: String(row.method_name),
-		gateway_token: String(row.gateway_token),
+		// Stored row holds the AES-GCM envelope; decrypt on read so the
+		// service face stays plaintext (API layer strips it anyway).
+		gateway_token: decryptVaultToken(row.gateway_token),
 		masked_identifier:
 			row.masked_identifier == null ? null : String(row.masked_identifier),
 		expires_at: row.expires_at == null ? null : String(row.expires_at),
