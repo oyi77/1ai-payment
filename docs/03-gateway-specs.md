@@ -438,7 +438,8 @@ POST /webhook/nowpayments
 ```typescript
 signature = HMAC-SHA512(JSON.stringify(body), ipn_secret_key)
 ```
-- Compare with `x-now-sig` header
+- Sort callback body keys recursively, JSON.stringify, HMAC-SHA512 with ipn_secret
+- Compare with `x-nowpayments-sig` header
 - `ipn_secret_key` from env: `NOWPAYMENTS_IPN_SECRET`
 
 ### Status Mapping

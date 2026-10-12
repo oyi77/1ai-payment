@@ -2,8 +2,8 @@
  * NOWPayments gateway implementation.
  *
  * Payment creation: POST /v1/invoice
- * Signature: HMAC-SHA512(JSON body, ipn_secret_key)
- * Header: x-now-sig
+ * IPN signature: HMAC-SHA512(JSON.stringify(sortObject(body)), ipn_secret_key)
+ * Header: x-nowpayments-sig (per official NOWPayments IPN spec)
  * Callback payload: see docs/03-gateway-specs.md
  */
 
@@ -37,6 +37,22 @@ interface NowPaymentsMerchantConfig {
 	apiKey?: string;
 	ipnSecret?: string;
 	environment?: string;
+}
+
+/**
+ * NOWPayments signs the JSON.stringify of the callback body with all keys
+ * sorted alphabetically (recursively, per their official example code).
+ */
+function sortObjectKeys(value: unknown): unknown {
+	if (Array.isArray(value)) return value.map(sortObjectKeys);
+	if (value !== null && typeof value === "object") {
+		const out: Record<string, unknown> = {};
+		for (const k of Object.keys(value as Record<string, unknown>).sort()) {
+			out[k] = sortObjectKeys((value as Record<string, unknown>)[k]);
+		}
+		return out;
+	}
+	return value;
 }
 
 interface NowPaymentsInvoiceResponse {
@@ -166,15 +182,27 @@ export class NowPaymentsGateway implements PaymentGateway {
 			return false;
 		}
 
-		const signature = headers["x-now-sig"] || headers["X-Now-Sig"];
+		// Official IPN spec (NOWPayments HelpCenter): header is
+		// `x-nowpayments-sig`, and the signed string is the callback body
+		// re-serialized with keys sorted (recursively), NOT the raw bytes.
+		const signature =
+			headers["x-nowpayments-sig"] || headers["X-Nowpayments-Sig"];
 		if (!signature) {
-			logger.warn("NOWPayments: missing x-now-sig header");
+			logger.warn("NOWPayments: missing x-nowpayments-sig header");
 			return false;
 		}
 
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(rawBody);
+		} catch {
+			logger.warn("NOWPayments: callback body is not valid JSON");
+			return false;
+		}
+		const sorted = JSON.stringify(sortObjectKeys(parsed));
 		const expected = crypto
 			.createHmac("sha512", ipnSecret)
-			.update(rawBody)
+			.update(sorted)
 			.digest("hex");
 
 		try {

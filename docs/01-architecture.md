@@ -333,7 +333,7 @@ use timing-safe comparison (`crypto.timingSafeEqual`).
 | Midtrans | SHA-512(order_id + status_code + gross_amount + server_key) | Body field `signature_key` | `MIDTRANS_SERVER_KEY` from env; `gateway_reference` = payload `order_id` |
 | Tripay | HMAC-SHA256(JSON.stringify(body), private_key), hex | Header `x-signature` (also `X-Signature`) | `TRIPAY_PRIVATE_KEY` from env |
 | Duitku | MD5(merchantCode + amount + merchantOrderId + api_key) | Body field `signature` | `DUITKU_API_KEY` from env |
-| NOWPayments | HMAC-SHA512(JSON.stringify(body), ipn_secret), hex | Header `x-now-sig` | `NOWPAYMENTS_IPN_SECRET` from env |
+| NOWPayments | HMAC-SHA512(JSON.stringify(sortObject(body)), ipn_secret), hex | Header `x-nowpayments-sig` | `NOWPAYMENTS_IPN_SECRET` from env |
 | iPaymu | SHA-256(va_key + order_id + status + amount + api_key) | Body field `signature` | `IPAYMU_VA_KEY` + `IPAYMU_API_KEY` from env |
 | Scalev | HMAC-SHA256(JSON.stringify(body), webhook_secret), hex | Header `x-scalev-signature` | `SCALEV_WEBHOOK_SECRET` from env |
 | Xendit | Constant-time header comparison | Header `x-callback-token` | `XENDIT_CALLBACK_TOKEN` from env |

@@ -149,7 +149,7 @@ If the owning merchant has no `webhook_secret` configured, the event is acknowle
 | `midtrans` | SHA-512 hash | `order_id + status_code + gross_amount + server_key` | body field `signature_key` |
 | `tripay` | HMAC-SHA256 | raw JSON body, key = `TRIPAY_PRIVATE_KEY` | header `X-Signature` (hex) |
 | `duitku` | MD5 hash | `merchantCode + amount + merchantOrderId + apiKey` | body field `signature` |
-| `nowpayments` | HMAC-SHA512 | raw JSON body, key = `NOWPAYMENTS_IPN_SECRET` | header `x-now-sig` (hex) |
+| `nowpayments` | HMAC-SHA512 | raw JSON body, key = `NOWPAYMENTS_IPN_SECRET` | header `x-nowpayments-sig` (hex) |
 | `ipaymu` | SHA-256 hash | `va + order_id + status + amount + apiKey` | body field `signature` |
 | `scalev` | HMAC-SHA256 | raw JSON body, key = `SCALEV_WEBHOOK_SECRET` | header `X-Scalev-Signature` (hex) |
 | `xendit` | Token match | — | header `X-Callback-Token` (timing-safe comparison) |

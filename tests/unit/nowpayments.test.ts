@@ -138,23 +138,50 @@ describe('NowPaymentsGateway.verifySignature', () => {
     process.env.NOWPAYMENTS_IPN_SECRET = 'test-ipn-secret';
   });
 
+  // Official IPN scheme (NOWPayments HelpCenter): HMAC-SHA512 over
+  // JSON.stringify(sortObject(body)) compared against `x-nowpayments-sig`.
+  function officialSig(payload: unknown): string {
+    const sorted = JSON.stringify(
+      Object.keys(payload as object).sort().reduce((o, k) => {
+        o[k] = (payload as Record<string, unknown>)[k];
+        return o;
+      }, {} as Record<string, unknown>),
+    );
+    return require('crypto')
+      .createHmac('sha512', 'test-ipn-secret')
+      .update(sorted)
+      .digest('hex');
+  }
+
   test('valid signature returns true', async () => {
     const payload = { payment_id: 'np_1', payment_status: 'finished' };
-    const expectedSig = require('crypto')
-      .createHmac('sha512', 'test-ipn-secret')
-      .update(JSON.stringify(payload))
-      .digest('hex');
-    const headers = { 'x-now-sig': expectedSig };
+    const headers = { 'x-nowpayments-sig': officialSig(payload) };
     expect(await gateway.verifySignature(payload, headers)).toBe(true);
+  });
+
+  test('sorted-key signature matches even when body arrives unsorted', async () => {
+    const headers = {
+      'x-nowpayments-sig': officialSig({
+        price_currency: 'usd',
+        payment_id: 'np_1',
+        payment_status: 'finished',
+      }),
+    };
+    expect(
+      await gateway.verifySignature(
+        { payment_id: 'np_1', payment_status: 'finished', price_currency: 'usd' },
+        headers,
+      ),
+    ).toBe(true);
   });
 
   test('invalid signature returns false', async () => {
     const payload = { payment_id: 'np_1', payment_status: 'finished' };
-    const headers = { 'x-now-sig': 'deadbeef' };
+    const headers = { 'x-nowpayments-sig': 'deadbeef' };
     expect(await gateway.verifySignature(payload, headers)).toBe(false);
   });
 
-  test('missing x-now-sig header returns false', async () => {
+  test('missing x-nowpayments-sig header returns false', async () => {
     const payload = { payment_id: 'np_1', payment_status: 'finished' };
     const headers: Record<string, string> = {};
     expect(await gateway.verifySignature(payload, headers)).toBe(false);
