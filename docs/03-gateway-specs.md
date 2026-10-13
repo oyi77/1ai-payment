@@ -533,31 +533,41 @@ POST /webhook/ipaymu
 
 ### Signature Verification
 ```typescript
-signature = SHA-256(va + order_id + status + amount + apiKey)
+// Official iPaymu callback signature (per docs.ipaymu.com/en/docs/callback):
+// 1. Normalize data types (String→Int for trx_id/status_code/etc, String→Bool for is_escrow)
+// 2. Sort keys A-Z (case-sensitive, PHP ksort semantics)
+// 3. Serialize to JSON with forward-slash escaping (PHP json_encode)
+// 4. HMAC-SHA256(sortedJson, VA_KEY) → hex
+// 5. Compare with X-Signature header
+signature = HMAC-SHA256(JSON.stringify(sortKeys(normalize(body))), IPAYMU_VA_KEY)
 ```
-- Fields from request body: `order_id`, `status`, `amount`
-- `va` from env: `IPAYMU_VA_KEY`
-- `apiKey` from env: `IPAYMU_API_KEY`
-- Compared with body field `signature` using timing-safe comparison.
+- Signature is sent in the `X-Signature` **header** (not body field)
+- Secret key: `IPAYMU_VA_KEY` (Merchant VA Number)
+- Fields normalized per type before sorting
+- `signature` field stripped from body if present before hashing
+- Compared using timing-safe comparison.
+- Spec: https://docs.ipaymu.com/en/docs/callback#signature-validation
 
 ### Status Mapping
 | iPaymu Status | Mapped To |
 |---------------|-----------|
-| `success` | success |
+| `berhasil` | success |
 | `pending` | pending |
-| `failed` | failed |
+| `gagal` | failed |
 | `expired` | expired |
-| `cancelled` | cancelled |
+| `dibatalkan` | cancelled |
 
 ### Callback Payload (relevant fields)
 ```json
 {
-  "order_id": "pay_xxx",
-  "status": "success",
+  "trx_id": 12345678,
+  "reference_id": "pay_xxx",
+  "status": "berhasil",
+  "status_code": 1,
   "amount": "100000",
-  "payment_method": "va",
-  "reference_id": "ref_123",
-  "signature": "abc123..."
+  "via": "va",
+  "channel": "bca",
+  "merchant": "YOUR_VA"
 }
 ```
 

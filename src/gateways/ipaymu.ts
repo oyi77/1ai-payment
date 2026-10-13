@@ -2,8 +2,9 @@
  * iPaymu payment gateway implementation.
  *
  * Payment creation: POST /api/v2/payment
- * Signature: SHA-256(merchantId + referenceId + amount + apiKey)
- * Callback payload: see docs/03-gateway-specs.md
+ * Signature (create): HMAC-SHA256(POST:{VA_KEY}:{bodyHash}:{API_KEY})
+ * Callback signature: HMAC-SHA256(normalized+sorted JSON, VA_KEY) in X-Signature header
+ * Callback payload: see docs/03-gateway-specs.md and https://docs.ipaymu.com/en/docs/callback
  */
 
 import crypto from "node:crypto";
@@ -22,12 +23,21 @@ import type {
 } from "./base";
 
 interface IPaymuCallbackPayload {
-	order_id: string;
-	status: string;
-	amount: string;
-	payment_method: string;
+	trx_id: number | string;
+	sid: string;
 	reference_id: string;
-	signature: string;
+	status: string; // berhasil | pending | expired
+	status_code: number | string;
+	amount: string;
+	total: string;
+	sub_total: string;
+	fee: string;
+	paid_off: number | string;
+	via: string; // payment method (e.g. "va")
+	channel: string; // payment channel (e.g. "bca")
+	merchant: string; // merchant VA
+	additional_info?: unknown;
+	[key: string]: unknown;
 }
 
 interface IPaymuMerchantConfig {
@@ -180,10 +190,9 @@ export class IPaymuGateway implements PaymentGateway {
 
 	async verifySignature(
 		body: unknown,
-		_headers: Record<string, string>,
+		headers: Record<string, string>,
 		opts?: GatewayVerifyOpts,
 	): Promise<boolean> {
-		const payload = body as IPaymuCallbackPayload;
 		const base = getConfig();
 		const m = opts?.merchantId
 			? ((await resolveGatewayConfig(
@@ -191,25 +200,66 @@ export class IPaymuGateway implements PaymentGateway {
 					opts.merchantId,
 				)) as unknown as IPaymuMerchantConfig)
 			: null;
-		const apiKey = m?.apiKey || base.IPAYMU_API_KEY;
 		const vaKey = m?.vaKey || base.IPAYMU_VA_KEY;
 
-		if (!apiKey || !vaKey) {
-			logger.error("IPAYMU_API_KEY or IPAYMU_VA_KEY not configured");
+		if (!vaKey) {
+			logger.error("IPAYMU_VA_KEY not configured");
 			return false;
 		}
 
-		// iPaymu signature: SHA256(va + order_id + status + amount + apiKey)
+		// iPaymu sends signature in X-Signature header (HMAC-SHA256)
+		const signature = headers["x-signature"] || headers["X-Signature"];
+		if (!signature) {
+			logger.warn("iPaymu: missing X-Signature header");
+			return false;
+		}
+
+		// Official iPaymu callback signature validation:
+		// 1. Normalize data types per spec (String→Int, String→Bool, etc.)
+		// 2. Sort keys A-Z
+		// 3. Serialize to JSON with forward-slash escaping
+		// 4. HMAC-SHA256 with VA number as key
+		// See: https://docs.ipaymu.com/en/docs/callback#signature-validation
+		const rawData = body as Record<string, unknown>;
+		const intFields = ["trx_id", "status_code", "transaction_status_code", "paid_off"];
+		const normalized: Record<string, unknown> = {};
+		for (const [key, val] of Object.entries(rawData)) {
+			if (key === "signature") continue; // strip body-level signature if present
+			if (key === "is_escrow") {
+				normalized[key] = val === "true" || val === "1" || val === 1;
+			} else if (intFields.includes(key)) {
+				normalized[key] = Number.parseInt(String(val), 10);
+			} else if (key === "additional_info") {
+				normalized[key] = val === "[]" ? [] : val;
+			} else {
+				normalized[key] = String(val);
+			}
+		}
+		if (!("additional_info" in normalized)) {
+			normalized["additional_info"] = [];
+		}
+
+		// Sort keys alphabetically (case-sensitive, PHP ksort semantics)
+		const sortedKeys = Object.keys(normalized).sort((a, b) =>
+			a.localeCompare(b),
+		);
+		const sorted: Record<string, unknown> = {};
+		for (const key of sortedKeys) {
+			sorted[key] = normalized[key];
+		}
+
+		// JSON.stringify + escape forward slashes (PHP json_encode standard)
+		let jsonBody = JSON.stringify(sorted);
+		jsonBody = jsonBody.replace(/\//g, "\\/");
+
 		const expected = crypto
-			.createHash("sha256")
-			.update(
-				`${vaKey}${payload.order_id}${payload.status}${payload.amount}${apiKey}`,
-			)
+			.createHmac("sha256", vaKey)
+			.update(jsonBody)
 			.digest("hex");
 
 		try {
 			return crypto.timingSafeEqual(
-				Buffer.from(payload.signature, "hex"),
+				Buffer.from(signature, "hex"),
 				Buffer.from(expected, "hex"),
 			);
 		} catch {
@@ -226,12 +276,12 @@ export class IPaymuGateway implements PaymentGateway {
 
 		return {
 			gateway: this.name,
-			order_id: payload.order_id,
-			gateway_reference: payload.reference_id,
+			order_id: payload.reference_id,
+			gateway_reference: String(payload.trx_id),
 			status,
 			amount: Number.parseInt(payload.amount, 10),
 			currency: "IDR",
-			payment_method: payload.payment_method,
+			payment_method: payload.via || payload.channel || "unknown",
 			paid_at: status === "success" ? new Date().toISOString() : null,
 			metadata: metadata ?? null,
 		};
@@ -239,10 +289,13 @@ export class IPaymuGateway implements PaymentGateway {
 
 	private extractStatus(payload: IPaymuCallbackPayload): PaymentStatus {
 		const map: Record<string, PaymentStatus> = {
+			berhasil: "success",
 			success: "success",
 			pending: "pending",
+			gagal: "failed",
 			failed: "failed",
 			expired: "expired",
+			dibatalkan: "cancelled",
 			cancelled: "cancelled",
 		};
 		return map[payload.status?.toLowerCase()] || "pending";
