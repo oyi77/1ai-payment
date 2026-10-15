@@ -277,6 +277,33 @@ const MIGRATIONS: Migration[] = [
 			await db.execute("DROP INDEX IF EXISTS idx_saved_methods_unique");
 		},
 	},
+	{
+		version: "012",
+		name: "mutation_deliveries for bank-mutation fanout",
+		run: async (db: Client) => {
+			// Bank-mutation aggregators (Mutasiku / Moota) have no orders, so
+			// fanoutMutation() persists per-merchant delivery outcomes here
+			// (audit + replay). One row per (gateway, reference, merchant).
+			await db.executeMultiple(`
+        CREATE TABLE IF NOT EXISTS mutation_deliveries (
+          id TEXT PRIMARY KEY,
+          gateway TEXT NOT NULL,
+          gateway_reference TEXT NOT NULL,
+          merchant_id TEXT NOT NULL,
+          event_id TEXT NOT NULL,
+          url TEXT NOT NULL,
+          status_code INTEGER,
+          attempts INTEGER NOT NULL DEFAULT 1,
+          success INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_mutation_deliveries_dedup
+          ON mutation_deliveries(gateway, gateway_reference, merchant_id);
+        CREATE INDEX IF NOT EXISTS idx_mutation_deliveries_merchant
+          ON mutation_deliveries(merchant_id);
+      `);
+		},
+	},
 ];
 export async function runMigrations(db: Client): Promise<void> {
 	// Ensure the tracking table exists

@@ -22,6 +22,8 @@ import { TelegramStarsGateway } from "./telegram-stars";
 import { TripayGateway } from "./tripay";
 import { X402Gateway } from "./x402";
 import { XenditGateway } from "./xendit";
+import { MootaGateway } from "./moota";
+import { MutasikuGateway } from "./mutasiku";
 
 export type {
 	PaymentGateway,
@@ -46,6 +48,8 @@ const registry: Record<string, PaymentGateway> = {
 	x402: new X402Gateway(),
 	erc8183: new ERC8183Gateway(),
 	saweria: new SaweriaGateway(),
+	mutasiku: new MutasikuGateway(),
+	moota: new MootaGateway(),
 };
 
 // Snapshot of production gateways so tests can register fakes and restore.

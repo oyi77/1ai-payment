@@ -12,12 +12,14 @@ import { describe, expect, test } from "bun:test";
 import { MERCHANT_VERIFY_GATEWAYS } from "../../src/routes/webhook";
 
 describe("MERCHANT_VERIFY_GATEWAYS", () => {
-	test("covers exactly the 7 HMAC/token gateways that honor opts.merchantId", () => {
+	test("covers exactly the 9 HMAC/token gateways that honor opts.merchantId", () => {
 		expect(Object.keys(MERCHANT_VERIFY_GATEWAYS).sort()).toEqual(
 			[
 				"duitku",
 				"ipaymu",
 				"midtrans",
+				"moota",
+				"mutasiku",
 				"nowpayments",
 				"scalev",
 				"tripay",

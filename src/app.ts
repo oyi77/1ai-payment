@@ -21,6 +21,7 @@ import { rateLimitMiddleware } from "./middleware/rate-limit";
 import { adminRoutes } from "./routes/admin";
 import { healthRoutes } from "./routes/health";
 import { merchantRoutes } from "./routes/merchant";
+import { mutationsRouter } from "./routes/payments/mutations.routes";
 import { paymentRoutes } from "./routes/payment";
 import { refundRoutes } from "./routes/refund";
 import { registerRoutes } from "./routes/register";
@@ -147,6 +148,7 @@ app.route("/", healthRoutes);
 app.route("/webhook", webhookRoutes);
 app.route("/api", paymentRoutes);
 app.route("/api", merchantRoutes);
+app.route("/api", mutationsRouter);
 app.route("/api", refundRoutes);
 app.route("/api", savedMethodsRouter);
 

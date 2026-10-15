@@ -30,6 +30,8 @@ export const GATEWAY_NAMES = [
 	"x402",
 	"erc8183",
 	"saweria",
+	"mutasiku",
+	"moota",
 ] as const;
 
 export const gatewayNameSchema = z.enum(GATEWAY_NAMES).openapi({

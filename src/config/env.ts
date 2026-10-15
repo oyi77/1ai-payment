@@ -81,6 +81,13 @@ export interface Config {
 	SAWERIA_USERNAME: string; // Saweria username slug
 	SAWERIA_USER_ID: string; // Saweria user ID (UUID)
 	SAWERIA_ENVIRONMENT: "sandbox" | "production";
+	// Mutasiku (Indonesia — bank/e-wallet mutation aggregator)
+	MUTASIKU_API_KEY: string;
+	MUTASIKU_WEBHOOK_SECRET: string;
+	MUTASIKU_ENVIRONMENT: "sandbox" | "production";
+	// Moota (Indonesia — bank mutation aggregator)
+	MOOTA_API_KEY: string;
+	MOOTA_WEBHOOK_SECRET: string;
 
 	// Logging
 	LOG_LEVEL: "debug" | "info" | "warn" | "error";
@@ -241,6 +248,14 @@ export function getConfig(): Config {
 			"SAWERIA_ENVIRONMENT",
 			"sandbox",
 		) as Config["SAWERIA_ENVIRONMENT"],
+		MUTASIKU_API_KEY: optional("MUTASIKU_API_KEY"),
+		MUTASIKU_WEBHOOK_SECRET: optional("MUTASIKU_WEBHOOK_SECRET"),
+		MUTASIKU_ENVIRONMENT: optional(
+			"MUTASIKU_ENVIRONMENT",
+			"production",
+		) as Config["MUTASIKU_ENVIRONMENT"],
+		MOOTA_API_KEY: optional("MOOTA_API_KEY"),
+		MOOTA_WEBHOOK_SECRET: optional("MOOTA_WEBHOOK_SECRET"),
 		LOG_LEVEL: optional("LOG_LEVEL", "info") as Config["LOG_LEVEL"],
 		TRUST_PROXY: bool("TRUST_PROXY", false),
 		ERC8183_EVALUATOR_PUBLIC_KEY: optional("ERC8183_EVALUATOR_PUBLIC_KEY"),
@@ -337,6 +352,18 @@ export function getGatewayConfig(gateway: string) {
 				userId: config.SAWERIA_USER_ID,
 				environment: config.SAWERIA_ENVIRONMENT,
 			};
+		case "mutasiku":
+			return {
+				apiKey: config.MUTASIKU_API_KEY,
+				webhookSecret: config.MUTASIKU_WEBHOOK_SECRET,
+				environment: config.MUTASIKU_ENVIRONMENT,
+			};
+		case "moota":
+			return {
+				apiKey: config.MOOTA_API_KEY,
+				webhookSecret: config.MOOTA_WEBHOOK_SECRET,
+				environment: config.MUTASIKU_ENVIRONMENT,
+			};
 		default:
 			throw new Error(`Unknown gateway: ${gateway}`);
 	}
@@ -358,6 +385,8 @@ export const MERCHANT_CREDENTIAL_KEYS: Record<string, string[]> = {
 	scalev: ["storefrontApiKey", "storeId", "variantId", "webhookSecret"],
 	xendit: ["apiKey", "callbackToken"],
 	saweria: ["username", "userId"],
+	mutasiku: ["apiKey", "webhookSecret"],
+	moota: ["apiKey", "webhookSecret"],
 };
 export async function resolveGatewayConfig(
 	gateway: string,

@@ -36,6 +36,7 @@ import {
 } from "../services/order.service";
 import type { Order } from "../services/order.service";
 import { decryptWebhookSecret, generateEventId } from "../utils/crypto";
+import { fanoutMutation } from "../services/mutation-forwarder.service";
 import { logger } from "../utils/logger";
 
 export const webhookRoutes = new OpenAPIHono({ defaultHook });
@@ -456,6 +457,16 @@ for (const gatewayName of GATEWAY_NAMES) {
 				return c.json({ ok: true as const }, 200);
 			}
 
+			// Bank-mutation aggregators (Mutasiku / Moota) observe mutations on
+			// connected accounts and have no order rows — fan out to every
+			// merchant that enabled the aggregator, using that merchant's
+			// callback URL + signed secret. Fanout never throws (delivery
+			// rows persist for audit/replay). Mutations await reconciliation:
+			// the project reconciles by unique code in the description.
+			if (gatewayName === "mutasiku" || gatewayName === "moota") {
+				await fanoutMutation(event);
+				return c.json({ ok: true as const }, 200);
+			}
 			// B2: Try nexus fulfillment for direct Scalev checkout (no order in DB)
 			if (gatewayName === "scalev" && event.status === "success") {
 				const rawBody = body as Record<string, unknown>;
