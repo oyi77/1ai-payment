@@ -78,6 +78,7 @@ app.use(
 // per-merchant limiter below still enforces plan tiers for authed traffic.
 app.use("/api/*", rateLimitMiddleware({ windowMs: 60_000, max: 60 }));
 app.use("/webhook/*", rateLimitMiddleware({ windowMs: 60_000, max: 120 }));
+app.use("/webhooks/*", rateLimitMiddleware({ windowMs: 60_000, max: 120 }));
 
 // Merchant auth BEFORE rate limiting: the limiter keys by merchantId (set by
 // auth) so plans apply per-merchant, not per-IP. Applied per-prefix because
@@ -146,6 +147,10 @@ app.route("/api", registerRoutes);
 // API routes (auth required)
 app.route("/", healthRoutes);
 app.route("/webhook", webhookRoutes);
+// Plural alias for multi-gateway aggregators (Mutasiku registers
+// https://pay.berkahkarya.org/webhooks/mutasiku). Existing provider
+// callbacks (Duitku/Ipaymu/Tripay/...) keep the singular path.
+app.route("/webhooks", webhookRoutes);
 app.route("/api", paymentRoutes);
 app.route("/api", merchantRoutes);
 app.route("/api", mutationsRouter);
