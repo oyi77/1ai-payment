@@ -32,6 +32,7 @@ export const GATEWAY_NAMES = [
 	"saweria",
 	"mutasiku",
 	"moota",
+	"lynk",
 ] as const;
 
 export const gatewayNameSchema = z.enum(GATEWAY_NAMES).openapi({

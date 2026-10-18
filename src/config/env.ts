@@ -88,6 +88,8 @@ export interface Config {
 	// Moota (Indonesia — bank mutation aggregator)
 	MOOTA_API_KEY: string;
 	MOOTA_WEBHOOK_SECRET: string;
+	// Lynk.id (Indonesia — link-in-bio & checkout)
+	LYNK_MERCHANT_KEY?: string;
 
 	// Logging
 	LOG_LEVEL: "debug" | "info" | "warn" | "error";
@@ -256,6 +258,7 @@ export function getConfig(): Config {
 		) as Config["MUTASIKU_ENVIRONMENT"],
 		MOOTA_API_KEY: optional("MOOTA_API_KEY"),
 		MOOTA_WEBHOOK_SECRET: optional("MOOTA_WEBHOOK_SECRET"),
+		LYNK_MERCHANT_KEY: optional("LYNK_MERCHANT_KEY"),
 		LOG_LEVEL: optional("LOG_LEVEL", "info") as Config["LOG_LEVEL"],
 		TRUST_PROXY: bool("TRUST_PROXY", false),
 		ERC8183_EVALUATOR_PUBLIC_KEY: optional("ERC8183_EVALUATOR_PUBLIC_KEY"),
@@ -364,6 +367,10 @@ export function getGatewayConfig(gateway: string) {
 				webhookSecret: config.MOOTA_WEBHOOK_SECRET,
 				environment: config.MUTASIKU_ENVIRONMENT,
 			};
+		case "lynk":
+			return {
+				merchantKey: config.LYNK_MERCHANT_KEY,
+			};
 		default:
 			throw new Error(`Unknown gateway: ${gateway}`);
 	}
@@ -387,6 +394,7 @@ export const MERCHANT_CREDENTIAL_KEYS: Record<string, string[]> = {
 	saweria: ["username", "userId"],
 	mutasiku: ["apiKey", "webhookSecret"],
 	moota: ["apiKey", "webhookSecret"],
+	lynk: ["merchantKey"],
 };
 export async function resolveGatewayConfig(
 	gateway: string,

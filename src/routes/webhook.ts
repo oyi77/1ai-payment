@@ -506,6 +506,54 @@ for (const gatewayName of GATEWAY_NAMES) {
 				await fanoutMutation(event);
 				return c.json({ ok: true as const }, 200);
 			}
+			// Direct Lynk.id checkout: forward to 1ai-trade-cex or enabled merchant
+			if (gatewayName === "lynk" && event.status === "success") {
+				const db = getDb();
+				const merchantRows = await db.execute({
+					sql: `SELECT m.id AS merchant_id, m.default_callback_url AS callback_url,
+					             m.webhook_secret AS webhook_secret
+					      FROM merchants m
+					      LEFT JOIN merchant_gateways g ON g.merchant_id = m.id AND g.gateway = 'lynk'
+					      WHERE (g.enabled = 1 OR m.name LIKE '%trade-cex%' OR m.id = 'merch_D8DeVAjlBNNFUY1H')
+					        AND m.active = 1
+					      LIMIT 1`,
+				});
+				if (merchantRows.rows.length > 0) {
+					const r = merchantRows.rows[0] as Record<string, unknown>;
+					const callbackUrl = String(r.callback_url ?? "");
+					const secret = decryptWebhookSecret(r.webhook_secret);
+					if (callbackUrl && secret) {
+						const orderRef = `ord_lynk_${event.gateway_reference || event.order_id || Date.now()}`;
+						const directOrder: Order = {
+							id: orderRef,
+							merchant_id: String(r.merchant_id),
+							project_id: String(r.merchant_id),
+							project_order_id: event.order_id,
+							callback_url: callbackUrl,
+							gateway: "lynk",
+							gateway_reference: event.gateway_reference,
+							amount: event.amount,
+							currency: event.currency,
+							payment_method: "lynk",
+							status: event.status,
+							metadata: event.metadata,
+							created_at: new Date().toISOString(),
+							updated_at: new Date().toISOString(),
+							forward_attempts: 0,
+						};
+						trackForward(
+							forwardEvent(event, directOrder, secret).catch((err: unknown) => {
+								logger.error("Async forward failed for direct lynk checkout", {
+									order_id: orderRef,
+									error: err instanceof Error ? err.message : String(err),
+								});
+							}),
+							directOrder,
+							event,
+						);
+					}
+				}
+			}
 			// B2: Try nexus fulfillment for direct Scalev checkout (no order in DB)
 			if (gatewayName === "scalev" && event.status === "success") {
 				const rawBody = body as Record<string, unknown>;

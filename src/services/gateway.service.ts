@@ -43,6 +43,8 @@ export function getGatewayHealth(): Record<string, GatewayStatus> {
 function isConfigured(name: string, config: unknown): boolean {
 	const cfg = config as Record<string, unknown>;
 	switch (name) {
+		case "lynk":
+			return Boolean(cfg.merchantKey);
 		case "scalev":
 			return Boolean(cfg.storefrontApiKey && cfg.storeId);
 		case "telegram_stars":

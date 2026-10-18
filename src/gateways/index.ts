@@ -24,6 +24,7 @@ import { X402Gateway } from "./x402";
 import { XenditGateway } from "./xendit";
 import { MootaGateway } from "./moota";
 import { MutasikuGateway } from "./mutasiku";
+import { LynkGateway } from "./lynk";
 
 export type {
 	PaymentGateway,
@@ -50,6 +51,7 @@ const registry: Record<string, PaymentGateway> = {
 	saweria: new SaweriaGateway(),
 	mutasiku: new MutasikuGateway(),
 	moota: new MootaGateway(),
+	lynk: new LynkGateway(),
 };
 
 // Snapshot of production gateways so tests can register fakes and restore.
