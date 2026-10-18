@@ -266,6 +266,12 @@ for (const gatewayName of GATEWAY_NAMES) {
 		c.req.raw.headers.forEach((value, key) => {
 			headers[key.toLowerCase()] = value;
 		});
+		// Extract correlation/request ID from common gateway header conventions.
+		const requestId =
+			headers["x-request-id"] ??
+			headers["idempotency-key"] ??
+			headers["x-correlation-id"];
+
 
 		// HTTPS enforcement (configurable; defaults to production-only)
 		if (
@@ -300,11 +306,14 @@ for (const gatewayName of GATEWAY_NAMES) {
 		// each platform-configured merchant row that could own this event.
 		// Merchant keys are tried; first True wins. Fall closed.
 		let signatureValid = false;
+		let verifiedBy: "platform_key" | "merchant_key" | "none" = "none";
 		try {
 			signatureValid = gateway.verifySignatureRaw
 				? await gateway.verifySignatureRaw(rawBody, headers)
 				: await gateway.verifySignature(body, headers);
-			if (!signatureValid) {
+			if (signatureValid) {
+				verifiedBy = "platform_key";
+			} else {
 				signatureValid = await verifyAgainstMerchantKeys(
 					gateway,
 					gatewayName,
@@ -312,6 +321,9 @@ for (const gatewayName of GATEWAY_NAMES) {
 					body,
 					headers,
 				);
+				if (signatureValid) {
+					verifiedBy = "merchant_key";
+				}
 			}
 		} catch (err: unknown) {
 			logger.error(`Webhook ${gatewayName}: signature verification error`, {
@@ -352,16 +364,43 @@ for (const gatewayName of GATEWAY_NAMES) {
 			});
 			return c.json({ error: "Failed to normalize event" }, 400);
 		}
-
-		// Log event (no raw payload — security rule)
+		// Log event (no raw payload — security rule) with correlation ID
 		logger.info("Webhook received", {
 			gateway: gatewayName,
 			order_id: event.order_id,
 			status: event.status,
 			gateway_reference: event.gateway_reference,
+			request_id: requestId || null,
+			verified_by: verifiedBy,
 		});
 
 		webhooksReceivedCounter.inc({ gateway: gatewayName, status: event.status });
+		// Request ID replay detection — correlate retries with same signature.
+		if (requestId) {
+			const db = getDb();
+			try {
+				const existing = await db.execute({
+					sql: "SELECT id FROM webhook_requests WHERE request_id = ? AND gateway = ?",
+					args: [requestId, gatewayName],
+				});
+				if (existing.rows.length > 0) {
+					logger.info("Duplicate request ID detected (replay), skipping", {
+						request_id: requestId,
+						gateway: gatewayName,
+					});
+					return c.json({ ok: true as const }, 200);
+				}
+				await db.execute({
+					sql: "INSERT INTO webhook_requests (id, request_id, gateway, processed_at) VALUES (?, ?, ?, ?)",
+					args: [crypto.randomUUID(), requestId, gatewayName, new Date().toISOString()],
+				});
+			} catch (err) {
+				logger.warn(`Request ID tracking failed`, {
+					request_id: requestId,
+					error: err instanceof Error ? err.message : String(err),
+				});
+			}
+		}
 
 		// Look up order — try by gateway_reference first, then order_id
 		let order: Order | null = null;

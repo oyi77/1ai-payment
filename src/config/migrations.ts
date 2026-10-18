@@ -304,6 +304,36 @@ const MIGRATIONS: Migration[] = [
       `);
 		},
 	},
+	{
+		version: "013",
+		name: "webhook_requests replay tracking + dead_letter_queue",
+		run: async (db: Client) => {
+			await db.executeMultiple(`
+        CREATE TABLE IF NOT EXISTS webhook_requests (
+          id TEXT PRIMARY KEY,
+          request_id TEXT NOT NULL,
+          gateway TEXT NOT NULL,
+          processed_at TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE(request_id, gateway)
+        );
+        CREATE INDEX IF NOT EXISTS idx_webhook_requests_request
+          ON webhook_requests(request_id);
+
+        CREATE TABLE IF NOT EXISTS dead_letter_queue (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL,
+          payload TEXT NOT NULL,
+          error_reason TEXT,
+          retry_count INTEGER NOT NULL DEFAULT 0,
+          first_seen TEXT NOT NULL DEFAULT (datetime('now')),
+          last_attempt TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_dlq_type ON dead_letter_queue(type);
+        CREATE INDEX IF NOT EXISTS idx_dlq_retry ON dead_letter_queue(retry_count, type)
+          WHERE retry_count < 3;
+      `);
+		},
+	},
 ];
 export async function runMigrations(db: Client): Promise<void> {
 	// Ensure the tracking table exists

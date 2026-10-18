@@ -209,6 +209,40 @@ export async function fanoutMutation(
 		});
 	}
 
+	// Dead letter queue — persist permanently failed deliveries for operator review/replay
+	if (failed > 0) {
+		const db = getDb();
+		try {
+			await Promise.all(
+				results.filter((r) => !r.ok).map((result) =>
+					db.execute({
+						sql: "INSERT INTO dead_letter_queue (type, payload, error_reason, retry_count, first_seen, last_attempt)" +
+							" VALUES (?, ?, 'failed_delivery', 0, ?, ?)",
+						args: [
+							'mutation_fanout',
+							JSON.stringify({
+								event_id: event.gateway_reference,
+								gateway: event.gateway,
+								merchant_id: result.merchant_id,
+								reason: result.status === null ? 'connection_error' : `http_${result.status}`,
+							}),
+							new Date().toISOString(),
+							new Date().toISOString(),
+						],
+					})
+				)
+			);
+			logger.warn("Mutation fanout failures recorded to DLQ", {
+				failed_count: failed,
+				gateway: event.gateway,
+			});
+		} catch (dlqErr) {
+			logger.error("DLQ insert failed", {
+				error: dlqErr instanceof Error ? dlqErr.message : String(dlqErr),
+			});
+		}
+	}
+
 	logger.info("Mutation fanout complete", {
 		gateway: event.gateway,
 		reference: event.gateway_reference,
