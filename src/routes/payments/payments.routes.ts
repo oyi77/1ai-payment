@@ -59,8 +59,9 @@ const createPaymentRoute = createRoute({
 	security: [{ ApiKeyAuth: [] }],
 	request: {
 		headers: z.object({
-			"idempotency-key": z.string().optional().openapi({
-				description: "Client-generated unique key to prevent duplicate orders",
+			"idempotency-key": z.string().max(128).optional().openapi({
+				description:
+					"Client-generated unique key to prevent duplicate orders. Max 128 chars — same contract as body `idempotency_key`.",
 			}),
 		}),
 		body: {

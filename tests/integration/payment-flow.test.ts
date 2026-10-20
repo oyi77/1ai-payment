@@ -277,6 +277,26 @@ describe('POST /api/payments', () => {
     }
   });
 
+  test('rejects an oversized Idempotency-Key header with 400 (body/header parity)', async () => {
+    // The header was uncapped while the body field is capped at 128, so the
+    // same key was accepted or rejected depending on how it was sent.
+    const res = await app.request('/api/payments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': 'test-api-key-flow',
+        'Idempotency-Key': 'k'.repeat(129),
+      },
+      body: JSON.stringify({
+        gateway: 'midtrans',
+        amount: 10000,
+        currency: 'IDR',
+        callback_url: 'https://example.com/callback',
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
   test('rejects oversized URLs with 400 (Sweep177)', async () => {
     const long = (host: string) => `https://${host}.example.com/` + 'p'.repeat(2100);
     for (const body of [
