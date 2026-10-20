@@ -17,10 +17,10 @@ Full details: `~/.1ai/core/PROCESS.md` (auto-injected by hooks)
 
 ## This repo
 
-Payment gateway **aggregator** — unified API for creating payments across 13 gateways and routing callbacks to owning projects.
+Payment gateway **aggregator** — unified API for creating payments across 14 payment gateways and routing callbacks to owning projects. 16 gateways are registered in total (14 payment + 2 bank-mutation aggregators).
 Stack: TypeScript / Hono / LibSQL (SQLite)
 Domain: Payment creation, webhook aggregation, signature verification, order routing, callback forwarding
-Gateways: midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria
+Gateways: midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria, lynk, mutasiku, moota
 
 Engineering rules are enforced by machine-level loaders when `setup-dev.sh` has been run:
 - Claude Code: SessionStart hook injects `~/.1ai/core/RULES.md` + enforcement table
@@ -117,6 +117,10 @@ src/
 │   ├── paypal/      # PayPal — webhook signature
 │   ├── x402/        # On-chain USDC micropayments (HTTP 402)
 │   ├── erc8183/     # Agentic commerce escrow (evaluator attestation)
+│   ├── saweria.ts   # Saweria — anonymous donations (inbound webhook disabled)
+│   ├── lynk.ts      # Lynk.id — link-in-bio checkout, HMAC/merchant-key
+│   ├── mutasiku.ts  # Mutasiku — bank mutation aggregator (read-only)
+│   ├── moota.ts     # Moota — bank mutation aggregator (read-only)
 │   └── index.ts     # Gateway registry (add gateway = implement + register)
 ├── middleware/       # Rate limiting, auth
 │   ├── auth.ts       # API key auth for /api/* routes

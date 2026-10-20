@@ -25,6 +25,7 @@ import {
 	webhookErrorSchema,
 } from "../schemas";
 import { forwardEvent, trackForward } from "../services/forwarder.service";
+import { fanoutMutation } from "../services/mutation-forwarder.service";
 import {
 	handleNexusPayment,
 	revokeNexusAccess,
@@ -36,7 +37,6 @@ import {
 } from "../services/order.service";
 import type { Order } from "../services/order.service";
 import { decryptWebhookSecret, generateEventId } from "../utils/crypto";
-import { fanoutMutation } from "../services/mutation-forwarder.service";
 import { logger } from "../utils/logger";
 
 export const webhookRoutes = new OpenAPIHono({ defaultHook });
@@ -272,7 +272,6 @@ for (const gatewayName of GATEWAY_NAMES) {
 			headers["idempotency-key"] ??
 			headers["x-correlation-id"];
 
-
 		// HTTPS enforcement (configurable; defaults to production-only)
 		if (
 			getConfig().REQUIRE_HTTPS &&
@@ -392,10 +391,15 @@ for (const gatewayName of GATEWAY_NAMES) {
 				}
 				await db.execute({
 					sql: "INSERT INTO webhook_requests (id, request_id, gateway, processed_at) VALUES (?, ?, ?, ?)",
-					args: [crypto.randomUUID(), requestId, gatewayName, new Date().toISOString()],
+					args: [
+						crypto.randomUUID(),
+						requestId,
+						gatewayName,
+						new Date().toISOString(),
+					],
 				});
 			} catch (err) {
-				logger.warn(`Request ID tracking failed`, {
+				logger.warn("Request ID tracking failed", {
 					request_id: requestId,
 					error: err instanceof Error ? err.message : String(err),
 				});
@@ -509,15 +513,15 @@ for (const gatewayName of GATEWAY_NAMES) {
 			// Direct Lynk.id checkout: forward to 1ai-trade-cex or enabled merchant
 			if (gatewayName === "lynk" && event.status === "success") {
 				const db = getDb();
-				const merchantRows = await db.execute({
-					sql: `SELECT m.id AS merchant_id, m.default_callback_url AS callback_url,
-					             m.webhook_secret AS webhook_secret
-					      FROM merchants m
-					      LEFT JOIN merchant_gateways g ON g.merchant_id = m.id AND g.gateway = 'lynk'
-					      WHERE (g.enabled = 1 OR m.name LIKE '%trade-cex%' OR m.id = 'merch_D8DeVAjlBNNFUY1H')
-					        AND m.active = 1
-					      LIMIT 1`,
-				});
+				const merchantRows = await db.execute(
+					`SELECT m.id AS merchant_id, m.default_callback_url AS callback_url,
+					        m.webhook_secret AS webhook_secret
+					   FROM merchants m
+					   LEFT JOIN merchant_gateways g ON g.merchant_id = m.id AND g.gateway = 'lynk'
+					   WHERE (g.enabled = 1 OR m.name LIKE '%trade-cex%' OR m.id = 'merch_D8DeVAjlBNNFUY1H')
+					     AND m.active = 1
+					   LIMIT 1`,
+				);
 				if (merchantRows.rows.length > 0) {
 					const r = merchantRows.rows[0] as Record<string, unknown>;
 					const callbackUrl = String(r.callback_url ?? "");
@@ -535,11 +539,17 @@ for (const gatewayName of GATEWAY_NAMES) {
 							amount: event.amount,
 							currency: event.currency,
 							payment_method: "lynk",
+							payment_url: null,
 							status: event.status,
 							metadata: event.metadata,
+							idempotency_key: null,
+							fee: 0,
+							net: event.amount,
 							created_at: new Date().toISOString(),
 							updated_at: new Date().toISOString(),
+							forwarded_at: null,
 							forward_attempts: 0,
+							forward_status: null,
 						};
 						trackForward(
 							forwardEvent(event, directOrder, secret).catch((err: unknown) => {

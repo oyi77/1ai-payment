@@ -77,7 +77,11 @@ export class MootaGateway implements PaymentGateway {
 
 	getPaymentMethods(): PaymentMethod[] {
 		return [
-			{ code: "BANK_TRANSFER_MUTATION", name: "Bank Mutation (Moota)", currencies: ["IDR"] },
+			{
+				code: "BANK_TRANSFER_MUTATION",
+				name: "Bank Mutation (Moota)",
+				currencies: ["IDR"],
+			},
 		];
 	}
 
@@ -86,11 +90,7 @@ export class MootaGateway implements PaymentGateway {
 		headers: Record<string, string>,
 		opts?: GatewayVerifyOpts,
 	): Promise<boolean> {
-		return this.verifySignatureRaw(
-			JSON.stringify(body),
-			headers,
-			opts,
-		);
+		return this.verifySignatureRaw(JSON.stringify(body), headers, opts);
 	}
 
 	async verifySignatureRaw(
@@ -113,9 +113,7 @@ export class MootaGateway implements PaymentGateway {
 		}
 
 		const signature =
-			headers["x-webhook-signature"] ||
-			headers["X-Webhook-Signature"] ||
-			"";
+			headers["x-webhook-signature"] || headers["X-Webhook-Signature"] || "";
 		if (!signature) {
 			logger.warn("Moota: missing X-Webhook-Signature header");
 			return false;
@@ -157,9 +155,7 @@ export class MootaGateway implements PaymentGateway {
 
 		const mutationId = String(item.mutation_id || item.id || "");
 
-		const created = String(
-			item.date || item.created_at || "",
-		);
+		const created = String(item.date || item.created_at || "");
 		const date = created.length >= 10 ? created.substring(0, 10) : created;
 
 		const desc = String(item.description || "").trim();
@@ -172,11 +168,13 @@ export class MootaGateway implements PaymentGateway {
 
 		const status: PaymentStatus = isDebit ? "pending" : "success";
 
-		const gatewayRef = mutationId || crypto
-			.createHash("sha256")
-			.update(`${date}|${amount}|${description}`)
-			.digest("hex")
-			.substring(0, 24);
+		const gatewayRef =
+			mutationId ||
+			crypto
+				.createHash("sha256")
+				.update(`${date}|${amount}|${description}`)
+				.digest("hex")
+				.substring(0, 24);
 
 		return {
 			gateway: this.name,
@@ -203,7 +201,10 @@ export class MootaGateway implements PaymentGateway {
 	async refundPayment(
 		_gatewayRef: string,
 		_amount: number,
-	): Promise<{ gatewayRefundId: string; status: "success" | "pending" | "failed" }> {
+	): Promise<{
+		gatewayRefundId: string;
+		status: "success" | "pending" | "failed";
+	}> {
 		throw new GatewayError("moota", "REFUND_NOT_SUPPORTED");
 	}
 }
@@ -254,7 +255,10 @@ export async function pullMutations(
 	if (!response.ok) {
 		throw new GatewayError(
 			"moota",
-			`Moota API error: ${response.status} ${await response.text()}`.substring(0, 200),
+			`Moota API error: ${response.status} ${await response.text()}`.substring(
+				0,
+				200,
+			),
 		);
 	}
 
@@ -291,10 +295,7 @@ export async function listAccounts(apiKey: string): Promise<unknown[]> {
 		throw new GatewayError("moota", "Invalid Moota API token");
 	}
 	if (!response.ok) {
-		throw new GatewayError(
-			"moota",
-			`Moota accounts error: ${response.status}`,
-		);
+		throw new GatewayError("moota", `Moota accounts error: ${response.status}`);
 	}
 
 	const body = (await response.json()) as MootaApiResponse;

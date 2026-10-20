@@ -221,7 +221,12 @@ export class IPaymuGateway implements PaymentGateway {
 		// 4. HMAC-SHA256 with VA number as key
 		// See: https://docs.ipaymu.com/en/docs/callback#signature-validation
 		const rawData = body as Record<string, unknown>;
-		const intFields = ["trx_id", "status_code", "transaction_status_code", "paid_off"];
+		const intFields = [
+			"trx_id",
+			"status_code",
+			"transaction_status_code",
+			"paid_off",
+		];
 		const normalized: Record<string, unknown> = {};
 		for (const [key, val] of Object.entries(rawData)) {
 			if (key === "signature") continue; // strip body-level signature if present
@@ -236,7 +241,7 @@ export class IPaymuGateway implements PaymentGateway {
 			}
 		}
 		if (!("additional_info" in normalized)) {
-			normalized["additional_info"] = [];
+			normalized.additional_info = [];
 		}
 
 		// Sort keys alphabetically (case-sensitive, PHP ksort semantics)

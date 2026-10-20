@@ -97,7 +97,11 @@ export class MutasikuGateway implements PaymentGateway {
 
 	getPaymentMethods(): PaymentMethod[] {
 		return [
-			{ code: "BANK_TRANSFER_MUTATION", name: "Bank Mutation (Mutasiku)", currencies: ["IDR"] },
+			{
+				code: "BANK_TRANSFER_MUTATION",
+				name: "Bank Mutation (Mutasiku)",
+				currencies: ["IDR"],
+			},
 		];
 	}
 
@@ -132,9 +136,7 @@ export class MutasikuGateway implements PaymentGateway {
 		}
 
 		const signature =
-			headers["x-webhook-signature"] ||
-			headers["X-Webhook-Signature"] ||
-			"";
+			headers["x-webhook-signature"] || headers["X-Webhook-Signature"] || "";
 		if (!signature) {
 			logger.warn("Mutasiku: missing X-Webhook-Signature header");
 			return false;
@@ -174,9 +176,7 @@ export class MutasikuGateway implements PaymentGateway {
 		const item = body as MutasikuMutation;
 
 		// Amount: prefer nominal (webhook), fall back to amount (REST API)
-		const amount = Math.abs(
-			Number(item.nominal ?? item.amount ?? 0),
-		);
+		const amount = Math.abs(Number(item.nominal ?? item.amount ?? 0));
 
 		// Direction: webhook uses Indonesian (jenis: kredit/debit),
 		// REST API uses English (type: CREDIT/DEBIT)
@@ -190,7 +190,9 @@ export class MutasikuGateway implements PaymentGateway {
 		const txId = String(item.id || "");
 
 		// Date
-		const date = String(item.tanggal || item.date || item.created_at || item.createdAt || "");
+		const date = String(
+			item.tanggal || item.date || item.created_at || item.createdAt || "",
+		);
 
 		// Description: combine keterangan + counterparty
 		const desc = String(item.keterangan || item.description || item.note || "");
@@ -218,11 +220,13 @@ export class MutasikuGateway implements PaymentGateway {
 		const status: PaymentStatus = isDebit ? "pending" : "success";
 
 		// gateway_reference: unique mutation id
-		const gatewayRef = txId || crypto
-			.createHash("sha256")
-			.update(`${date}|${amount}|${description}`)
-			.digest("hex")
-			.substring(0, 24);
+		const gatewayRef =
+			txId ||
+			crypto
+				.createHash("sha256")
+				.update(`${date}|${amount}|${description}`)
+				.digest("hex")
+				.substring(0, 24);
 
 		return {
 			gateway: this.name,
@@ -253,7 +257,10 @@ export class MutasikuGateway implements PaymentGateway {
 	async refundPayment(
 		_gatewayRef: string,
 		_amount: number,
-	): Promise<{ gatewayRefundId: string; status: "success" | "pending" | "failed" }> {
+	): Promise<{
+		gatewayRefundId: string;
+		status: "success" | "pending" | "failed";
+	}> {
 		throw new GatewayError("mutasiku", "REFUND_NOT_SUPPORTED");
 	}
 }
@@ -295,10 +302,8 @@ export async function pullMutations(
 	}
 
 	// Default date range: yesterday to today
-	const today = new Date().toISOString().split("T")[0]!;
-	const yesterday = new Date(Date.now() - 86400000)
-		.toISOString()
-		.split("T")[0]!;
+	const today = new Date().toISOString().slice(0, 10);
+	const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
 	const start = startDate || yesterday;
 	const end = endDate || today;
 
@@ -321,13 +326,19 @@ export async function pullMutations(
 	if (!response.ok) {
 		throw new GatewayError(
 			"mutasiku",
-			`Mutasiku API error: ${response.status} ${await response.text()}`.substring(0, 200),
+			`Mutasiku API error: ${response.status} ${await response.text()}`.substring(
+				0,
+				200,
+			),
 		);
 	}
 
 	const body = (await response.json()) as MutasikuApiResponse;
 	if (body.status !== "success") {
-		throw new GatewayError("mutasiku", `Mutasiku error: ${JSON.stringify(body).substring(0, 120)}`);
+		throw new GatewayError(
+			"mutasiku",
+			`Mutasiku error: ${JSON.stringify(body).substring(0, 120)}`,
+		);
 	}
 
 	const data = body.data;

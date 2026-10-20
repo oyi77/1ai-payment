@@ -105,7 +105,7 @@ Health check. No authentication required.
 
 Gateway callback receiver. One route for all gateways; the `gateway` path segment selects the handler.
 
-`gateway` is one of: `midtrans`, `tripay`, `duitku`, `nowpayments`, `ipaymu`, `scalev`, `xendit`, `telegram_stars`, `telegram_payments`, `paypal`, `x402`, `erc8183`, `saweria`.
+`gateway` is one of: `midtrans`, `tripay`, `duitku`, `nowpayments`, `ipaymu`, `scalev`, `xendit`, `telegram_stars`, `telegram_payments`, `paypal`, `x402`, `erc8183`, `saweria`, `lynk`, `mutasiku`, `moota`.
 
 **Headers:** per-gateway signature (see table below). No `X-API-Key` required.
 
@@ -158,6 +158,10 @@ If the owning merchant has no `webhook_secret` configured, the event is acknowle
 | `paypal` | PayPal Verify-Webhook-Signature API | `paypal-transmission-id`, `paypal-transmission-time`, `paypal-transmission-sig`, `paypal-cert-url` headers | verified via PayPal API |
 | `x402` | On-chain | payment proof (`network`, `txHash`, `asset`, `amount`, `payer`) in body | verified against the blockchain |
 | `erc8183` | Attestation signature (ECDSA) | `JSON.stringify({ escrowId, evaluator, approved, notes })` (signer = evaluator) | body field `signature` |
+| `saweria` | — (unsigned) | — | inbound webhook disabled: route answers `501` |
+| `mutasiku` | HMAC-SHA256 (compact JSON) | `JSON.stringify(body, sorted keys)` | header `X-Webhook-Signature` (hex) |
+| `moota` | HMAC-SHA256 (raw body) | raw request body | header `X-Webhook-Signature` (hex) |
+| `lynk` | HMAC-SHA256 / SHA-256 variants, or direct key match | raw body, or `X-Merchant-Key` / `Authorization` / body `merchant_key` | `X-Signature` / `X-Webhook-Signature` / `X-Lynk-Signature` |
 
 All local comparisons use timing-safe equality. `telegram_stars`/`telegram_payments` verify the `X-Telegram-Bot-Api-Secret-Token` header against `TELEGRAM_WEBHOOK_SECRET`; if that secret is not configured, verification fails and webhooks are rejected (fail closed). `erc8183` fails closed: the webhook is rejected unless the attestation parses (`escrowId` + `evaluator` present), a `signature` is present, and the recovered signer matches the configured evaluator address (`ERC8183_EVALUATOR_ADDRESS`, or `ERC8183_EVALUATOR_PUBLIC_KEY`). If that configuration is missing, verification fails and webhooks are rejected.
 
@@ -178,7 +182,8 @@ Idempotency-Key: <unique_key>    # Optional (alternative to body idempotency_key
 ```typescript
 {
   gateway: 'midtrans' | 'tripay' | 'duitku' | 'nowpayments' | 'ipaymu' | 'scalev'
-         | 'xendit' | 'telegram_stars' | 'telegram_payments' | 'paypal' | 'x402' | 'erc8183' | 'saweria';
+         | 'xendit' | 'telegram_stars' | 'telegram_payments' | 'paypal' | 'x402'
+         | 'erc8183' | 'saweria' | 'lynk' | 'mutasiku' | 'moota';
   amount: number;                  // Integer, positive, in smallest currency unit (IDR = full Rupiah)
   currency?: string;               // Default: 'IDR' — IDR-only gateways (duitku/ipaymu/tripay/saweria) and USDC-only x402 reject other currencies 400
   payment_method?: string;         // Gateway-specific method code (e.g. 'qris', 'bca_va', 'gopay') — shape-validated (letters/digits/_/-, max 32), hostile shapes 400

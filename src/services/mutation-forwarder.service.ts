@@ -17,10 +17,10 @@
  */
 
 import { getDb } from "../config/database";
-import { decryptWebhookSecret, signPayload } from "../utils/crypto";
-import { fetchPublic } from "../utils/ssrf";
-import { logger } from "../utils/logger";
 import type { NormalizedPaymentEvent } from "../gateways/base";
+import { decryptWebhookSecret, signPayload } from "../utils/crypto";
+import { logger } from "../utils/logger";
+import { fetchPublic } from "../utils/ssrf";
 
 const MAX_ATTEMPTS = 3;
 const BACKOFF_MS = [2_000, 10_000];
@@ -62,7 +62,11 @@ async function resolveTargets(gateway: string): Promise<MutationTarget[]> {
 			});
 			continue;
 		}
-		targets.push({ merchant_id: merchantId, callback_url: callbackUrl, webhook_secret: secret });
+		targets.push({
+			merchant_id: merchantId,
+			callback_url: callbackUrl,
+			webhook_secret: secret,
+		});
 	}
 	return targets;
 }
@@ -126,7 +130,11 @@ async function forwardToTarget(
 			} else {
 				const response = guarded.response as Response;
 				if (response.ok) {
-					return { merchant_id: target.merchant_id, ok: true, status: response.status };
+					return {
+						merchant_id: target.merchant_id,
+						ok: true,
+						status: response.status,
+					};
 				}
 				lastStatus = response.status;
 			}
@@ -167,7 +175,11 @@ export async function fanoutMutation(
 
 	const results = await Promise.all(
 		targets.map((target) =>
-			forwardToTarget(event, target, buildMutationPayload(event, target.merchant_id)),
+			forwardToTarget(
+				event,
+				target,
+				buildMutationPayload(event, target.merchant_id),
+			),
 		),
 	);
 
@@ -190,7 +202,10 @@ export async function fanoutMutation(
 				        attempts = excluded.attempts,
 				        success = excluded.success`,
 				args: [
-					`md_${event.gateway}_${event.gateway_reference}_${r.merchant_id}`.slice(0, 128),
+					`md_${event.gateway}_${event.gateway_reference}_${r.merchant_id}`.slice(
+						0,
+						128,
+					),
 					event.gateway,
 					event.gateway_reference,
 					r.merchant_id,
@@ -214,23 +229,29 @@ export async function fanoutMutation(
 		const db = getDb();
 		try {
 			await Promise.all(
-				results.filter((r) => !r.ok).map((result) =>
-					db.execute({
-						sql: "INSERT INTO dead_letter_queue (type, payload, error_reason, retry_count, first_seen, last_attempt)" +
-							" VALUES (?, ?, 'failed_delivery', 0, ?, ?)",
-						args: [
-							'mutation_fanout',
-							JSON.stringify({
-								event_id: event.gateway_reference,
-								gateway: event.gateway,
-								merchant_id: result.merchant_id,
-								reason: result.status === null ? 'connection_error' : `http_${result.status}`,
-							}),
-							new Date().toISOString(),
-							new Date().toISOString(),
-						],
-					})
-				)
+				results
+					.filter((r) => !r.ok)
+					.map((result) =>
+						db.execute({
+							sql:
+								"INSERT INTO dead_letter_queue (type, payload, error_reason, retry_count, first_seen, last_attempt)" +
+								" VALUES (?, ?, 'failed_delivery', 0, ?, ?)",
+							args: [
+								"mutation_fanout",
+								JSON.stringify({
+									event_id: event.gateway_reference,
+									gateway: event.gateway,
+									merchant_id: result.merchant_id,
+									reason:
+										result.status === null
+											? "connection_error"
+											: `http_${result.status}`,
+								}),
+								new Date().toISOString(),
+								new Date().toISOString(),
+							],
+						}),
+					),
 			);
 			logger.warn("Mutation fanout failures recorded to DLQ", {
 				failed_count: failed,

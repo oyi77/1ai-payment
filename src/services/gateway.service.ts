@@ -39,7 +39,10 @@ export function getGatewayHealth(): Record<string, GatewayStatus> {
 	return result;
 }
 
-// A gateway counts as configured only when its credential-specific env vars are set.
+// A gateway counts as configured only when the credentials it actually needs
+// are set. Aggregators (mutasiku/moota) additionally need their webhook
+// secret: an API key alone cannot verify a callback, so reporting them
+// configured would advertise a gateway whose webhooks all fail closed.
 function isConfigured(name: string, config: unknown): boolean {
 	const cfg = config as Record<string, unknown>;
 	switch (name) {
@@ -52,6 +55,15 @@ function isConfigured(name: string, config: unknown): boolean {
 			return Boolean(cfg.botToken && cfg.webhookSecret);
 		case "paypal":
 			return Boolean(cfg.clientId && cfg.clientSecret && cfg.webhookId);
+		case "mutasiku":
+		case "moota":
+			return Boolean(cfg.apiKey && cfg.webhookSecret);
+		case "x402":
+			return Boolean(cfg.walletAddress && cfg.usdcAddress);
+		case "erc8183":
+			return Boolean(cfg.walletAddress && cfg.tokenAddress);
+		case "saweria":
+			return Boolean(cfg.username && cfg.userId);
 		default:
 			return Boolean(cfg.apiKey);
 	}

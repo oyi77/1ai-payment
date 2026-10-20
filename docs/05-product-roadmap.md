@@ -23,7 +23,7 @@ Merchant portal dashboard (/dashboard)
 TypeScript SDK (@1ai/payment)
 Prometheus metrics (/metrics)
 Webhook events + dead-letter tracking
-13 gateways
+16 gateways
 Nexus: Scalev direct-checkout fulfillment + Telegram delivery cron
 No billing, no fee computation (webhook-secret rotation SHIPPED Sweep115)
 ```
@@ -31,7 +31,7 @@ No billing, no fee computation (webhook-secret rotation SHIPPED Sweep115)
 **What works:** Payment creation, webhook processing, signature verification
 (timing-safe), per-merchant idempotent lookups, forwarding with merchant
 `webhook_secret` + 3-retry backoff, transaction history, refunds, webhook
-13 gateways
+16 gateways
 auto-generated OpenAPI docs (`/doc`, `/reference`).
 
 ---
@@ -481,7 +481,7 @@ Shipped items the roadmap did not plan (audited — all present in code):
 | Prometheus metrics | `GET /metrics` (`src/middleware/metrics.ts`) | Counters + `payment_creation_duration_seconds` histogram; admin auth required (`X-Admin-Key`) |
 | Webhook events + dead letters | `webhook_events`, `dead_letter_events` (`src/config/database.ts`) | Dedup + audit + failed-forward queue |
 | Nexus (1ai-product delivery) | `src/services/nexus-fulfillment.ts`, `nexus-cron.ts` | Scalev direct-checkout fulfillment + Telegram invite delivery; 6h maintenance cron; `nexus_customers` / `nexus_subscriptions` — PARKED (Scalev quota exhausted, live tables empty) |
-| Gateways 11–13 | `x402` (micropayments), `erc8183` (agentic-commerce escrow), `saweria` (anonymous donations) | Registry: 13 total |
+| Gateways 11–16 | `x402` (micropayments), `erc8183` (agentic-commerce escrow), `saweria` (anonymous donations, inbound disabled), `lynk` (link-in-bio checkout), `mutasiku` / `moota` (bank-mutation aggregators) | Registry: 16 total |
 ## Future Work / Backlog
 
 Genuinely-future items, roughly by dependency order. None block current use.

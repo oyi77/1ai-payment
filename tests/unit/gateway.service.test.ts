@@ -37,6 +37,23 @@ describe("getGatewayHealth", () => {
 			expect(health[name]).toHaveProperty("name", name);
 		}
 	});
+
+	test("aggregators require a webhook secret to count as configured", () => {
+		// An API key alone cannot verify a callback: reporting the aggregator
+		// as enabled would advertise a gateway whose webhooks all fail closed.
+		const prevKey = process.env.MUTASIKU_API_KEY;
+		const prevSecret = process.env.MUTASIKU_WEBHOOK_SECRET;
+		process.env.MUTASIKU_API_KEY = "mut-api-key";
+		delete process.env.MUTASIKU_WEBHOOK_SECRET;
+		expect(getGatewayHealth().mutasiku.configured).toBe(false);
+		process.env.MUTASIKU_WEBHOOK_SECRET = "mut-webhook-secret";
+		expect(getGatewayHealth().mutasiku.configured).toBe(true);
+		// Restore so sibling test files sharing this process see pristine env.
+		if (prevKey === undefined) delete process.env.MUTASIKU_API_KEY;
+		else process.env.MUTASIKU_API_KEY = prevKey;
+		if (prevSecret === undefined) delete process.env.MUTASIKU_WEBHOOK_SECRET;
+		else process.env.MUTASIKU_WEBHOOK_SECRET = prevSecret;
+	});
 });
 
 describe("getAvailableGateways", () => {

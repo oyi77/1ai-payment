@@ -325,7 +325,7 @@ cancelled→cancelled; x402 status comes from the cached on-chain verification
 
 ### 6. Signature Verification (Per Gateway)
 
-All 13 gateways are normalized into a single NormalizedPaymentEvent
+All 16 registered gateways are normalized into a single NormalizedPaymentEvent
 use timing-safe comparison (`crypto.timingSafeEqual`).
 
 | Gateway | Algorithm | Where the signature lives | Notes |
@@ -342,6 +342,10 @@ use timing-safe comparison (`crypto.timingSafeEqual`).
 | PayPal | External API verification | Headers `paypal-transmission-id`, `paypal-transmission-time`, `paypal-transmission-sig`, `paypal-cert-url` | `POST {base}/v1/notifications/verify-webhook-signature` with a Bearer token from `PAYPAL_CLIENT_ID`/`PAYPAL_CLIENT_SECRET`; success iff `verification_status === "SUCCESS"`; needs `PAYPAL_WEBHOOK_ID` + `PAYPAL_WEBHOOK_SECRET`; base `api-m.sandbox.paypal.com` / `api-m.paypal.com` |
 | x402 | On-chain USDC verification via RPC (viem) | Body fields (`network`, `tx_hash`, `asset`, `amount`, `payer`) | No HMAC — `verifySignature` resolves the expected USDC contract (`X402_USDC_ADDRESS` or per-chain default) and the configured `X402_WALLET_ADDRESS`, fetches the tx receipt, and requires a `Transfer` to the wallet of ≥ the declared amount; tx must have succeeded on-chain; declared `payer`, when present, must match the on-chain sender. Fail-closed when `X402_WALLET_ADDRESS` is unset. Verified results are cached by tx hash (5-minute TTL) and `normalizeEvent` reports the verified status with the actual on-chain amount (converted from smallest units) |
 | ERC-8183 | Evaluator attestation signature (viem `recoverMessageAddress`) | Body field `signature` | No HMAC — `verifySignature` parses the attestation (`escrow_id` + `evaluator`) and requires the signature over `JSON.stringify({escrowId, evaluator, approved, notes})` to recover the configured evaluator (`ERC8183_EVALUATOR_ADDRESS`, timing-safe compare). Fail-closed when the signature is missing/invalid or no evaluator is configured |
+| Saweria | — | — | Webhooks are unsigned → route answers `501` (inbound disabled); payment creation remains enabled |
+| Mutasiku | HMAC-SHA256(JSON.stringify(body, sorted keys), webhook_secret), hex | Header `x-webhook-signature` | Compact-JSON re-serialization; merchant `webhookSecret` via `merchant_gateways` or platform `MUTASIKU_WEBHOOK_SECRET`; mutation aggregator, no payment creation |
+| Moota | HMAC-SHA256(raw body, webhook_secret), hex | Header `x-webhook-signature` | `MOOTA_WEBHOOK_SECRET` (or merchant webhookSecret); mutation aggregator, no payment creation |
+| Lynk.id | HMAC-SHA256(raw body, merchant_key) or SHA-256/raw formula variants; X-Merchant-Key / Authorization / body `merchant_key` direct match | `X-Signature` / `X-Webhook-Signature` / `X-Lynk-Signature` | `LYNK_MERCHANT_KEY` from env (or merchant via merchant_gateways) |
 
 **SECURITY NOTE:** Raw gateway payloads are **persisted** in
 `webhook_events.raw_payload` **after** signature verification — this is a
@@ -400,7 +404,7 @@ CREATE TABLE orders (
   project_id TEXT NOT NULL,          -- owning merchant id (backwards-compat)
   project_order_id TEXT,             -- merchant's internal order ID (optional)
   callback_url TEXT NOT NULL,        -- where to forward events
-Selecting one of the 13 gateways
+  gateway TEXT NOT NULL,             -- selecting one of the 16 registered gateways
   gateway_reference TEXT,            -- gateway's transaction/reference ID
   amount INTEGER NOT NULL,           -- amount in smallest currency unit
   currency TEXT DEFAULT 'IDR',

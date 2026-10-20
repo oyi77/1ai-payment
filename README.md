@@ -2,7 +2,7 @@
 
 Payment gateway **aggregator** microservice for the 1ai-ecosystem.
 
-**Purpose:** Unified API for creating payments across 13 gateways and routing callbacks to the correct project.
+**Purpose:** Unified API for creating payments across 14 payment gateways plus 2 bank-mutation aggregators (16 registered), routing callbacks to the correct project.
 
 ## Problem
 
@@ -96,7 +96,10 @@ Auth:
 | PayPal | `paypal` | USD, EUR, GBP, CAD, AUD | PayPal Verification API (SHA256withRSA) |
 | x402 | `x402` | USD (USDC) | On-chain tx verification via RPC |
 | ERC-8183 | `erc8183` | USD | Escrow attestation signature |
-| Saweria | `saweria` | IDR | Reconciliation (unsigned, order-id match) |
+| Lynk.id | `lynk` | IDR | HMAC-SHA256 / merchant-key header match |
+| Mutasiku | `mutasiku` | IDR | HMAC-SHA256 over compact JSON (mutation aggregator, no payment creation) |
+| Moota | `moota` | IDR | HMAC-SHA256 over raw body (mutation aggregator, no payment creation) |
+| Saweria | `saweria` | IDR | Webhook inbound disabled (unsigned callbacks answered `501`); payment creation only |
 ### Create Payment
 
 ```bash
@@ -162,7 +165,7 @@ Retrying with the same key returns the existing order (`200`) instead of creatin
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Payment Gateways (12 providers)                    │
+│  Payment Gateways (16 registered)                   │
 └─────────────────────────┬───────────────────────────┘
                           │ single callback per gateway
                           ▼

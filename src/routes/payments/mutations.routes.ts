@@ -12,12 +12,18 @@
 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { resolveGatewayConfig } from "../../config/env";
+import {
+	listAccounts as listMootaAccounts,
+	pullMutations as pullMoota,
+} from "../../gateways/moota";
+import {
+	listAccounts as listMutasikuAccounts,
+	pullMutations as pullMutasiku,
+} from "../../gateways/mutasiku";
 import { authMiddleware } from "../../middleware/auth";
 import { defaultHook, errorSchema } from "../../schemas";
 import { GatewayError } from "../../utils/errors";
 import { logger } from "../../utils/logger";
-import { pullMutations as pullMutasiku, listAccounts as listMutasikuAccounts } from "../../gateways/mutasiku";
-import { pullMutations as pullMoota, listAccounts as listMootaAccounts } from "../../gateways/moota";
 
 type MerchantEnv = {
 	Variables: { merchantId?: string; merchantName?: string };
@@ -49,9 +55,18 @@ const mutasikuAccountsRoute = createRoute({
 				},
 			},
 		},
-		401: { description: "Missing or invalid API key.", content: { "application/json": { schema: errorSchema } } },
-		422: { description: "Mutasiku API key not configured or invalid.", content: { "application/json": { schema: errorSchema } } },
-		500: { description: "Unexpected error.", content: { "application/json": { schema: errorSchema } } },
+		401: {
+			description: "Missing or invalid API key.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		422: {
+			description: "Mutasiku API key not configured or invalid.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		500: {
+			description: "Unexpected error.",
+			content: { "application/json": { schema: errorSchema } },
+		},
 	},
 });
 
@@ -62,16 +77,42 @@ mutationsRouter.openapi(mutasikuAccountsRoute, async (c) => {
 			apiKey?: string;
 		};
 		if (!cfg.apiKey) {
-			return c.json({ success: false, error: { code: "MUTASIKU_NOT_CONFIGURED", message: "Mutasiku API key not set for this merchant" } }, 422);
+			return c.json(
+				{
+					success: false,
+					error: {
+						code: "MUTASIKU_NOT_CONFIGURED",
+						message: "Mutasiku API key not set for this merchant",
+					},
+				},
+				422,
+			);
 		}
-		const accounts = (await listMutasikuAccounts(cfg.apiKey)) as Record<string, unknown>[];
+		const accounts = (await listMutasikuAccounts(cfg.apiKey)) as Record<
+			string,
+			unknown
+		>[];
 		return c.json({ success: true, data: accounts }, 200);
 	} catch (err: unknown) {
 		if (err instanceof GatewayError) {
-			return c.json({ success: false, error: { code: "GATEWAY_ERROR", message: err.message } }, 422);
+			return c.json(
+				{
+					success: false,
+					error: { code: "GATEWAY_ERROR", message: err.message },
+				},
+				422,
+			);
 		}
-		logger.error("Mutasiku accounts route error", { error: err instanceof Error ? err.message : String(err) });
-		return c.json({ success: false, error: { code: "INTERNAL", message: "Unexpected error" } }, 500);
+		logger.error("Mutasiku accounts route error", {
+			error: err instanceof Error ? err.message : String(err),
+		});
+		return c.json(
+			{
+				success: false,
+				error: { code: "INTERNAL", message: "Unexpected error" },
+			},
+			500,
+		);
 	}
 });
 
@@ -90,13 +131,35 @@ const mutasikuPullRoute = createRoute({
 		body: {
 			content: {
 				"application/json": {
-					schema: z.object({
-						startDate: z.string().optional().openapi({ example: "2026-01-01", description: "ISO date (YYYY-MM-DD). Defaults to yesterday." }),
-						endDate: z.string().optional().openapi({ example: "2026-01-15", description: "ISO date (YYYY-MM-DD). Defaults to today." }),
-						accountId: z.string().optional().openapi({ description: "Filter to one connected account." }),
-						page: z.number().int().positive().optional().openapi({ default: 1 }),
-						limit: z.number().int().positive().max(100).optional().openapi({ default: 100 }),
-					}).openapi("MutasikuPullBody"),
+					schema: z
+						.object({
+							startDate: z.string().optional().openapi({
+								example: "2026-01-01",
+								description: "ISO date (YYYY-MM-DD). Defaults to yesterday.",
+							}),
+							endDate: z.string().optional().openapi({
+								example: "2026-01-15",
+								description: "ISO date (YYYY-MM-DD). Defaults to today.",
+							}),
+							accountId: z
+								.string()
+								.optional()
+								.openapi({ description: "Filter to one connected account." }),
+							page: z
+								.number()
+								.int()
+								.positive()
+								.optional()
+								.openapi({ default: 1 }),
+							limit: z
+								.number()
+								.int()
+								.positive()
+								.max(100)
+								.optional()
+								.openapi({ default: 100 }),
+						})
+						.openapi("MutasikuPullBody"),
 				},
 			},
 		},
@@ -116,9 +179,18 @@ const mutasikuPullRoute = createRoute({
 				},
 			},
 		},
-		401: { description: "Missing or invalid API key.", content: { "application/json": { schema: errorSchema } } },
-		422: { description: "Mutasiku API key not configured or upstream error.", content: { "application/json": { schema: errorSchema } } },
-		500: { description: "Unexpected error.", content: { "application/json": { schema: errorSchema } } },
+		401: {
+			description: "Missing or invalid API key.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		422: {
+			description: "Mutasiku API key not configured or upstream error.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		500: {
+			description: "Unexpected error.",
+			content: { "application/json": { schema: errorSchema } },
+		},
 	},
 });
 
@@ -130,7 +202,16 @@ mutationsRouter.openapi(mutasikuPullRoute, async (c) => {
 			apiKey?: string;
 		};
 		if (!cfg.apiKey) {
-			return c.json({ success: false, error: { code: "MUTASIKU_NOT_CONFIGURED", message: "Mutasiku API key not set for this merchant" } }, 422);
+			return c.json(
+				{
+					success: false,
+					error: {
+						code: "MUTASIKU_NOT_CONFIGURED",
+						message: "Mutasiku API key not set for this merchant",
+					},
+				},
+				422,
+			);
 		}
 		const result = await pullMutasiku({
 			apiKey: cfg.apiKey,
@@ -143,10 +224,24 @@ mutationsRouter.openapi(mutasikuPullRoute, async (c) => {
 		return c.json({ success: true, data: result }, 200);
 	} catch (err: unknown) {
 		if (err instanceof GatewayError) {
-			return c.json({ success: false, error: { code: "GATEWAY_ERROR", message: err.message } }, 422);
+			return c.json(
+				{
+					success: false,
+					error: { code: "GATEWAY_ERROR", message: err.message },
+				},
+				422,
+			);
 		}
-		logger.error("Mutasiku pull route error", { error: err instanceof Error ? err.message : String(err) });
-		return c.json({ success: false, error: { code: "INTERNAL", message: "Unexpected error" } }, 500);
+		logger.error("Mutasiku pull route error", {
+			error: err instanceof Error ? err.message : String(err),
+		});
+		return c.json(
+			{
+				success: false,
+				error: { code: "INTERNAL", message: "Unexpected error" },
+			},
+			500,
+		);
 	}
 });
 
@@ -173,9 +268,18 @@ const mootaAccountsRoute = createRoute({
 				},
 			},
 		},
-		401: { description: "Missing or invalid API key.", content: { "application/json": { schema: errorSchema } } },
-		422: { description: "Moota API token not configured or invalid.", content: { "application/json": { schema: errorSchema } } },
-		500: { description: "Unexpected error.", content: { "application/json": { schema: errorSchema } } },
+		401: {
+			description: "Missing or invalid API key.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		422: {
+			description: "Moota API token not configured or invalid.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		500: {
+			description: "Unexpected error.",
+			content: { "application/json": { schema: errorSchema } },
+		},
 	},
 });
 
@@ -186,16 +290,42 @@ mutationsRouter.openapi(mootaAccountsRoute, async (c) => {
 			apiKey?: string;
 		};
 		if (!cfg.apiKey) {
-			return c.json({ success: false, error: { code: "MOOTA_NOT_CONFIGURED", message: "Moota API token not set for this merchant" } }, 422);
+			return c.json(
+				{
+					success: false,
+					error: {
+						code: "MOOTA_NOT_CONFIGURED",
+						message: "Moota API token not set for this merchant",
+					},
+				},
+				422,
+			);
 		}
-		const accounts = (await listMootaAccounts(cfg.apiKey)) as Record<string, unknown>[];
+		const accounts = (await listMootaAccounts(cfg.apiKey)) as Record<
+			string,
+			unknown
+		>[];
 		return c.json({ success: true, data: accounts }, 200);
 	} catch (err: unknown) {
 		if (err instanceof GatewayError) {
-			return c.json({ success: false, error: { code: "GATEWAY_ERROR", message: err.message } }, 422);
+			return c.json(
+				{
+					success: false,
+					error: { code: "GATEWAY_ERROR", message: err.message },
+				},
+				422,
+			);
 		}
-		logger.error("Moota accounts route error", { error: err instanceof Error ? err.message : String(err) });
-		return c.json({ success: false, error: { code: "INTERNAL", message: "Unexpected error" } }, 500);
+		logger.error("Moota accounts route error", {
+			error: err instanceof Error ? err.message : String(err),
+		});
+		return c.json(
+			{
+				success: false,
+				error: { code: "INTERNAL", message: "Unexpected error" },
+			},
+			500,
+		);
 	}
 });
 
@@ -214,9 +344,13 @@ const mootaPullRoute = createRoute({
 		body: {
 			content: {
 				"application/json": {
-					schema: z.object({
-						accountId: z.string().openapi({ description: "Moota bank_id (from /moota/accounts)." }),
-					}).openapi("MootaPullBody"),
+					schema: z
+						.object({
+							accountId: z.string().openapi({
+								description: "Moota bank_id (from /moota/accounts).",
+							}),
+						})
+						.openapi("MootaPullBody"),
 				},
 			},
 		},
@@ -236,10 +370,22 @@ const mootaPullRoute = createRoute({
 				},
 			},
 		},
-		400: { description: "Missing accountId.", content: { "application/json": { schema: errorSchema } } },
-		401: { description: "Missing or invalid API key.", content: { "application/json": { schema: errorSchema } } },
-		422: { description: "Moota API token not configured or upstream error.", content: { "application/json": { schema: errorSchema } } },
-		500: { description: "Unexpected error.", content: { "application/json": { schema: errorSchema } } },
+		400: {
+			description: "Missing accountId.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		401: {
+			description: "Missing or invalid API key.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		422: {
+			description: "Moota API token not configured or upstream error.",
+			content: { "application/json": { schema: errorSchema } },
+		},
+		500: {
+			description: "Unexpected error.",
+			content: { "application/json": { schema: errorSchema } },
+		},
 	},
 });
 
@@ -251,7 +397,16 @@ mutationsRouter.openapi(mootaPullRoute, async (c) => {
 			apiKey?: string;
 		};
 		if (!cfg.apiKey) {
-			return c.json({ success: false, error: { code: "MOOTA_NOT_CONFIGURED", message: "Moota API token not set for this merchant" } }, 422);
+			return c.json(
+				{
+					success: false,
+					error: {
+						code: "MOOTA_NOT_CONFIGURED",
+						message: "Moota API token not set for this merchant",
+					},
+				},
+				422,
+			);
 		}
 		const result = await pullMoota({
 			apiKey: cfg.apiKey,
@@ -260,9 +415,23 @@ mutationsRouter.openapi(mootaPullRoute, async (c) => {
 		return c.json({ success: true, data: result }, 200);
 	} catch (err: unknown) {
 		if (err instanceof GatewayError) {
-			return c.json({ success: false, error: { code: "GATEWAY_ERROR", message: err.message } }, 422);
+			return c.json(
+				{
+					success: false,
+					error: { code: "GATEWAY_ERROR", message: err.message },
+				},
+				422,
+			);
 		}
-		logger.error("Moota pull route error", { error: err instanceof Error ? err.message : String(err) });
-		return c.json({ success: false, error: { code: "INTERNAL", message: "Unexpected error" } }, 500);
+		logger.error("Moota pull route error", {
+			error: err instanceof Error ? err.message : String(err),
+		});
+		return c.json(
+			{
+				success: false,
+				error: { code: "INTERNAL", message: "Unexpected error" },
+			},
+			500,
+		);
 	}
 });

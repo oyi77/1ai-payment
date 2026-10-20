@@ -3,7 +3,7 @@
 > Machine-readable index for LLM context injection. Payment gateway aggregation microservice for 1ai-ecosystem.
 
 ## Core
-Unified API for creating payments across 13 gateways
+Unified API for creating payments across 14 payment gateways + 2 bank-mutation aggregators (16 registered)
 - docs/00-overview.md: System overview, problem statement, design principles, scope
 - docs/01-architecture.md: Architecture diagrams, data flow, database schema, deployment
 - docs/02-api-reference.md: API contracts, request/response schemas, authentication
@@ -13,7 +13,7 @@ Unified API for creating payments across 13 gateways
 
 - src/index.ts: Entry point — Bun.serve, DB init, nexus cron startup, graceful shutdown (SIGTERM/SIGINT)
 - src/app.ts: OpenAPIHono app factory — CORS, rate limits, mounts /api + /webhook + /health + /metrics, OpenAPI JSON at GET /doc, Swagger UI at GET /reference, static / (landing) + /dashboard
-Supports 13 gateways + Nexus (Scalev variant → tier)
+Supports 16 gateways + Nexus (Scalev variant → tier)
 - src/config/database.ts: LibSQL/SQLite initialization, schema creation, default merchant seed, migrations
 - src/config/migrations.ts: Versioned migration runner (append-only, tracked in _migrations table)
 
@@ -30,7 +30,11 @@ Supports 13 gateways + Nexus (Scalev variant → tier)
 - src/gateways/paypal/: PayPal — webhook signature verification API, createPayment via orders API
 - src/gateways/x402/: x402 — on-chain USDC micropayments (HTTP 402), payment requirements + RPC tx verification
 - src/gateways/erc8183/: ERC-8183 — agentic commerce escrow, attestation-based fund release
-across 13 gateways
+- src/gateways/saweria.ts: Saweria — anonymous donations, createPayment only (inbound webhook disabled: unsigned)
+- src/gateways/mutasiku.ts: Mutasiku — bank/e-wallet mutation aggregator (HMAC over compact JSON, pull API)
+- src/gateways/moota.ts: Moota — bank mutation aggregator (HMAC over raw body, pull API)
+- src/gateways/lynk.ts: Lynk.id — link-in-bio checkout, HMAC-SHA256 or merchant-key header match
+across 16 gateways
 
 - src/routes/webhook.ts: POST /webhook/:gateway — verify → normalize → order lookup → dedupe (UNIQUE) → update status → async forward; returns 200 immediately
 - src/routes/payment.ts: POST /api/payments (idempotency key), GET /api/payments/:id, GET /api/gateways, GET /api/gateways/:gateway/methods, GET /api/transactions, GET /api/webhook-deliveries — OpenAPIHono + createRoute

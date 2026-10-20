@@ -50,7 +50,9 @@ export interface LynkWebhookPayload {
 				grand_total?: number;
 			};
 			created_at?: string;
-			custom_fields?: Record<string, unknown> | Array<{ label?: string; value?: unknown }>;
+			custom_fields?:
+				| Record<string, unknown>
+				| Array<{ label?: string; value?: unknown }>;
 		};
 	};
 	order_id?: string;
@@ -75,11 +77,14 @@ export interface LynkWebhookPayload {
 export class LynkGateway implements PaymentGateway {
 	readonly name = "lynk";
 
-	async createPayment(params: CreatePaymentParams): Promise<CreatePaymentResult> {
+	async createPayment(
+		params: CreatePaymentParams,
+	): Promise<CreatePaymentResult> {
 		assertSanePaymentMethod(this.name, params.paymentMethod);
 		const config = getConfig();
 		const checkoutUrl =
-			process.env.LYNK_CHECKOUT_URL || "https://lynk.id/jendralbot/ox33n8n04792";
+			process.env.LYNK_CHECKOUT_URL ||
+			"https://lynk.id/jendralbot/ox33n8n04792";
 
 		return {
 			gatewayReference: params.orderId,
@@ -136,9 +141,11 @@ export class LynkGateway implements PaymentGateway {
 			return true;
 		}
 
-		const auth = h["authorization"] || "";
+		const auth = h.authorization || "";
 		if (auth) {
-			const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : auth.trim();
+			const token = auth.startsWith("Bearer ")
+				? auth.slice(7).trim()
+				: auth.trim();
 			if (this.safeCompare(token, merchantKey)) {
 				return true;
 			}
@@ -181,15 +188,19 @@ export class LynkGateway implements PaymentGateway {
 					parsed.total ??
 					parsed.amount ??
 					"";
-				const refId = msgData?.ref_id ?? parsed.ref_id ?? parsed.order_number ?? "";
-				const messageId = (parsed as unknown as Record<string, unknown>).message_id ?? "";
+				const refId =
+					msgData?.ref_id ?? parsed.ref_id ?? parsed.order_number ?? "";
+				const messageId =
+					(parsed as unknown as Record<string, unknown>).message_id ?? "";
 
 				const formulaStr = `${amount}${refId}${messageId}${merchantKey}`;
 				const expectedFormula = crypto
 					.createHash("sha256")
 					.update(formulaStr)
 					.digest("hex");
-				if (this.safeCompare(sig.toLowerCase(), expectedFormula.toLowerCase())) {
+				if (
+					this.safeCompare(sig.toLowerCase(), expectedFormula.toLowerCase())
+				) {
 					return true;
 				}
 			} catch {
@@ -205,7 +216,9 @@ export class LynkGateway implements PaymentGateway {
 		// 3. Body payload check (if merchant_key passed in JSON body)
 		try {
 			const parsed = JSON.parse(rawBody) as Record<string, unknown>;
-			const bodyKey = (parsed.merchant_key || parsed.merchantKey) as string | undefined;
+			const bodyKey = (parsed.merchant_key || parsed.merchantKey) as
+				| string
+				| undefined;
 			if (bodyKey && this.safeCompare(bodyKey, merchantKey)) {
 				return true;
 			}
@@ -230,18 +243,11 @@ export class LynkGateway implements PaymentGateway {
 			`lynk_${Date.now()}`;
 
 		// Extract customer information
-		const customerName =
-			msgData?.customer?.name || payload.customer_name || "";
+		const customerName = msgData?.customer?.name || payload.customer_name || "";
 		const customerEmail =
-			msgData?.customer?.email ||
-			payload.customer_email ||
-			payload.email ||
-			"";
+			msgData?.customer?.email || payload.customer_email || payload.email || "";
 		const customerPhone =
-			msgData?.customer?.phone ||
-			payload.customer_phone ||
-			payload.phone ||
-			"";
+			msgData?.customer?.phone || payload.customer_phone || payload.phone || "";
 
 		// Extract product title
 		const productTitle =
@@ -258,10 +264,15 @@ export class LynkGateway implements PaymentGateway {
 			payload.total ??
 			payload.amount ??
 			254000;
-		const amount = typeof rawAmount === "number" ? rawAmount : Number(rawAmount) || 254000;
+		const amount =
+			typeof rawAmount === "number" ? rawAmount : Number(rawAmount) || 254000;
 
 		// Extract status
-		const rawStatus = (payload.status || payload.order_status || "paid").toLowerCase();
+		const rawStatus = (
+			payload.status ||
+			payload.order_status ||
+			"paid"
+		).toLowerCase();
 		let status: PaymentStatus = "success";
 		if (rawStatus === "pending" || rawStatus === "processing") {
 			status = "pending";
@@ -292,7 +303,11 @@ export class LynkGateway implements PaymentGateway {
 			if (Array.isArray(customFields)) {
 				for (const field of customFields) {
 					const label = String(field.label || "").toLowerCase();
-					if (label.includes("telegram") || label.includes("chat") || label.includes("id")) {
+					if (
+						label.includes("telegram") ||
+						label.includes("chat") ||
+						label.includes("id")
+					) {
 						chatId = String(field.value || "").trim();
 						break;
 					}
@@ -300,7 +315,11 @@ export class LynkGateway implements PaymentGateway {
 			} else if (typeof customFields === "object") {
 				for (const [k, v] of Object.entries(customFields)) {
 					const lk = k.toLowerCase();
-					if (lk.includes("telegram") || lk.includes("chat") || lk.includes("id")) {
+					if (
+						lk.includes("telegram") ||
+						lk.includes("chat") ||
+						lk.includes("id")
+					) {
 						chatId = String(v || "").trim();
 						break;
 					}

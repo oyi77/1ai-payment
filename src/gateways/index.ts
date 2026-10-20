@@ -12,7 +12,10 @@ import type { PaymentGateway } from "./base";
 import { DuitkuGateway } from "./duitku";
 import { ERC8183Gateway } from "./erc8183";
 import { IPaymuGateway } from "./ipaymu";
+import { LynkGateway } from "./lynk";
 import { MidtransGateway } from "./midtrans";
+import { MootaGateway } from "./moota";
+import { MutasikuGateway } from "./mutasiku";
 import { NowPaymentsGateway } from "./nowpayments";
 import { PayPalGateway } from "./paypal";
 import { SaweriaGateway } from "./saweria";
@@ -22,9 +25,6 @@ import { TelegramStarsGateway } from "./telegram-stars";
 import { TripayGateway } from "./tripay";
 import { X402Gateway } from "./x402";
 import { XenditGateway } from "./xendit";
-import { MootaGateway } from "./moota";
-import { MutasikuGateway } from "./mutasiku";
-import { LynkGateway } from "./lynk";
 
 export type {
 	PaymentGateway,

@@ -12,10 +12,10 @@ Status of this document: audited against `src/` on 2026-08-01. Every code fact b
 
 Phase 0 (Foundation) is **complete**. The in-repo pieces of Phase 5 (Commercialization) are **partially complete**. Phases 1–4 depend on consumer repos (1ai-content, 1sub) and remain open.
 
-13 gateways registered (midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria)
+16 gateways registered (midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria, lynk, mutasiku, moota)
 
 **Verification:**
-- `bun test` — 622 pass / 0 fail (verified 2026-09-24, 61 files)
+- `bun test` — 759 pass / 0 fail (verified 2026-10-20, 78 files)
 - `bun x tsc --noEmit` — exit 0
 
 **In-place production features (verified in source):**
@@ -60,9 +60,9 @@ Phase 0 (Foundation) is **complete**. The in-repo pieces of Phase 5 (Commerciali
 1. Register 1ai-payment in gateway dashboards (webhook URLs) — external ops work, still open
 2. Create a test order via `POST /api/payments` with sandbox credentials
 3. Verify full flow: create → pay → callback → forward
-all 13 gateways
+across the payment gateways (payment creation)
 
-all 13 gateways
+across the mutation aggregators (mutasiku, moota — webhook + pull API)
 
 **Acceptance:**
 - End-to-end flow works for all gateways in sandbox

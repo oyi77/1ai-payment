@@ -96,12 +96,12 @@ interface RefundResult {
 
 ### Webhook Routing (shared)
 
-All 13 gateways follow the same PaymentGateway
+All 16 registered gateways follow the same PaymentGateway contract
 
 1. **Verify** — the raw request body is read as text before parsing, so HMAC gateways verify over the exact received bytes: nowpayments, tripay, and scalev implement `verifySignatureRaw` and are verified over the unmodified body; all others use `gateway.verifySignature(body, headers)`. Reject with 401 if invalid.
 2. **Normalize** — `gateway.normalizeEvent(body, null)` → `NormalizedPaymentEvent`.
 3. **Resolve order** — for scalev, `order_id` is first recovered from `notes`; then lookup tries `gateway_reference`, then `order_id`.
-4. **Saweria amount floor** (unsigned webhooks only) — reject underpay forgeries (`event.amount < order.amount`) with a logged 200-skip, order untouched.
+4. **Saweria inbound disabled** — Saweria webhooks are unsigned, so the route answers `501` before parsing (Saweria's reconciliation/amount-floor path is no longer reachable). Payment creation remains enabled.
 5. **Insert webhook event** — `webhook_events` table with `UNIQUE(order_id, gateway, status)`; a duplicate callback hits the constraint and returns 200 (idempotency).
 6. **Update order status** — `order.service.updateOrderStatus(...)` (atomic conditional UPDATE: terminal states and `refunded` never regress).
 7. **Forward to owning project** — `forwarder.service.forwardEvent(...)` runs async with retries; the webhook returns 200 immediately (forwarding is not awaited). Payload carries a stable `event_id` (`evt_<order>_<event>`) for merchant-side dedupe.

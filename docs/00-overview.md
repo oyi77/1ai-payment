@@ -2,7 +2,7 @@
 
 ## What is 1ai-payment?
 
-Unified API for creating payments across 13 gateways (midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria)
+Unified API for creating payments across 14 payment gateways (midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria, lynk) plus 2 bank-mutation aggregators (mutasiku, moota) that deliver verified transfer events without creating payments. 16 gateways are registered in total.
 
 It also operates a **multi-tenant merchant platform**: any merchant can self-register, manage per-merchant API keys and per-gateway credentials, and control which gateways are enabled. One subsystem — **Nexus** — implements direct-to-customer fulfillment: Scalev checkout callbacks create subscription records and issue Telegram channel invites without any owning project in between.
 
@@ -23,7 +23,7 @@ Payment gateways have fragmented APIs, different callback formats, and single ca
 | Future projects | Various | TBD |
 
 Without 1ai-payment, each project would need:
-- Gateway-specific SDK integration (13 implementations per project at current gateway count)
+- Gateway-specific SDK integration (16 implementations per project at current gateway count)
 - Its own merchant account per gateway
 - Duplicated payment code across projects (DRY violation)
 - Separate callback URL registration per project
@@ -57,7 +57,7 @@ Scalev callbacks additionally trigger the Nexus fulfillment path (product varian
 - Payment status check (`GET /api/payments/:id`)
 - Gateway and payment-method listing (`GET /api/gateways`, `GET /api/gateways/:gateway/methods`)
 - Audit lists: transactions (`GET /api/transactions`) and webhook deliveries (`GET /api/webhook-deliveries`)
-All 13 gateways are normalized
+All 16 registered gateways are normalized
 - Merchant platform: self-registration, merchant CRUD, API-key rotation, gateway credential management (encrypted at rest), per-gateway enable/disable
 - Refunds (`POST /api/refunds`) — full and partial; cumulative guard ensures the sum of non-failed refunds never exceeds the order amount; a full refund marks the order `refunded`; gateway-supported refunds processed automatically, others recorded as pending manual handling
 - Event forwarding to merchant callbacks — async, 3 retries with backoff, dead-letter queue with replay (`replayDeadLetter`)
