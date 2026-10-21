@@ -4,16 +4,16 @@
  * Lynk.id is an Indonesian link-in-bio & checkout platform (lynk.id).
  * Webhooks are dispatched on successful order payments.
  *
- * Docs / Payload format:
- * Payload arrives with message data containing:
- * - ref_id / order_number
- * - customer: { name, email, phone }
- * - totals: { grand_total, total_price }
- * - items: [{ title, qty, price }]
+ * Payload format (official docs, 2025-04) — camelCase:
+ * - data.message_action: "SUCCESS" on completion; message_code: "0"
+ * - data.message_id: signature input (lives on data, NOT message_data)
+ * - data.message_data: { refId, customer: {name, email, phone}, items, totals }
+ * - data.message_data.totals: { grandTotal, totalPrice }
  *
- * Verification:
- * - Header X-Signature (HMAC-SHA256 or SHA256 with merchant key)
- * - Or Header X-Merchant-Key / Authorization matching merchant key
+ * Verification (official): header X-Lynk-Signature must equal
+ *   SHA256(amount + refId + message_id + merchantKey)
+ * Older/alternate forms (HMAC over the raw body, X-Merchant-Key,
+ * Authorization bearer, merchant_key in the body) are still accepted.
  */
 
 import crypto from "node:crypto";
@@ -33,7 +33,14 @@ import type {
 
 export interface LynkWebhookPayload {
 	data?: {
+		/** "SUCCESS" on a paid order; Lynk also sends other message_actions. */
+		message_action?: string;
+		message_code?: string;
+		/** Signature input. Lives on data, NOT inside message_data. */
+		message_id?: string;
 		message_data?: {
+			/** Lynk sends camelCase: refId. ref_id is a legacy spelling. */
+			refId?: string;
 			ref_id?: string;
 			customer?: {
 				name?: string;
@@ -44,17 +51,24 @@ export interface LynkWebhookPayload {
 				title?: string;
 				qty?: number;
 				price?: number;
+				/** Serialized JSON of buyer answers to checkout questions. */
+				questions?: string;
 			}>;
 			totals?: {
-				total_price?: number;
+				/** Lynk sends camelCase: grandTotal / totalPrice. */
+				grandTotal?: number;
+				totalPrice?: number;
+				/** Legacy spellings still tolerated. */
 				grand_total?: number;
+				total_price?: number;
 			};
-			created_at?: string;
+			createdAt?: string;
 			custom_fields?:
 				| Record<string, unknown>
 				| Array<{ label?: string; value?: unknown }>;
 		};
 	};
+	event?: string;
 	order_id?: string;
 	order_number?: string;
 	ref_id?: string;
@@ -177,21 +191,27 @@ export class LynkGateway implements PaymentGateway {
 				return true;
 			}
 
-			// C. Starsender formula: SHA256(amount + ref_id + message_id + merchant_key)
+			// C. Official Lynk.id formula (documented 2025-04):
+			//    SHA256(amount + refId + message_id + merchant_key)
+			//    The payload is camelCase: data.message_data.refId,
+			//    data.message_data.totals.grandTotal, data.message_id.
+			//    Reading snake_case here produced "72000undefined" and made
+			//    every genuine webhook fail with 401 Invalid signature.
 			try {
-				const parsed = JSON.parse(rawBody) as LynkWebhookPayload;
-				const msgData = parsed.data?.message_data;
+				const parsed = JSON.parse(rawBody) as Record<string, unknown>;
+				const data = (parsed.data ?? {}) as Record<string, unknown>;
+				const msgData = (data.message_data ?? {}) as Record<string, unknown>;
+				const totals = (msgData.totals ?? {}) as Record<string, unknown>;
 				const amount =
-					msgData?.totals?.grand_total ??
-					msgData?.totals?.total_price ??
+					totals.grandTotal ??
+					totals.totalPrice ??
 					parsed.grand_total ??
 					parsed.total ??
 					parsed.amount ??
 					"";
 				const refId =
-					msgData?.ref_id ?? parsed.ref_id ?? parsed.order_number ?? "";
-				const messageId =
-					(parsed as unknown as Record<string, unknown>).message_id ?? "";
+					msgData.refId ?? parsed.refId ?? parsed.order_number ?? "";
+				const messageId = data.message_id ?? parsed.message_id ?? "";
 
 				const formulaStr = `${amount}${refId}${messageId}${merchantKey}`;
 				const expectedFormula = crypto
@@ -234,8 +254,10 @@ export class LynkGateway implements PaymentGateway {
 		const payload = (body ?? {}) as LynkWebhookPayload;
 		const msgData = payload.data?.message_data;
 
-		// Extract order reference
+		// Extract order reference. Lynk sends refId (camelCase); ref_id,
+		// order_number and order_id cover legacy payloads and manual replays.
 		const orderId =
+			msgData?.refId ||
 			msgData?.ref_id ||
 			payload.ref_id ||
 			payload.order_number ||
@@ -256,27 +278,40 @@ export class LynkGateway implements PaymentGateway {
 			payload.variant ||
 			"Lifetime";
 
-		// Extract amount
+		// Extract amount. grandTotal/totalPrice are camelCase in the payload;
+		// Lynk formats money with thousands separators ("72,000"), so strip
+		// non-digits before coercing.
 		const rawAmount =
-			msgData?.totals?.grand_total ??
-			msgData?.totals?.total_price ??
+			msgData?.totals?.grandTotal ??
+			msgData?.totals?.totalPrice ??
 			payload.grand_total ??
 			payload.total ??
 			payload.amount ??
 			254000;
-		const amount =
-			typeof rawAmount === "number" ? rawAmount : Number(rawAmount) || 254000;
+		const parsedAmount =
+			typeof rawAmount === "number"
+				? rawAmount
+				: Number(String(rawAmount).replace(/[^\d.-]/g, ""));
+		const amount = Number.isFinite(parsedAmount) ? parsedAmount : 254000;
 
-		// Extract status
+		// Extract status. Lynk states the outcome in data.message_action
+		// ("SUCCESS") and data.message_code ("0"), not in a top-level status.
+		// A webhook is only dispatched on a completed payment, so an absent or
+		// SUCCESS action means paid.
 		const rawStatus = (
 			payload.status ||
 			payload.order_status ||
+			payload.data?.message_action ||
 			"paid"
 		).toLowerCase();
 		let status: PaymentStatus = "success";
 		if (rawStatus === "pending" || rawStatus === "processing") {
 			status = "pending";
-		} else if (rawStatus === "failed" || rawStatus === "unpaid") {
+		} else if (
+			rawStatus === "failed" ||
+			rawStatus === "unpaid" ||
+			rawStatus === "error"
+		) {
 			status = "failed";
 		} else if (rawStatus === "cancelled" || rawStatus === "canceled") {
 			status = "cancelled";
@@ -285,7 +320,7 @@ export class LynkGateway implements PaymentGateway {
 		} else if (rawStatus.includes("refund")) {
 			status = "refunded";
 		} else {
-			// Lynk webhooks are sent on payment success
+			// success / paid / SUCCESS — Lynk only notifies on completion
 			status = "success";
 		}
 
@@ -295,6 +330,34 @@ export class LynkGateway implements PaymentGateway {
 			chatId = String(metadata.chat_id);
 		} else if (payload.metadata?.chat_id) {
 			chatId = String(payload.metadata.chat_id);
+		}
+		// Lynk has no native chat_id. The buyer supplies it as a custom
+		// checkout question ("Telegram ID"), which Lynk serialises as a
+		// JSON *string* on items[0].questions. Without this the only
+		// remaining fallback was "most recent pending order", which can
+		// activate the wrong member entirely.
+		// Privacy: the raw answers may contain PII (e.g. a KTP photo URL
+		// from the official sample). Only the matched Telegram field is
+		// surfaced; other answers are dropped, not forwarded.
+		const rawQuestions = msgData?.items?.[0]?.questions;
+		if (!chatId && typeof rawQuestions === "string") {
+			try {
+				const answers = JSON.parse(rawQuestions) as Record<string, unknown>;
+				for (const [label, value] of Object.entries(answers)) {
+					const lk = label.toLowerCase();
+					if (
+						lk.includes("telegram") ||
+						lk.includes("chat id") ||
+						lk.includes("chat_id") ||
+						lk.includes("id telegram")
+					) {
+						chatId = String(value ?? "").trim();
+						break;
+					}
+				}
+			} catch {
+				// Not JSON — the buyer left the answer blank
+			}
 		}
 
 		// Inspect custom_fields if available
@@ -327,7 +390,7 @@ export class LynkGateway implements PaymentGateway {
 			}
 		}
 
-		// Clean up leading @ if telegram username entered
+		// Clean up leading @ if a telegram username was entered instead
 		if (chatId?.startsWith("@")) {
 			chatId = chatId.slice(1);
 		}
