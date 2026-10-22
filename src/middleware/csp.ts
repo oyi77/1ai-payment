@@ -3,7 +3,8 @@
  *
  * The dashboard holds the merchant API key in localStorage with inline
  * handlers everywhere, so script-src cannot drop 'unsafe-inline' without a
- * full rewrite. What CSP still buys here is EXFILTRATION CONTAINMENT: even
+ * full rewrite. Both static pages are self-contained CSS — no CDN script
+ * host is allowlisted (Sweep: Tailwind dropped when landing moved off it). What CSP still buys here is EXFILTRATION CONTAINMENT: even
  * a successful script injection cannot send the key out (connect-src/form-
  * action 'self') nor load a foreign kit (script-src allowlist) nor frame
  * the pages (frame-ancestors 'self', belt-and-braces over X-Frame-Options).
@@ -22,7 +23,7 @@ import type { Context, Next } from "hono";
 
 const CSP_POLICY = [
 	"default-src 'self'",
-	"script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://static.cloudflareinsights.com",
+	"script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
 	"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
 	"font-src 'self' https://fonts.gstatic.com",
 	"img-src 'self' data:",

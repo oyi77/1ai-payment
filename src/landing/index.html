@@ -4,1125 +4,884 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
-<title>1ai-payment — Satu API untuk 13 gateway pembayaran</title>
-<meta name="description" content="Satu API untuk Midtrans, Tripay, Duitku, Xendit, PayPal, Telegram, crypto & lainnya. Ganti gateway cukup ganti parameter. Webhook terverifikasi, retry otomatis, isolasi per merchant." />
+<title>1ai-payment — Satu API untuk 15 gateway pembayaran</title>
+<meta name="description" content="Satu API untuk Midtrans, Duitku, iPaymu, NOWPayments, Lynk.id, Xendit, Tripay, PayPal, Telegram, dan crypto. Webhook ternormalisasi dengan HMAC, retry 3x, dead-letter replay, dan isolasi per merchant." />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="1ai-payment" />
-<meta property="og:title" content="1ai-payment — Satu API untuk 13 gateway pembayaran" />
-<meta property="og:description" content="Satu API untuk Midtrans, Tripay, Duitku, Xendit, PayPal, Telegram, crypto & lainnya. Ganti gateway cukup ganti parameter." />
+<meta property="og:title" content="1ai-payment — Satu API untuk 15 gateway pembayaran" />
+<meta property="og:description" content="Satu API untuk 15 gateway. Ganti gateway cukup ganti satu parameter. Webhook ternormalisasi, retry + dead-letter replay, isolasi per merchant." />
 <meta property="og:image" content="/favicon.svg" />
 <meta name="twitter:card" content="summary" />
-<meta name="twitter:title" content="1ai-payment — Satu API untuk 13 gateway pembayaran" />
-<meta name="twitter:description" content="Satu API untuk Midtrans, Tripay, Duitku, Xendit, PayPal, Telegram, crypto & lainnya." />
+<meta name="twitter:title" content="1ai-payment — Satu API untuk 15 gateway pembayaran" />
+<meta name="twitter:description" content="Satu API untuk 15 gateway. Ganti gateway cukup ganti satu parameter." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-tailwind.config = {
-  theme: {
-    extend: {
-      fontFamily: {
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
-      },
-      colors: {
-        base: '#080b1a',
-        surface: '#0f1529',
-        elevated: '#161d35',
-        border: '#1e2745',
-        muted: '#7c89b5',
-        accent: '#818cf8',
-        'accent-strong': '#6366f1',
-      },
-      maxWidth: { content: '1100px' },
-    },
-  },
-};
-</script>
 <style>
+:root{
+  --base:#080b1a;
+  --surface:#0f1529;
+  --elevated:#161d35;
+  --border:#1e2745;
+  --border-strong:#2a3760;
+  --fg:#e8edf5;
+  --fg-muted:#9aa7c9;
+  --fg-dim:#7c89b5;
+  --accent:#818cf8;
+  --accent-soft:#a5b4fc;
+  --accent-strong:#6366f1;
+  --success:#34d399;
+  --warning:#fbbf24;
+  --radius:16px;
+  --radius-sm:10px;
+  --wrap:1120px;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth;scroll-padding-top:80px}
-body{background:#080b1a;color:#e8edf5;line-height:1.6;overflow-x:hidden}
-::selection{background:#818cf8;color:#fff}
-.bg-glow{position:fixed;top:-50%;left:-25%;width:150%;height:150%;pointer-events:none;z-index:0;
-  background:radial-gradient(ellipse 50% 45% at 50% 40%,rgba(99,102,241,.12) 0%,rgba(79,70,229,.04) 50%,transparent 70%)}
-.bg-grain{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.03;
+html{scroll-behavior:smooth;scroll-padding-top:84px;-webkit-text-size-adjust:100%}
+body{background:var(--base);color:var(--fg);font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.65;overflow-x:hidden}
+::selection{background:var(--accent);color:#fff}
+a{color:inherit}
+a:focus-visible,button:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+img,svg{display:block;max-width:100%}
+.hidden{display:none!important}
+.mono{font-family:var(--mono)}
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 24px}
+section{scroll-margin-top:84px;position:relative;z-index:1}
+
+.bg-glow{position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse 55% 45% at 50% 0%,rgba(99,102,241,.16) 0%,transparent 62%),
+             radial-gradient(ellipse 40% 35% at 85% 25%,rgba(129,140,248,.07) 0%,transparent 60%)}
+.bg-grain{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.025;
   background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
-@keyframes meshFlow {
-  0% { background-position: 0% 50% }
-  50% { background-position: 100% 50% }
-  100% { background-position: 0% 50% }
-}
-.hero-bg {
-  position:absolute; inset:0;
-  background: radial-gradient(ellipse 60% 50% at 30% 30%, rgba(99,102,241,.12) 0%, transparent 50%),
-              radial-gradient(ellipse 40% 40% at 70% 60%, rgba(129,140,248,.08) 0%, transparent 50%),
-              radial-gradient(ellipse 50% 40% at 50% 80%, rgba(165,180,252,.05) 0%, transparent 50%);
-  background-size: 200% 200%;
-  animation: meshFlow 8s ease infinite;
-}
-.reveal { opacity:0; transform:translateY(24px); transition:all .6s ease-out }
-.reveal.visible { opacity:1; transform:translateY(0) }
-.glass { background:rgba(15,21,41,.6); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(30,39,69,.6); }
-.card-hover { transition:all .25s ease; }
-.card-hover:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,.3); border-color:rgba(129,140,248,.3); }
-nav.scrolled { border-bottom-color:rgba(129,140,248,.15); }
-.btn-glow { position:relative; overflow:hidden; }
-.btn-glow::after { content:''; position:absolute; inset:-2px; background:linear-gradient(135deg,#818cf8,#6366f1,#a5b4fc); opacity:0; border-radius:inherit; z-index:-1; transition:opacity .3s; filter:blur(12px); }
-.btn-glow:hover::after { opacity:.5; }
-.lang-toggle { display:inline-flex; background:#0f1529; border:1px solid #1e2745; border-radius:20px; padding:3px; cursor:pointer; }
-.lang-toggle span { padding:4px 12px; border-radius:16px; font-size:12px; font-weight:600; transition:all .15s; }
-.lang-toggle span.active { background:#818cf8; color:#fff; }
-.lang-toggle span:not(.active) { color:#7c89b5; }
-nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  background:rgba(8,11,26,.85);border-bottom:1px solid #1e2745;height:64px;
-  display:flex;align-items:center;justify-content:space-between;padding:0 24px}
-nav .logo{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:700}
-nav .logo svg{width:28px;height:28px}
-.nav-menu{display:flex;gap:4px;align-items:center}
-.nav-menu a{padding:8px 16px;font-size:14px;color:#7c89b5;border-radius:8px;transition:all .15s;text-decoration:none}
-.nav-menu a:hover{color:#e8edf5;background:#0f1529}
-.nav-toggle{display:none;background:none;border:none;color:#7c89b5;font-size:24px;cursor:pointer;padding:8px}
-@media(max-width:768px){
-  .nav-menu{display:none;flex-direction:column;position:absolute;top:64px;left:0;right:0;background:rgba(8,11,26,.98);backdrop-filter:blur(20px);border-bottom:1px solid #1e2745;padding:12px;gap:4px}
-  .nav-menu.open{display:flex}
-  .nav-toggle{display:block}
-  .desktop-only{display:none!important}
-}
-@media(max-width:768px){
-  .mobile-cta-bar{position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(8,11,26,.95);backdrop-filter:blur(12px);border-top:1px solid #1e2745;padding:12px 16px;display:flex;gap:8px}
-  .mobile-cta-bar a{flex:1;text-align:center;padding:12px;border-radius:10px;font-size:14px;font-weight:600}
-  body{padding-bottom:72px}
-}
-.preview-panel{background:#0f1529;border:1px solid #1e2745;border-radius:16px;overflow:hidden}
-.preview-panel .tabs{display:flex;border-bottom:1px solid #1e2745}
-.preview-panel .tabs button{padding:12px 20px;font-size:13px;font-weight:500;background:none;border:none;border-bottom:2px solid transparent;color:#7c89b5;cursor:pointer;transition:all .15s}
-.preview-panel .tabs button.active{color:#818cf8;border-bottom-color:#818cf8}
-.preview-panel .tabs button:hover{color:#e8edf5}
-.preview-panel .pane{display:none;padding:20px}
-.preview-panel .pane.active{display:block}
-.preview-panel code{display:block;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.7;white-space:pre;overflow-x:auto;color:#a5b4fc}
-.preview-select{width:100%;padding:10px 14px;background:#080b1a;border:1px solid #1e2745;border-radius:8px;color:#e8edf5;font-size:14px;font-family:'JetBrains Mono',monospace;margin-bottom:16px;cursor:pointer;appearance:none;-webkit-appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237c89b5' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 12px center}
-.preview-select:focus{outline:none;border-color:#818cf8}
-.faq-item{border-bottom:1px solid #1e2745}
-.faq-item:last-child{border-bottom:none}
-.faq-item summary{list-style:none;cursor:pointer;padding:20px 0;font-size:16px;font-weight:500;display:flex;justify-content:space-between;align-items:center;transition:color .15s}
+
+/* ---------- typography ---------- */
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+h1,h2,h3{line-height:1.15;letter-spacing:-.02em}
+.h1{font-size:clamp(34px,5.2vw,62px);font-weight:800;letter-spacing:-.035em;margin-bottom:20px}
+.h2{font-size:clamp(25px,3.1vw,38px);font-weight:700;margin-bottom:14px}
+.h3{font-size:16px;font-weight:600;letter-spacing:-.01em;margin-bottom:6px}
+.lede{font-size:clamp(15px,1.5vw,18px);color:var(--fg-muted);max-width:660px;line-height:1.7}
+.body-sm{font-size:14px;color:var(--fg-muted);line-height:1.7}
+.grad{background:linear-gradient(120deg,var(--accent-soft),var(--accent-strong));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+
+/* ---------- layout ---------- */
+.section-pad{padding:96px 0}
+.section-alt{background:rgba(15,21,41,.5);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.grid{display:grid;gap:16px}
+.g-2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.g-3{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.g-4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.g-gw{grid-template-columns:repeat(auto-fill,minmax(168px,1fr))}
+.stack-16>*+*{margin-top:16px}
+
+/* ---------- surfaces ---------- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:26px;transition:border-color .2s ease,transform .2s ease}
+.card-hover:hover{transform:translateY(-2px);border-color:rgba(129,140,248,.35)}
+.card-flat{background:var(--base);border:1px solid var(--border);border-radius:var(--radius);padding:24px}
+.glass{background:rgba(15,21,41,.62);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(30,39,69,.7);border-radius:var(--radius)}
+
+/* ---------- nav ---------- */
+nav{position:sticky;top:0;z-index:100;height:68px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;background:rgba(8,11,26,.88);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);transition:border-color .2s}
+nav.scrolled{border-bottom-color:rgba(129,140,248,.22)}
+.logo{display:flex;align-items:center;gap:10px;min-height:44px;font-size:19px;font-weight:700;text-decoration:none;letter-spacing:-.02em}
+.logo svg{width:30px;height:30px;flex:none}
+.nav-menu{display:flex;align-items:center;gap:2px}
+.nav-menu a{padding:10px 14px;font-size:14px;font-weight:500;color:var(--fg-muted);border-radius:8px;text-decoration:none;transition:color .15s,background .15s}
+.nav-menu a:hover{color:var(--fg);background:var(--surface)}
+.nav-cta{display:inline-flex;align-items:center;gap:6px;margin-left:6px;padding:10px 18px;border-radius:9px;font-size:14px;font-weight:600;background:var(--accent);color:#0b1020!important;text-decoration:none}
+.nav-cta:hover{background:var(--accent-soft)}
+.nav-toggle{display:none;align-items:center;justify-content:center;min-width:44px;min-height:44px;background:none;border:1px solid var(--border);border-radius:9px;color:var(--fg-muted);font-size:20px;line-height:1;cursor:pointer;padding:0 12px}
+.lang-toggle{display:inline-flex;background:var(--base);border:1px solid var(--border);border-radius:20px;padding:3px;margin-left:6px}
+.lang-toggle button{appearance:none;border:none;background:none;cursor:pointer;font:inherit;padding:8px 14px;min-height:36px;border-radius:16px;font-size:12px;font-weight:600;color:var(--fg-muted)}
+.lang-toggle button.active{background:var(--accent);color:#0b1020}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 26px;border-radius:11px;font-size:15px;font-weight:600;text-decoration:none;border:1px solid transparent;transition:background .18s,border-color .18s,transform .18s;min-height:48px}
+.btn-primary{background:var(--accent);color:#0b1020}
+.btn-primary:hover{background:var(--accent-soft);transform:translateY(-1px)}
+.btn-ghost{background:var(--surface);color:var(--fg);border-color:var(--border-strong)}
+.btn-ghost:hover{border-color:var(--accent);color:#fff}
+.btn-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+
+/* ---------- chips / dots ---------- */
+.chip{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:999px;background:var(--surface);border:1px solid var(--border);font-size:13px;color:var(--fg-muted)}
+.chip-row{display:flex;gap:10px;flex-wrap:wrap}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.dot-live{background:var(--success);box-shadow:0 0 8px rgba(52,211,153,.75)}
+.dot-byok{background:var(--warning)}
+.dot-parked{background:var(--fg-dim)}
+
+/* ---------- hero ---------- */
+.hero{padding:104px 0 72px;text-align:center;overflow:hidden}
+.hero .lede{margin:0 auto 32px}
+.hero .btn-row{justify-content:center}
+.hero-status{margin-top:22px;font-size:13px;color:var(--fg-muted);display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap}
+.hero-chips{margin-top:26px;justify-content:center}
+
+/* ---------- stats ---------- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-top:8px}
+.stat{padding:24px 20px;text-align:center}
+.stat-num{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1.1}
+.stat-label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--fg-muted);margin-top:8px}
+.stat-sub{font-size:12px;color:var(--fg-dim);margin-top:7px;line-height:1.5}
+
+/* ---------- steps ---------- */
+.step{position:relative;padding:28px}
+.step-num{position:absolute;top:18px;right:22px;font-size:44px;font-weight:800;letter-spacing:-.04em;line-height:1;opacity:.16;color:var(--accent-soft)}
+.step-icon{width:38px;height:38px;border-radius:10px;background:rgba(99,102,241,.14);display:flex;align-items:center;justify-content:center;font-size:17px;margin-bottom:14px}
+.inline-code{font-family:var(--mono);font-size:12.5px;background:var(--elevated);border:1px solid var(--border);padding:2px 6px;border-radius:5px;color:var(--accent-soft)}
+
+/* ---------- preview ---------- */
+.preview{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.preview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.preview-tabs{display:flex;gap:2px}
+.preview-tabs button{appearance:none;border:none;background:none;cursor:pointer;font:inherit;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;color:var(--fg-muted);min-height:44px}
+.preview-tabs button.active{background:rgba(129,140,248,.14);color:var(--accent-soft)}
+.preview-tabs button:hover{color:var(--fg)}
+.preview-body{padding:18px}
+.preview-select{width:100%;padding:12px 40px 12px 14px;background:var(--base);border:1px solid var(--border-strong);border-radius:9px;color:var(--fg);font-size:14px;font-family:var(--mono);margin-bottom:16px;cursor:pointer;appearance:none;-webkit-appearance:none;min-height:46px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239aa7c9' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center}
+.preview-select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.pane{display:none}
+.pane.active{display:block}
+.code{display:block;font-family:var(--mono);font-size:12.5px;line-height:1.75;white-space:pre;overflow-x:auto;color:#c8d3ee;background:var(--base);border:1px solid var(--border);border-radius:9px;padding:16px;tab-size:2}
+
+/* ---------- gateway grid ---------- */
+.gw{padding:15px 13px;text-align:center;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);transition:border-color .18s,transform .18s}
+.gw:hover{border-color:rgba(129,140,248,.4);transform:translateY(-1px)}
+.gw-name{font-size:13.5px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px}
+.gw-meta{font-size:11px;color:var(--fg-dim);margin-top:4px;line-height:1.45}
+.group-label{font-size:11.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;margin:0 0 14px}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--fg-muted);margin-bottom:28px}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+
+/* ---------- tables ---------- */
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:top}
+th{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-muted);background:rgba(8,11,26,.5)}
+tr:last-child td{border-bottom:none}
+td code{font-family:var(--mono);font-size:12.5px;color:var(--accent-soft)}
+
+/* ---------- pricing ---------- */
+.price{padding:26px;display:flex;flex-direction:column}
+.price-name{font-size:12px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--accent)}
+.price-rate{font-size:32px;font-weight:800;letter-spacing:-.03em;margin:10px 0 2px}
+.price-unit{font-size:13px;color:var(--fg-dim);margin-bottom:18px}
+.price ul{list-style:none;display:grid;gap:9px;font-size:13.5px;color:var(--fg-muted)}
+.price li{display:flex;gap:9px;align-items:flex-start}
+.price li::before{content:'✓';color:var(--success);font-weight:700;flex:none}
+
+/* ---------- faq ---------- */
+.faq{border-top:1px solid var(--border)}
+.faq-item{border-bottom:1px solid var(--border)}
+.faq-item summary{list-style:none;cursor:pointer;padding:20px 0;font-size:15.5px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:56px}
 .faq-item summary::-webkit-details-marker{display:none}
-.faq-item summary:hover{color:#818cf8}
-.faq-item summary::after{content:'+';font-size:20px;color:#7c89b5;transition:transform .2s}
+.faq-item summary::after{content:'+';font-size:22px;font-weight:400;color:var(--fg-muted);flex:none}
 .faq-item[open] summary::after{content:'−'}
-.faq-item .faq-answer{padding:0 0 20px;font-size:14px;color:#7c89b5;line-height:1.7;max-width:640px}
-section { scroll-margin-top:80px; }
-.code-block{background:#080b1a;border:1px solid #1e2745;border-radius:10px;padding:16px;font-family:'JetBrains Mono',monospace;font-size:13px;overflow-x:auto;line-height:1.6;color:#c8d0e0}
-.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#34d399;margin-right:6px;box-shadow:0 0 8px rgba(52,211,153,.8)}
-.byok-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#fbbf24;margin-right:6px}
+.faq-item summary:hover{color:var(--accent-soft)}
+.faq-answer{padding:0 0 22px;font-size:14px;color:var(--fg-muted);line-height:1.75;max-width:720px}
+.faq-answer code{font-family:var(--mono);font-size:12.5px;background:var(--elevated);padding:2px 5px;border-radius:4px;color:var(--accent-soft)}
+
+/* ---------- cta + footer ---------- */
+.cta{background:linear-gradient(150deg,var(--elevated),var(--surface));border:1px solid var(--border);border-radius:22px;padding:56px 32px;text-align:center}
+footer{border-top:1px solid var(--border);padding:36px 0;font-size:13px;color:var(--fg-muted)}
+.footer-links{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.footer-links a{display:inline-flex;align-items:center;min-height:44px;color:var(--fg-muted);text-decoration:none}
+.footer-links a:hover{color:var(--fg)}
+.mobile-cta{display:none}
+
+/* ---------- reveal ---------- */
+/* Progressive enhancement: content is visible by default. The hidden state
+   only applies once JS has confirmed IntersectionObserver exists, and a
+   failsafe timer force-reveals anything still hidden. */
+.reveal{opacity:1;transform:none}
+html.reveal-ready .reveal:not(.visible){opacity:0;transform:translateY(18px)}
+html.reveal-ready .reveal{transition:opacity .55s ease,transform .55s ease}
+.reveal.visible{opacity:1!important;transform:none!important}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .reveal,html.reveal-ready .reveal{opacity:1!important;transform:none!important;transition:none}
+  .card-hover:hover,.btn-primary:hover,.gw:hover{transform:none}
+}
+
+/* ---------- responsive ---------- */
+@media(max-width:900px){
+  .nav-menu{display:none}
+  .nav-menu.open{display:flex;flex-direction:column;align-items:stretch;position:absolute;top:68px;left:0;right:0;
+    background:rgba(8,11,26,.99);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:14px;gap:2px}
+  .nav-menu a{padding:13px 14px}
+  .nav-cta{margin:6px 0 0;justify-content:center}
+  .lang-toggle{margin:10px 0 0;align-self:flex-start}
+  .nav-toggle{display:block}
+  .section-pad{padding:72px 0}
+  .hero{padding:76px 0 56px}
+}
+@media(max-width:768px){
+  .mobile-cta{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:200;gap:8px;padding:11px 14px;
+    background:rgba(8,11,26,.96);backdrop-filter:blur(14px);border-top:1px solid var(--border)}
+  .mobile-cta a{flex:1;display:flex;align-items:center;justify-content:center;padding:13px 10px;border-radius:10px;font-size:14px;font-weight:600;text-decoration:none;min-height:48px}
+  body{padding-bottom:74px}
+  .cta{padding:40px 20px}
+  .h1{letter-spacing:-.03em}
+}
 </style>
 </head>
 <body>
 
-<div class="bg-glow"></div>
-<div class="bg-grain"></div>
+<div class="bg-glow" aria-hidden="true"></div>
+<div class="bg-grain" aria-hidden="true"></div>
 
-<!-- ═══════════════ 1. NAV ═══════════════ -->
 <nav id="navbar">
-  <a href="/" class="logo" style="color:#e8edf5;text-decoration:none">
-    <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="url(#lg)"/><text x="16" y="22" text-anchor="middle" fill="#fff" font-weight="800" font-size="16" font-family="system-ui">1i</text><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#818cf8"/><stop offset="100%" stop-color="#6366f1"/></linearGradient></defs></svg>
-    1ai<span style="color:#818cf8">payment</span>
+  <a href="/" class="logo">
+    <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect width="32" height="32" rx="8" fill="url(#lg)"/><text x="16" y="22" text-anchor="middle" fill="#fff" font-weight="800" font-size="16" font-family="system-ui">1i</text><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#818cf8"/><stop offset="100%" stop-color="#6366f1"/></linearGradient></defs></svg>
+    <span>1ai<span style="color:var(--accent)">payment</span></span>
   </a>
-  <button class="nav-toggle" onclick="document.getElementById('navMenu').classList.toggle('open')" aria-label="Toggle menu">☰</button>
+  <button class="nav-toggle" type="button" aria-label="Toggle menu" aria-expanded="false" aria-controls="navMenu" onclick="toggleNav(this)">☰</button>
   <div class="nav-menu" id="navMenu">
-    <a href="#why"><span class="lang-id">Kenapa</span><span class="lang-en hidden">Why</span></a>
-    <a href="#gateways"><span class="lang-id">Gateway</span><span class="lang-en hidden">Gateways</span></a>
+    <a href="#how"><span class="lang-id">Cara kerja</span><span class="lang-en hidden">How it works</span></a>
     <a href="#preview"><span class="lang-id">API</span><span class="lang-en hidden">API</span></a>
+    <a href="#gateways"><span class="lang-id">Gateway</span><span class="lang-en hidden">Gateways</span></a>
+    <a href="#reliability"><span class="lang-id">Keandalan</span><span class="lang-en hidden">Reliability</span></a>
     <a href="#pricing"><span class="lang-id">Harga</span><span class="lang-en hidden">Pricing</span></a>
-    <a href="#faq"><span class="lang-id">FAQ</span><span class="lang-en hidden">FAQ</span></a>
-    <a href="/dashboard"><span class="lang-id">Dashboard</span><span class="lang-en hidden">Dashboard</span></a>
-    <a href="/reference" class="desktop-only" style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border-radius:8px;font-weight:600;font-size:14px;color:#fff!important;background:#818cf8;text-decoration:none">API Docs →</a>
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 4px">
-      <div class="lang-toggle" id="langToggle">
-        <span data-lang="id" class="active" onclick="setLang('id')">ID</span>
-        <span data-lang="en" onclick="setLang('en')">EN</span>
-      </div>
+    <a href="#faq">FAQ</a>
+    <a href="/reference" class="nav-cta"><span class="lang-id">API Docs</span><span class="lang-en hidden">API Docs</span> →</a>
+    <div class="lang-toggle" role="group" aria-label="Language">
+      <button type="button" data-lang="id" class="active" onclick="setLang('id')">ID</button>
+      <button type="button" data-lang="en" onclick="setLang('en')">EN</button>
     </div>
   </div>
 </nav>
 
-<!-- ═══════════════ 2. HERO ═══════════════ -->
-<section style="position:relative;z-index:1;padding:140px 24px 80px;overflow:hidden;text-align:center">
-  <div class="hero-bg"></div>
-  <div style="position:relative;z-index:2">
-    <p style="font-size:13px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:16px" class="reveal">
-      <span class="lang-id">Infrastruktur pembayaran untuk Indonesia &amp; global</span>
-      <span class="lang-en hidden">Payment infrastructure for Indonesia &amp; global commerce</span>
-    </p>
-    <h1 style="font-size:clamp(34px,5.5vw,64px);font-weight:800;line-height:1.1;letter-spacing:-1px;margin:0 auto 20px;max-width:800px" class="reveal">
-      <span class="lang-id">Satu API. <span style="background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">16 gateway.</span></span>
-      <span class="lang-en hidden">One API. <span style="background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">16 gateways.</span></span>
+<!-- HERO -->
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow reveal"><span class="lang-id">Infrastruktur pembayaran</span><span class="lang-en hidden">Payment infrastructure</span></p>
+    <h1 class="h1 reveal">
+      <span class="lang-id">Satu API. <span class="grad">15 gateway.</span><br />Tanpa integrasi ulang.</span>
+      <span class="lang-en hidden">One API. <span class="grad">15 gateways.</span><br />No re-integration.</span>
     </h1>
-    <p style="font-size:clamp(15px,1.8vw,19px);color:#7c89b5;max-width:640px;margin:0 auto 36px;line-height:1.7" class="reveal">
-      <span class="lang-id">Midtrans, Tripay, Duitku, Xendit, PayPal, Telegram, crypto — dinormalisasi dalam satu integrasi. Ganti gateway cukup ganti parameter, bukan kirim integrasi baru.</span>
-      <span class="lang-en hidden">Midtrans, Tripay, Duitku, Xendit, PayPal, Telegram, crypto — normalized into one integration. Switch gateways by changing a parameter, not shipping a new integration.</span>
+    <p class="lede reveal">
+      <span class="lang-id">Midtrans, Duitku, iPaymu, NOWPayments, Lynk.id, Xendit, PayPal, Telegram, dan crypto — dinormalisasi jadi satu kontrak. Ganti gateway cukup ganti satu parameter, bukan kirim integrasi baru.</span>
+      <span class="lang-en hidden">Midtrans, Duitku, iPaymu, NOWPayments, Lynk.id, Xendit, PayPal, Telegram, and crypto — normalized into one contract. Switch gateways by changing one parameter, not shipping a new integration.</span>
     </p>
-    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap" class="reveal">
-      <a href="/dashboard" class="btn-glow" style="display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:12px;font-size:15px;font-weight:600;background:#818cf8;color:#fff;transition:all .2s;text-decoration:none">
-        <span class="lang-id">Buat Merchant Account →</span>
-        <span class="lang-en hidden">Create Merchant Account →</span>
-      </a>
-      <a href="#preview" style="display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:12px;font-size:15px;font-weight:600;background:#0f1529;color:#e8edf5;border:1px solid #1e2745;transition:all .2s;text-decoration:none">
-        <span class="lang-id">Lihat API-nya</span>
-        <span class="lang-en hidden">See the API</span>
-      </a>
+    <div class="btn-row reveal">
+      <a href="/dashboard" class="btn btn-primary"><span class="lang-id">Buat Merchant Account</span><span class="lang-en hidden">Create Merchant Account</span> →</a>
+      <a href="#preview" class="btn btn-ghost"><span class="lang-id">Lihat request-nya</span><span class="lang-en hidden">See the request</span></a>
     </div>
-    <p style="font-size:13px;color:#7c89b5;margin-top:20px" class="reveal">
-      <span class="lang-id"><span class="live-dot"></span>Midtrans, Duitku, NOWPayments, iPaymu live di platform · gateway lain pakai kredensial sendiri · tanpa setup fee</span>
-      <span class="lang-en hidden"><span class="live-dot"></span>Midtrans, Duitku, NOWPayments, iPaymu live on platform · others bring-your-own-key · no setup fee</span>
+    <p class="hero-status reveal">
+      <span class="dot dot-live" aria-hidden="true"></span>
+      <span class="lang-id">5 gateway aktif di platform · 10 lain pakai kredensial Anda sendiri · tanpa setup fee</span>
+      <span class="lang-en hidden">5 gateways live on platform · 10 more with your own credentials · no setup fee</span>
     </p>
-    <div style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-top:28px" class="reveal">
-      <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#7c89b5">
-        <span style="font-size:16px">🔐</span>
-        <span class="lang-id">Verifikasi timing-safe</span>
-        <span class="lang-en hidden">Timing-safe verification</span>
+    <div class="chip-row hero-chips reveal">
+      <span class="chip"><span class="lang-id">Verifikasi timing-safe</span><span class="lang-en hidden">Timing-safe verification</span></span>
+      <span class="chip"><span class="lang-id">Retry 3× + replay</span><span class="lang-en hidden">3× retry + replay</span></span>
+      <span class="chip"><span class="lang-id">Idempoten di database</span><span class="lang-en hidden">Database-level idempotency</span></span>
+    </div>
+  </div>
+</header>
+
+<!-- STATS -->
+<section aria-label="Key numbers">
+  <div class="wrap">
+    <div class="stats">
+      <div class="glass stat reveal">
+        <div class="stat-num grad">15</div>
+        <div class="stat-label"><span class="lang-id">Gateway</span><span class="lang-en hidden">Gateways</span></div>
+        <div class="stat-sub"><span class="lang-id">Indonesia, global &amp; Telegram</span><span class="lang-en hidden">Indonesia, global &amp; Telegram</span></div>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#7c89b5">
-        <span style="font-size:16px">🔄</span>
-        <span class="lang-id">Retry + dead-letter queue</span>
-        <span class="lang-en hidden">Retry + dead-letter queue</span>
+      <div class="glass stat reveal">
+        <div class="stat-num grad">1</div>
+        <div class="stat-label"><span class="lang-id">Bentuk request</span><span class="lang-en hidden">Request shape</span></div>
+        <div class="stat-sub"><span class="lang-id">Metode baru tanpa kode baru</span><span class="lang-en hidden">New methods, no new code</span></div>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#7c89b5">
-        <span style="font-size:16px">🧾</span>
-        <span class="lang-id">Idempoten di level database</span>
-        <span class="lang-en hidden">Database-level idempotency</span>
+      <div class="glass stat reveal">
+        <div class="stat-num grad">3×</div>
+        <div class="stat-label"><span class="lang-id">Retry webhook</span><span class="lang-en hidden">Webhook retries</span></div>
+        <div class="stat-sub"><span class="lang-id">5s → 30s → 300s, lalu dead-letter</span><span class="lang-en hidden">5s → 30s → 300s, then dead-letter</span></div>
+      </div>
+      <div class="glass stat reveal">
+        <div class="stat-num grad">30</div>
+        <div class="stat-label"><span class="lang-id">Req/menit gratis</span><span class="lang-en hidden">Req/min free</span></div>
+        <div class="stat-sub"><span class="lang-id">Per merchant, terisolasi</span><span class="lang-en hidden">Per merchant, isolated</span></div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════ 3. TRUST BAR ═══════════════ -->
-<div style="position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 24px">
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
-    <div class="glass card-hover" style="border-radius:12px;padding:28px 20px;text-align:center" class="reveal">
-      <div style="font-size:36px;font-weight:800;background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">13</div>
-      <div style="font-size:12px;color:#7c89b5;margin-top:4px;font-weight:500;letter-spacing:.03em">
-        <span class="lang-id">GATEWAY DIDUKUNG</span>
-        <span class="lang-en hidden">SUPPORTED GATEWAYS</span>
-      </div>
-      <div style="font-size:12px;color:#4a5a7a;margin-top:6px;line-height:1.4">
-        <span class="lang-id">Lokal Indonesia &amp; global — satu kontrak</span>
-        <span class="lang-en hidden">Indonesia-local &amp; global — one contract</span>
-      </div>
-    </div>
-    <div class="glass card-hover" style="border-radius:12px;padding:28px 20px;text-align:center" class="reveal">
-      <div style="font-size:36px;font-weight:800;background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">1</div>
-      <div style="font-size:12px;color:#7c89b5;margin-top:4px;font-weight:500;letter-spacing:.03em">
-        <span class="lang-id">INTEGRASI</span>
-        <span class="lang-en hidden">INTEGRATION</span>
-      </div>
-      <div style="font-size:12px;color:#4a5a7a;margin-top:6px;line-height:1.4">
-        <span class="lang-id">Metode baru tanpa kode baru</span>
-        <span class="lang-en hidden">New methods without new code</span>
-      </div>
-    </div>
-    <div class="glass card-hover" style="border-radius:12px;padding:28px 20px;text-align:center" class="reveal">
-      <div style="font-size:36px;font-weight:800;background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">3</div>
-      <div style="font-size:12px;color:#7c89b5;margin-top:4px;font-weight:500;letter-spacing:.03em">
-        <span class="lang-id">LANGKAH INTEGRASI</span>
-        <span class="lang-en hidden">STEPS TO INTEGRATE</span>
-      </div>
-      <div style="font-size:12px;color:#4a5a7a;margin-top:6px;line-height:1.4">
-        <span class="lang-id">Buat payment → pelanggan bayar → kami teruskan</span>
-        <span class="lang-en hidden">Create payment → customer pays → we forward</span>
-      </div>
-    </div>
-    <div class="glass card-hover" style="border-radius:12px;padding:28px 20px;text-align:center" class="reveal">
-      <div style="font-size:36px;font-weight:800;background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">30</div>
-      <div style="font-size:12px;color:#7c89b5;margin-top:4px;font-weight:500;letter-spacing:.03em">
-        <span class="lang-id">REQ/MENIT (FREE)</span>
-        <span class="lang-en hidden">REQ/MIN (FREE)</span>
-      </div>
-      <div style="font-size:12px;color:#4a5a7a;margin-top:6px;line-height:1.4">
-        <span class="lang-id">Rate limit per merchant, terisolasi</span>
-        <span class="lang-en hidden">Per-merchant rate limit, isolated</span>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════ 4. AUDIENCE ═══════════════ -->
-<section id="audience" style="position:relative;z-index:1;padding:100px 24px 80px">
-  <div style="max-width:1100px;margin:0 auto">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">
-      <span class="lang-id">Dibuat untuk cara Anda menjual</span>
-      <span class="lang-en hidden">Built for however you sell</span>
+<!-- HOW IT WORKS -->
+<section id="how" class="section-pad">
+  <div class="wrap">
+    <p class="eyebrow reveal"><span class="lang-id">Cara kerja</span><span class="lang-en hidden">How it works</span></p>
+    <h2 class="h2 reveal"><span class="lang-id">Tiga langkah, satu kontrak</span><span class="lang-en hidden">Three steps, one contract</span></h2>
+    <p class="lede reveal" style="margin-bottom:36px">
+      <span class="lang-id">Alur pembayaran yang sama untuk semua gateway. Yang berubah hanya nilai <code class="inline-code">gateway</code>.</span>
+      <span class="lang-en hidden">The same payment flow for every gateway. Only the <code class="inline-code">gateway</code> value changes.</span>
     </p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-top:36px">
-      <div class="glass card-hover" style="border-radius:16px;padding:36px 28px;position:relative;overflow:hidden">
-        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#818cf8,transparent);opacity:.5"></div>
-        <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:18px">&lt;/&gt;</div>
-        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#818cf8;margin-bottom:8px">
-          <span class="lang-id">Developer</span>
-          <span class="lang-en hidden">Developers</span>
-        </div>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
-          <span class="lang-id">Dapatkan API key dalam hitungan detik, tanpa antre approval. Payment flow jalan sebelum kopimu dingin — ganti gateway nanti tanpa menyentuh kode checkout.</span>
-          <span class="lang-en hidden">Get an API key in seconds, no approval queue. A working payment flow before your coffee's cold — swap gateways later without touching checkout code.</span>
-        </p>
+    <div class="grid g-3">
+      <div class="card card-hover step reveal">
+        <div class="step-num" aria-hidden="true">01</div>
+        <div class="step-icon" aria-hidden="true">💳</div>
+        <h3 class="h3"><span class="lang-id">Buat pembayaran</span><span class="lang-en hidden">Create the payment</span></h3>
+        <p class="body-sm"><span class="lang-id"><code class="inline-code">POST /api/payments</code> dengan amount, currency, gateway, callback_url. Balasannya <code class="inline-code">payment_url</code> siap redirect.</span><span class="lang-en hidden"><code class="inline-code">POST /api/payments</code> with amount, currency, gateway, callback_url. The response carries a ready <code class="inline-code">payment_url</code>.</span></p>
       </div>
-      <div class="glass card-hover" style="border-radius:16px;padding:36px 28px;position:relative;overflow:hidden">
-        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#34d399,transparent);opacity:.5"></div>
-        <div style="width:40px;height:40px;border-radius:10px;background:rgba(52,211,153,.12);display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:18px">🏪</div>
-        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#34d399;margin-bottom:8px">
-          <span class="lang-id">Merchant</span>
-          <span class="lang-en hidden">Merchants</span>
-        </div>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
-          <span class="lang-id">Berhenti memelihara lima integrasi gateway. Satu dashboard, satu set webhook, satu tempat melihat semua transaksi — apa pun gateway pemrosesnya.</span>
-          <span class="lang-en hidden">Stop maintaining five gateway integrations. One dashboard, one webhook set, one place for every transaction — whatever gateway processed it.</span>
-        </p>
+      <div class="card card-hover step reveal">
+        <div class="step-num" aria-hidden="true">02</div>
+        <div class="step-icon" aria-hidden="true">🎯</div>
+        <h3 class="h3"><span class="lang-id">Pelanggan membayar</span><span class="lang-en hidden">Customer pays</span></h3>
+        <p class="body-sm"><span class="lang-id">Redirect ke halaman gateway. Metode apa pun yang dipilih pelanggan — QRIS, VA, kartu, e-wallet, crypto, atau Stars.</span><span class="lang-en hidden">Redirect to the gateway page. Whatever method the customer picks — QRIS, VA, card, e-wallet, crypto, or Stars.</span></p>
       </div>
-      <div class="glass card-hover" style="border-radius:16px;padding:36px 28px;position:relative;overflow:hidden">
-        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#fbbf24,transparent);opacity:.5"></div>
-        <div style="width:40px;height:40px;border-radius:10px;background:rgba(251,191,36,.12);display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:18px">🏢</div>
-        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#fbbf24;margin-bottom:8px">
-          <span class="lang-id">Agency</span>
-          <span class="lang-en hidden">Agencies</span>
-        </div>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
-          <span class="lang-id">Deploy infrastruktur pembayaran di setiap klien tanpa membangun ulang. API key per merchant dan rate limit terisolasi — trafik satu klien tak pernah menyentuh data klien lain.</span>
-          <span class="lang-en hidden">Deploy payment infrastructure per client without rebuilding. Merchant-scoped keys and isolated rate limits — one client's traffic never touches another's.</span>
-        </p>
+      <div class="card card-hover step reveal">
+        <div class="step-num" aria-hidden="true">03</div>
+        <div class="step-icon" aria-hidden="true">📬</div>
+        <h3 class="h3"><span class="lang-id">Kami teruskan event</span><span class="lang-en hidden">We forward the event</span></h3>
+        <p class="body-sm"><span class="lang-id">Callback gateway diverifikasi, dinormalisasi, lalu dikirim ke <code class="inline-code">callback_url</code> Anda dengan HMAC + retry.</span><span class="lang-en hidden">The gateway callback is verified, normalized, then delivered to your <code class="inline-code">callback_url</code> with HMAC + retries.</span></p>
       </div>
     </div>
   </div>
 </section>
-
-<!-- ═══════════════ 5. WHY + HOW ═══════════════ -->
-<section id="why" style="position:relative;z-index:1;padding:80px 24px;background:rgba(15,21,41,.5);border-top:1px solid #1e2745;border-bottom:1px solid #1e2745">
-  <div style="max-width:1100px;margin:0 auto">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">Why 1ai-payment</p>
-    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:8px;letter-spacing:-.3px" class="reveal">
-      <span class="lang-id">Satu kontrak. Semua metode pembayaran.</span>
-      <span class="lang-en hidden">One contract. Every payment method.</span>
-    </h2>
-    <p style="color:#7c89b5;font-size:16px;max-width:540px;margin-bottom:48px" class="reveal">
-      <span class="lang-id">Berhenti memelihara 13 SDK berbeda. Ganti satu parameter untuk ganti provider — kode checkout-mu tak pernah berubah.</span>
-      <span class="lang-en hidden">Stop maintaining 13 different SDKs. Change one parameter to switch providers — your checkout code never changes.</span>
+<!-- API PREVIEW -->
+<section id="preview" class="section-pad section-alt">
+  <div class="wrap">
+    <p class="eyebrow reveal"><span class="lang-id">Pratinjau API</span><span class="lang-en hidden">API preview</span></p>
+    <h2 class="h2 reveal"><span class="lang-id">Lihat sebelum mendaftar</span><span class="lang-en hidden">See it before you sign up</span></h2>
+    <p class="lede reveal" style="margin-bottom:30px">
+      <span class="lang-id">Bentuk request dan response identik untuk semua gateway. Pilih satu di bawah, atau coba langsung di <a href="/reference" style="color:var(--accent-soft)">API reference</a>.</span>
+      <span class="lang-en hidden">Request and response shape are identical across gateways. Pick one below, or try it live in the <a href="/reference" style="color:var(--accent-soft)">API reference</a>.</span>
     </p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
-      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px;transition:all .25s ease;position:relative" class="card-hover">
-        <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:18px">🔌</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
-          <span class="lang-id">API Tunggal</span>
-          <span class="lang-en hidden">Single API</span>
-        </h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
-          <span class="lang-id">Satu bentuk request untuk semua gateway. Tambah metode bayar baru tanpa tulis integrasi baru.</span>
-          <span class="lang-en hidden">One request shape for every gateway. Add payment methods without writing new integrations.</span>
-        </p>
-      </div>
-      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px;transition:all .25s ease;position:relative" class="card-hover">
-        <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:18px">📡</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
-          <span class="lang-id">Webhook Routing</span>
-          <span class="lang-en hidden">Webhook Routing</span>
-        </h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
-          <span class="lang-id">Format callback tiap gateway dinormalisasi jadi satu. Retry + dead-letter queue — berhenti bikin logika retry sendiri.</span>
-          <span class="lang-en hidden">Every gateway's callback format normalized into one. Retry + dead-letter queue — stop building retry logic yourself.</span>
-        </p>
-      </div>
-      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px;transition:all .25s ease;position:relative" class="card-hover">
-        <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:18px">🔐</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
-          <span class="lang-id">Isolasi Merchant</span>
-          <span class="lang-en hidden">Merchant Isolation</span>
-        </h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
-          <span class="lang-id">Rate limit, refund, dan riwayat tiap merchant terisolasi. Satu key bocor tak pernah mengekspos merchant lain.</span>
-          <span class="lang-en hidden">Each merchant's rate limits, refunds, and history are isolated. One leaked key never exposes another merchant.</span>
-        </p>
-      </div>
-      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px;transition:all .25s ease;position:relative" class="card-hover">
-        <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:18px">📊</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
-          <span class="lang-id">Dashboard</span>
-          <span class="lang-en hidden">Dashboard</span>
-        </h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
-          <span class="lang-id">Lihat semua transaksi, kelola refund, rotasi key — tanpa buka console database.</span>
-          <span class="lang-en hidden">See every transaction, manage refunds, rotate keys — no database console.</span>
-        </p>
-      </div>
-      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px;transition:all .25s ease;position:relative" class="card-hover">
-        <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:18px">📖</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
-          <span class="lang-id">Dokumentasi OpenAPI</span>
-          <span class="lang-en hidden">OpenAPI Docs</span>
-        </h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
-          <span class="lang-id">Tiap endpoint bisa dicoba dari browser. Tak perlu berburu Postman collection.</span>
-          <span class="lang-en hidden">Every endpoint testable from the browser. No Postman collection hunt.</span>
-        </p>
-      </div>
-      <div style="background:#080b1a;border:1px solid #1e2745;border-radius:16px;padding:28px;transition:all .25s ease;position:relative" class="card-hover">
-        <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:18px">✓</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
-          <span class="lang-id">Verifikasi Signature</span>
-          <span class="lang-en hidden">Signature Verification</span>
-        </h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
-          <span class="lang-id">Tiap webhook diverifikasi timing-safe; idempotensi di level database — retry tak pernah double-charge.</span>
-          <span class="lang-en hidden">Every webhook timing-safe verified; database-level idempotency — retries never double-charge.</span>
-        </p>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:32px;margin-top:64px">
-      <div class="glass card-hover" style="border-radius:16px;padding:32px;position:relative" class="reveal">
-        <div style="position:absolute;top:20px;right:24px;font-size:52px;font-weight:800;background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1">01</div>
-        <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:18px">💳</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
-          <span class="lang-id">Buat Pembayaran</span>
-          <span class="lang-en hidden">Create Payment</span>
-        </h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
-          <span class="lang-id"><code style="background:#1e2745;padding:2px 6px;border-radius:4px;font-size:12px">POST /api/payments</code> dengan amount, currency, gateway. Balikkan payment URL dalam milidetik.</span>
-          <span class="lang-en hidden"><code style="background:#1e2745;padding:2px 6px;border-radius:4px;font-size:12px">POST /api/payments</code> with amount, currency, gateway. Returns a payment URL in milliseconds.</span>
-        </p>
-      </div>
-      <div class="glass card-hover" style="border-radius:16px;padding:32px;position:relative" class="reveal">
-        <div style="position:absolute;top:20px;right:24px;font-size:52px;font-weight:800;background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1">02</div>
-        <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:18px">🎯</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
-          <span class="lang-id">Pelanggan Bayar</span>
-          <span class="lang-en hidden">Customer Pays</span>
-        </h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
-          <span class="lang-id">Arahkan pelanggan ke gateway URL. Mereka bayar dengan metode pilihannya.</span>
-          <span class="lang-en hidden">Redirect your customer to the gateway URL. They pay with their method.</span>
-        </p>
-      </div>
-      <div class="glass card-hover" style="border-radius:16px;padding:32px;position:relative" class="reveal">
-        <div style="position:absolute;top:20px;right:24px;font-size:52px;font-weight:800;background:linear-gradient(135deg,#a5b4fc,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1">03</div>
-        <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:18px">📬</div>
-        <h3 style="font-size:16px;font-weight:600;margin-bottom:6px">
-          <span class="lang-id">Kami Teruskan</span>
-          <span class="lang-en hidden">We Forward It</span>
-        </h3>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
-          <span class="lang-id">Callback masuk ke webhook kami. Kami verifikasi, normalisasi, teruskan ke URL Anda dengan retry otomatis.</span>
-          <span class="lang-en hidden">Callback hits our webhook. We verify, normalize, forward to your URL with retries.</span>
-        </p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════ 6. GATEWAYS ═══════════════ -->
-<section id="gateways" style="position:relative;z-index:1;padding:80px 24px">
-  <div style="max-width:1100px;margin:0 auto">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">
-      <span class="lang-id">Gateway Didukung</span>
-      <span class="lang-en hidden">Supported Gateways</span>
-    </p>
-    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:8px;letter-spacing:-.3px" class="reveal">
-      <span class="lang-id">16 gateway, satu bentuk</span>
-      <span class="lang-en hidden">16 gateways, one shape</span>
-    </h2>
-    <p style="color:#7c89b5;font-size:16px;margin-bottom:16px;max-width:560px" class="reveal">
-      <span class="lang-id">Sebagian gateway live di platform — sisanya bawa kredensial sendiri dari dashboard, atau pakai kredensial platform bila tersedia.</span>
-      <span class="lang-en hidden">Some gateways are live on platform — bring your own credentials from the dashboard for the rest, or use shared platform credentials where available.</span>
-    </p>
-    <p style="font-size:13px;color:#7c89b5;margin-bottom:40px" class="reveal">
-      <span class="lang-id"><span class="live-dot"></span>Live di platform &nbsp;&nbsp; <span class="byok-dot"></span>Bawa kredensial sendiri</span>
-      <span class="lang-en hidden"><span class="live-dot"></span>Live on platform &nbsp;&nbsp; <span class="byok-dot"></span>Bring your own key</span>
-    </p>
-    <p style="font-size:13px;font-weight:600;color:#818cf8;margin-bottom:16px;letter-spacing:.05em;text-transform:uppercase">
-      <span class="lang-id">Indonesia</span>
-      <span class="lang-en hidden">Indonesia</span>
-    </p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:40px">
-      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:14px;font-weight:600"><span class="live-dot"></span>Midtrans</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">CC, QR, Bank Transfer</div></div>
-      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:14px;font-weight:600"><span class="byok-dot"></span>Tripay</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">QR, VA, Convenience Store</div></div>
-      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:14px;font-weight:600"><span class="live-dot"></span>Duitku</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">QR, VA, E-Wallet</div></div>
-      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:14px;font-weight:600"><span class="live-dot"></span>iPaymu</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">QR, VA, E-Wallet</div></div>
-      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:14px;font-weight:600"><span class="byok-dot"></span>Saweria</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Donations, QRIS</div></div>
-      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:14px;font-weight:600"><span class="live-dot"></span>Lynk.id</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Checkout link, QRIS</div></div>
-      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:14px;font-weight:600"><span class="byok-dot"></span>Mutasiku</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Bank mutation events</div></div>
-      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:14px;font-weight:600"><span class="byok-dot"></span>Moota</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Bank mutation events</div></div>
-    </div>
-    <p style="font-size:13px;font-weight:600;color:#34d399;margin-bottom:16px;letter-spacing:.05em;text-transform:uppercase">Global &amp; Crypto</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:40px">
-      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:14px;font-weight:600"><span class="byok-dot"></span>Xendit</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">PH/ID, VA, Cards, E-Wallet</div></div>
-      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:14px;font-weight:600"><span class="live-dot"></span>NOWPayments</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Crypto (20+ assets)</div></div>
-      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:14px;font-weight:600"><span class="byok-dot"></span>PayPal</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Global checkout</div></div>
-      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:14px;font-weight:600"><span class="byok-dot"></span>x402 USDC</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Base, Solana, Tempo</div></div>
-      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:14px;font-weight:600"><span class="byok-dot"></span>ERC-8183</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Agentic escrow</div></div>
-    </div>
-    <p style="font-size:13px;font-weight:600;color:#fbbf24;margin-bottom:16px;letter-spacing:.05em;text-transform:uppercase">Telegram-native</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:32px">
-      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:14px;font-weight:600"><span class="byok-dot"></span>Telegram Stars</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">XTR microtransactions</div></div>
-      <div class="glass card-hover" style="border-radius:10px;padding:16px;text-align:center;border-color:#1e2745"><div style="font-size:14px;font-weight:600"><span class="byok-dot"></span>Telegram Pay</div><div style="font-size:11px;color:#7c89b5;margin-top:2px">Multi-currency</div></div>
-    </div>
-    <div style="background:#0f1529;border:1px solid #1e2745;border-radius:10px;padding:16px;display:inline-block">
-      <span style="font-size:13px;color:#7c89b5" class="lang-id">Dipakai di ekosistem kami: </span>
-      <span style="font-size:13px;color:#7c89b5" class="lang-en hidden">Powering our ecosystem: </span>
-      <span style="font-size:13px;font-weight:500;color:#818cf8">
-        <span class="lang-id">1ai-trade-cex · AdForge · 1ai · trip-planner</span>
-        <span class="lang-en hidden">1ai-trade-cex · AdForge · 1ai · trip-planner</span>
-      </span>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════ 7. RELIABILITY ═══════════════ -->
-<section id="reliability" style="position:relative;z-index:1;padding:80px 24px;background:rgba(15,21,41,.5);border-top:1px solid #1e2745;border-bottom:1px solid #1e2745">
-  <div style="max-width:1100px;margin:0 auto">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">
-      <span class="lang-id">Keandalan &amp; Keamanan</span>
-      <span class="lang-en hidden">Reliability &amp; Security</span>
-    </p>
-    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:8px;letter-spacing:-.3px" class="reveal">
-      <span class="lang-id">Membosankan di production — by design</span>
-      <span class="lang-en hidden">Boring in production — by design</span>
-    </h2>
-    <p style="color:#7c89b5;font-size:16px;margin-bottom:48px;max-width:540px" class="reveal">
-      <span class="lang-id">Hal menarik dari pembayaran harus terjadi sekali, di kode kami — bukan tiap ada yang rusak jam 2 pagi di kode Anda.</span>
-      <span class="lang-en hidden">The interesting part of payments should happen once, in our code — not every time something breaks at 2am in yours.</span>
-    </p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
-      <div class="glass card-hover" style="border-radius:16px;padding:28px">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-          <div style="width:36px;height:36px;border-radius:8px;background:rgba(52,211,153,.12);display:flex;align-items:center;justify-content:center;font-size:16px;color:#34d399">↻</div>
-          <div style="font-size:15px;font-weight:600">
-            <span class="lang-id">Retry Otomatis + DLQ</span>
-            <span class="lang-en hidden">Automatic Retries + DLQ</span>
-          </div>
+    <div class="preview reveal">
+      <div class="preview-head">
+        <div class="preview-tabs" role="tablist" aria-label="Request or response">
+          <button type="button" class="active" role="tab" aria-selected="true" data-pane="request" onclick="switchPreviewTab('request',this)"><span class="lang-id">Request</span><span class="lang-en hidden">Request</span></button>
+          <button type="button" role="tab" aria-selected="false" data-pane="response" onclick="switchPreviewTab('response',this)"><span class="lang-id">Response</span><span class="lang-en hidden">Response</span></button>
         </div>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
-          <span class="lang-id">Webhook di-retry otomatis dan masuk dead-letter queue bila gagal. Tak ada yang hilang tanpa jejak — semua bisa di-replay dari dashboard.</span>
-          <span class="lang-en hidden">Webhooks retry automatically and land in a dead-letter queue when failing. Nothing vanishes — everything replayable from the dashboard.</span>
-        </p>
+        <span class="mono" style="font-size:12px;color:var(--fg-dim)">application/json</span>
       </div>
-      <div class="glass card-hover" style="border-radius:16px;padding:28px">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-          <div style="width:36px;height:36px;border-radius:8px;background:rgba(52,211,153,.12);display:flex;align-items:center;justify-content:center;font-size:16px;color:#34d399">🔑</div>
-          <div style="font-size:15px;font-weight:600">
-            <span class="lang-id">Verifikasi Timing-Safe</span>
-            <span class="lang-en hidden">Timing-safe Verification</span>
-          </div>
-        </div>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
-          <span class="lang-id">Tiap signature diverifikasi timing-safe; idempotensi di level database, bukan sekadar dicek di application code.</span>
-          <span class="lang-en hidden">Every signature timing-safe verified; idempotency at the database level, not just checked in app code.</span>
-        </p>
-      </div>
-      <div class="glass card-hover" style="border-radius:16px;padding:28px">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-          <div style="width:36px;height:36px;border-radius:8px;background:rgba(52,211,153,.12);display:flex;align-items:center;justify-content:center;font-size:16px;color:#34d399">🔒</div>
-          <div style="font-size:15px;font-weight:600">
-            <span class="lang-id">Isolasi Merchant</span>
-            <span class="lang-en hidden">Merchant Isolation</span>
-          </div>
-        </div>
-        <p style="font-size:14px;color:#7c89b5;line-height:1.7">
-          <span class="lang-id">API key merchant-scoped: key bocor hanya mengekspos satu merchant, tak pernah se-platform.</span>
-          <span class="lang-en hidden">Merchant-scoped API keys: a leaked key exposes one merchant, never the platform.</span>
-        </p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════ 8. API PREVIEW ═══════════════ -->
-<section id="preview" style="position:relative;z-index:1;padding:80px 24px">
-  <div style="max-width:1100px;margin:0 auto">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">
-      <span class="lang-id">Pratinjau API</span>
-      <span class="lang-en hidden">API Preview</span>
-    </p>
-    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:8px;letter-spacing:-.3px" class="reveal">
-      <span class="lang-id">Lihat sebelum daftar</span>
-      <span class="lang-en hidden">See it before you sign up</span>
-    </h2>
-    <p style="color:#7c89b5;font-size:16px;margin-bottom:32px" class="reveal">
-      <span class="lang-id">Tiap gateway bentuknya sama. Pilih satu di bawah — atau coba langsung di <a href="/reference" style="color:#818cf8">API reference</a>.</span>
-      <span class="lang-en hidden">Every gateway takes the same shape. Pick one below — or try it live in the <a href="/reference" style="color:#818cf8">API reference</a>.</span>
-    </p>
-    <div class="preview-panel reveal">
-      <div class="tabs">
-        <button class="active" data-tab="request" onclick="switchPreviewTab('request',this)">
-          <span class="lang-id">Request</span>
-          <span class="lang-en hidden">Request</span>
-        </button>
-        <button data-tab="response" onclick="switchPreviewTab('response',this)">
-          <span class="lang-id">Response</span>
-          <span class="lang-en hidden">Response</span>
-        </button>
-      </div>
-      <div style="padding:20px">
-        <label style="font-size:12px;color:#7c89b5;font-weight:500;margin-bottom:6px;display:block">
-          <span class="lang-id">Gateway</span>
-          <span class="lang-en hidden">Gateway</span>
+      <div class="preview-body">
+        <label for="gwSelect" style="display:block;font-size:12px;font-weight:600;color:var(--fg-muted);margin-bottom:7px">
+          <span class="lang-id">Gateway</span><span class="lang-en hidden">Gateway</span>
         </label>
         <select class="preview-select" id="gwSelect" onchange="updatePreview()">
-          <option value="midtrans">midtrans — CC, QR, Bank Transfer</option>
-          <option value="xendit">xendit — Philippines/Indonesia, Cards</option>
-          <option value="paypal">paypal — Global checkout</option>
-          <option value="tripay">tripay — QR, VA, Convenience Store</option>
-          <option value="telegram_stars">telegram_stars — XTR micropayments</option>
-          <option value="duitku">duitku — VA, QR, e-Wallet (IDR)</option>
-          <option value="ipaymu">ipaymu — QRIS, VA (IDR)</option>
-          <option value="nowpayments">nowpayments — Crypto (BTC/USDT/ETH)</option>
-          <option value="x402">x402 — On-chain USDC micropayments</option>
-          <option value="erc8183">erc8183 — Agentic escrow (USDC)</option>
-          <option value="telegram_payments">telegram_payments — Multi-currency invoices</option>
-          <option value="saweria">saweria — Donation stream (IDR)</option>
+          <option value="midtrans">midtrans — QRIS, VA, GoPay, kartu</option>
+          <option value="duitku">duitku — VA, QRIS, e-wallet</option>
+          <option value="ipaymu">ipaymu — QRIS, VA, retail</option>
+          <option value="nowpayments">nowpayments — crypto</option>
+          <option value="lynk">lynk — checkout link</option>
+          <option value="tripay">tripay — QRIS, VA, retail</option>
+          <option value="xendit">xendit — kartu, VA, e-wallet</option>
+          <option value="paypal">paypal — global checkout</option>
+          <option value="telegram_stars">telegram_stars — XTR</option>
+          <option value="telegram_payments">telegram_payments — invoice</option>
+          <option value="x402">x402 — USDC on Base</option>
+          <option value="erc8183">erc8183 — escrow USDC</option>
+          <option value="saweria">saweria — donasi</option>
+          <option value="mutasiku">mutasiku — mutasi bank (inbound)</option>
+          <option value="moota">moota — mutasi bank (inbound)</option>
         </select>
-        <div class="pane active" id="previewRequest"><code id="requestCode"></code></div>
-        <div class="pane" id="previewResponse"><code id="responseCode"></code></div>
+        <div class="pane active" id="previewRequest" role="tabpanel"><code class="code" id="requestCode"></code></div>
+        <div class="pane" id="previewResponse" role="tabpanel"><code class="code" id="responseCode"></code></div>
+      </div>
+    </div>
+    <p class="body-sm reveal" style="margin-top:16px">
+      <span class="lang-id">Contoh memakai <code class="inline-code">X-API-Key</code>. Response selalu dibungkus <code class="inline-code">{ success, data }</code>.</span>
+      <span class="lang-en hidden">Examples use <code class="inline-code">X-API-Key</code>. Responses are always wrapped as <code class="inline-code">{ success, data }</code>.</span>
+    </p>
+  </div>
+</section>
+
+<!-- GATEWAYS -->
+<section id="gateways" class="section-pad">
+  <div class="wrap">
+    <p class="eyebrow reveal"><span class="lang-id">Gateway</span><span class="lang-en hidden">Gateways</span></p>
+    <h2 class="h2 reveal"><span class="lang-id">15 gateway, satu bentuk</span><span class="lang-en hidden">15 gateways, one shape</span></h2>
+    <p class="lede reveal" style="margin-bottom:22px">
+      <span class="lang-id">Lima gateway aktif dengan kredensial platform. Sisanya tersedia begitu Anda menyimpan kredensial sendiri di dashboard.</span>
+      <span class="lang-en hidden">Five gateways are live with platform credentials. The rest become available as soon as you save your own credentials in the dashboard.</span>
+    </p>
+    <div class="legend reveal">
+      <span><span class="dot dot-live" aria-hidden="true"></span><span class="lang-id">Aktif di platform</span><span class="lang-en hidden">Live on platform</span></span>
+      <span><span class="dot dot-byok" aria-hidden="true"></span><span class="lang-id">Bawa kredensial sendiri</span><span class="lang-en hidden">Bring your own key</span></span>
+    </div>
+
+    <p class="group-label" style="color:var(--accent)"><span class="lang-id">Indonesia</span><span class="lang-en hidden">Indonesia</span></p>
+    <div class="grid g-gw" style="margin-bottom:34px">
+      <div class="gw"><div class="gw-name"><span class="dot dot-live" aria-hidden="true"></span>Midtrans</div><div class="gw-meta">QRIS, VA, GoPay, kartu</div></div>
+      <div class="gw"><div class="gw-name"><span class="dot dot-live" aria-hidden="true"></span>Duitku</div><div class="gw-meta">VA, QRIS, e-wallet</div></div>
+      <div class="gw"><div class="gw-name"><span class="dot dot-live" aria-hidden="true"></span>iPaymu</div><div class="gw-meta">QRIS, VA, retail</div></div>
+      <div class="gw"><div class="gw-name"><span class="dot dot-live" aria-hidden="true"></span>Lynk.id</div><div class="gw-meta">Checkout link, QRIS</div></div>
+      <div class="gw"><div class="gw-name"><span class="dot dot-byok" aria-hidden="true"></span>Tripay</div><div class="gw-meta">QRIS, VA, retail</div></div>
+      <div class="gw"><div class="gw-name"><span class="dot dot-byok" aria-hidden="true"></span>Xendit</div><div class="gw-meta">Kartu, VA, e-wallet</div></div>
+      <div class="gw"><div class="gw-name"><span class="dot dot-byok" aria-hidden="true"></span>Saweria</div><div class="gw-meta">Donasi, QRIS</div></div>
+      <div class="gw"><div class="gw-name"><span class="dot dot-byok" aria-hidden="true"></span>Mutasiku</div><div class="gw-meta">Mutasi bank (inbound)</div></div>
+      <div class="gw"><div class="gw-name"><span class="dot dot-byok" aria-hidden="true"></span>Moota</div><div class="gw-meta">Mutasi bank (inbound)</div></div>
+    </div>
+
+    <p class="group-label" style="color:var(--success)"><span class="lang-id">Global &amp; crypto</span><span class="lang-en hidden">Global &amp; crypto</span></p>
+    <div class="grid g-gw" style="margin-bottom:34px">
+      <div class="gw"><div class="gw-name"><span class="dot dot-live" aria-hidden="true"></span>NOWPayments</div><div class="gw-meta">BTC, ETH, USDT, USDC</div></div>
+      <div class="gw"><div class="gw-name"><span class="dot dot-byok" aria-hidden="true"></span>PayPal</div><div class="gw-meta">Global checkout</div></div>
+      <div class="gw"><div class="gw-name"><span class="dot dot-byok" aria-hidden="true"></span>x402</div><div class="gw-meta">USDC on Base</div></div>
+      <div class="gw"><div class="gw-name"><span class="dot dot-byok" aria-hidden="true"></span>ERC-8183</div><div class="gw-meta">Escrow agen</div></div>
+    </div>
+
+    <p class="group-label" style="color:var(--warning)"><span class="lang-id">Telegram-native</span><span class="lang-en hidden">Telegram-native</span></p>
+    <div class="grid g-gw" style="margin-bottom:30px">
+      <div class="gw"><div class="gw-name"><span class="dot dot-byok" aria-hidden="true"></span>Telegram Stars</div><div class="gw-meta">XTR microtransaction</div></div>
+      <div class="gw"><div class="gw-name"><span class="dot dot-byok" aria-hidden="true"></span>Telegram Payments</div><div class="gw-meta">Invoice multi-currency</div></div>
+    </div>
+
+    <div class="card-flat reveal" style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap">
+      <span class="body-sm"><span class="lang-id">Dipakai di ekosistem kami:</span><span class="lang-en hidden">Powering our ecosystem:</span></span>
+      <span class="mono" style="font-size:13px;color:var(--accent-soft)">1ai-trade-cex · 1ai-ads · 1ai-trip-planner</span>
+    </div>
+  </div>
+</section>
+
+<!-- RELIABILITY -->
+<section id="reliability" class="section-pad section-alt">
+  <div class="wrap">
+    <p class="eyebrow reveal"><span class="lang-id">Keandalan</span><span class="lang-en hidden">Reliability</span></p>
+    <h2 class="h2 reveal"><span class="lang-id">Membosankan di production</span><span class="lang-en hidden">Boring in production</span></h2>
+    <p class="lede reveal" style="margin-bottom:36px">
+      <span class="lang-id">Bagian menarik dari pembayaran terjadi sekali, di kode kami — bukan tiap kali ada yang rusak jam 2 pagi di kode Anda.</span>
+      <span class="lang-en hidden">The interesting part of payments happens once, in our code — not every time something breaks at 2am in yours.</span>
+    </p>
+    <div class="grid g-3">
+      <div class="card card-hover reveal">
+        <div class="step-icon" aria-hidden="true">↻</div>
+        <h3 class="h3"><span class="lang-id">Retry + dead-letter</span><span class="lang-en hidden">Retry + dead-letter</span></h3>
+        <p class="body-sm"><span class="lang-id">Webhook yang gagal dicoba 3× (5s, 30s, 300s). Setelah habis, event masuk dead-letter dan bisa di-replay dari dashboard.</span><span class="lang-en hidden">Failed webhooks are retried 3× (5s, 30s, 300s). Once exhausted, the event lands in the dead-letter queue and can be replayed from the dashboard.</span></p>
+      </div>
+      <div class="card card-hover reveal">
+        <div class="step-icon" aria-hidden="true">🔐</div>
+        <h3 class="h3"><span class="lang-id">HMAC + timing-safe</span><span class="lang-en hidden">HMAC + timing-safe</span></h3>
+        <p class="body-sm"><span class="lang-id">Setiap callback diteruskan dengan header <code class="inline-code">X-Payment-Signature</code> (HMAC-SHA256). Verifikasi gateway memakai perbandingan timing-safe.</span><span class="lang-en hidden">Every forwarded callback carries an <code class="inline-code">X-Payment-Signature</code> header (HMAC-SHA256). Gateway verification uses timing-safe comparison.</span></p>
+      </div>
+      <div class="card card-hover reveal">
+        <div class="step-icon" aria-hidden="true">🧾</div>
+        <h3 class="h3"><span class="lang-id">Idempoten</span><span class="lang-en hidden">Idempotent</span></h3>
+        <p class="body-sm"><span class="lang-id"><code class="inline-code">idempotency_key</code> dijaga UNIQUE index per merchant, dan callback duplikat ditolak di level database — bukan hanya dicek di kode.</span><span class="lang-en hidden"><code class="inline-code">idempotency_key</code> is backed by a per-merchant UNIQUE index, and duplicate callbacks are rejected at the database level — not only checked in code.</span></p>
+      </div>
+      <div class="card card-hover reveal">
+        <div class="step-icon" aria-hidden="true">🔒</div>
+        <h3 class="h3"><span class="lang-id">Isolasi merchant</span><span class="lang-en hidden">Merchant isolation</span></h3>
+        <p class="body-sm"><span class="lang-id">API key merchant-scoped dan rate limit terpisah. Kredensial gateway yang Anda simpan dienkripsi AES-256-GCM.</span><span class="lang-en hidden">Merchant-scoped API keys and separate rate limits. Gateway credentials you save are encrypted with AES-256-GCM.</span></p>
+      </div>
+      <div class="card card-hover reveal">
+        <div class="step-icon" aria-hidden="true">🛡</div>
+        <h3 class="h3"><span class="lang-id">Callback URL dijaga SSRF</span><span class="lang-en hidden">SSRF-guarded callbacks</span></h3>
+        <p class="body-sm"><span class="lang-id">URL callback divalidasi per percobaan dan setiap redirect hop, sehingga server tidak bisa dipakai memanggil jaringan internal.</span><span class="lang-en hidden">Callback URLs are validated per attempt and on every redirect hop, so the server cannot be used to reach internal networks.</span></p>
+      </div>
+      <div class="card card-hover reveal">
+        <div class="step-icon" aria-hidden="true">📖</div>
+        <h3 class="h3"><span class="lang-id">OpenAPI</span><span class="lang-en hidden">OpenAPI</span></h3>
+        <p class="body-sm"><span class="lang-id">Spesifikasi OpenAPI 3.1 di-generate dari kode. Setiap endpoint bisa dicoba dari <a href="/reference" style="color:var(--accent-soft)">/reference</a>.</span><span class="lang-en hidden">The OpenAPI 3.1 spec is generated from code. Every endpoint is testable from <a href="/reference" style="color:var(--accent-soft)">/reference</a>.</span></p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════ 9. PRICING + FAQ + CTA ═══════════════ -->
-<section id="pricing" style="position:relative;z-index:1;padding:80px 24px;background:rgba(15,21,41,.5);border-top:1px solid #1e2745;border-bottom:1px solid #1e2745">
-  <div style="max-width:1100px;margin:0 auto;text-align:center">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">
-      <span class="lang-id">Harga</span>
-      <span class="lang-en hidden">Pricing</span>
+<!-- CONTRACT TABLE -->
+<section class="section-pad">
+  <div class="wrap">
+    <p class="eyebrow reveal"><span class="lang-id">Kontrak</span><span class="lang-en hidden">Contract</span></p>
+    <h2 class="h2 reveal"><span class="lang-id">Yang benar-benar Anda terima</span><span class="lang-en hidden">What you actually receive</span></h2>
+    <p class="lede reveal" style="margin-bottom:28px">
+      <span class="lang-id">Event yang diteruskan ke <code class="inline-code">callback_url</code> Anda, apa pun gateway-nya.</span>
+      <span class="lang-en hidden">The event forwarded to your <code class="inline-code">callback_url</code>, whichever gateway processed it.</span>
     </p>
-    <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:12px;letter-spacing:-.3px" class="reveal">
-      <span class="lang-id">Mulai gratis. Tumbuh sesuai pemakaian.</span>
-      <span class="lang-en hidden">Start free. Grow with usage.</span>
-    </h2>
-    <p style="color:#7c89b5;font-size:16px;max-width:480px;margin:0 auto 24px" class="reveal">
-      <span class="lang-id">Tanpa setup fee. Free 30 req/menit + biaya gateway standar. Pro dan Enterprise ditetapkan admin — hubungi kami untuk volume.</span>
-      <span class="lang-en hidden">No setup fee. Free 30 req/min + standard gateway fees. Pro and Enterprise assigned by admin — talk to us for volume.</span>
+    <div class="table-wrap reveal">
+      <table>
+        <caption class="hidden">Normalized webhook event fields</caption>
+        <thead><tr>
+          <th><span class="lang-id">Field</span><span class="lang-en hidden">Field</span></th>
+          <th><span class="lang-id">Arti</span><span class="lang-en hidden">Meaning</span></th>
+        </tr></thead>
+        <tbody>
+          <tr><td><code>event_id</code></td><td><span class="lang-id">ID stabil per order + status — dipakai untuk dedupe saat retry dan replay.</span><span class="lang-en hidden">Stable per order + status — use it to dedupe across retries and replays.</span></td></tr>
+          <tr><td><code>event</code></td><td><span class="lang-id">Tipe event, mis. <code>payment.success</code>.</span><span class="lang-en hidden">Event type, e.g. <code>payment.success</code>.</span></td></tr>
+          <tr><td><code>status</code></td><td><span class="lang-id">Salah satu dari success, pending, failed, expired, cancelled, refunded.</span><span class="lang-en hidden">One of success, pending, failed, expired, cancelled, refunded.</span></td></tr>
+          <tr><td><code>order_id</code></td><td><span class="lang-id">ID order dari 1ai-payment.</span><span class="lang-en hidden">Order ID from 1ai-payment.</span></td></tr>
+          <tr><td><code>project_order_id</code></td><td><span class="lang-id">ID order dari aplikasi Anda, apa adanya.</span><span class="lang-en hidden">Your own application order ID, passed through untouched.</span></td></tr>
+          <tr><td><code>gateway</code> / <code>gateway_reference</code></td><td><span class="lang-id">Gateway pemroses dan referensi transaksi di sisi gateway.</span><span class="lang-en hidden">The processing gateway and its transaction reference.</span></td></tr>
+          <tr><td><code>amount</code> / <code>currency</code></td><td><span class="lang-id">Nominal dan mata uang yang dibayar.</span><span class="lang-en hidden">Amount and currency paid.</span></td></tr>
+          <tr><td><code>metadata</code></td><td><span class="lang-id">Metadata Anda, diteruskan utuh sepanjang siklus.</span><span class="lang-en hidden">Your metadata, preserved through the whole lifecycle.</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="body-sm reveal" style="margin-top:14px">
+      <span class="lang-id">Header: <code class="inline-code">X-Payment-Signature</code> (HMAC-SHA256 body) dan <code class="inline-code">X-Payment-Event</code>.</span>
+      <span class="lang-en hidden">Headers: <code class="inline-code">X-Payment-Signature</code> (HMAC-SHA256 of the body) and <code class="inline-code">X-Payment-Event</code>.</span>
     </p>
-    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap" class="reveal">
-      <a href="/dashboard" class="btn-glow" style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:12px;font-size:14px;font-weight:600;background:#818cf8;color:#fff;transition:all .2s;text-decoration:none">
-        <span class="lang-id">Buat Merchant Account →</span>
-        <span class="lang-en hidden">Create Merchant Account →</span>
-      </a>
-      <a href="mailto:pay@berkahkarya.org" style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:12px;font-size:14px;font-weight:600;background:#0f1529;color:#e8edf5;border:1px solid #1e2745;transition:all .2s;text-decoration:none">
-        <span class="lang-id">Hubungi Kami</span>
-        <span class="lang-en hidden">Contact Us</span>
-      </a>
-    </div>
   </div>
-  <div style="max-width:800px;margin:64px auto 0">
-    <p style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#818cf8;margin-bottom:12px" class="reveal">FAQ</p>
-    <div class="faq-item reveal">
-      <details>
-        <summary><span class="lang-id">Apa yang terjadi jika gateway mati?</span><span class="lang-en hidden">What if a gateway goes down?</span></summary>
-        <div class="faq-answer">
-          <span class="lang-id">Integrasi Anda gateway-agnostic: ganti parameter <code>gateway</code> di payment request, transaksi lewat backup. Kode checkout tak pernah berubah.</span>
-          <span class="lang-en hidden">Your integration is gateway-agnostic: change the <code>gateway</code> parameter, transactions route via backup. Checkout code never changes.</span>
-        </div>
-      </details>
+</section>
+
+<!-- PRICING -->
+<section id="pricing" class="section-pad section-alt">
+  <div class="wrap">
+    <p class="eyebrow reveal"><span class="lang-id">Harga</span><span class="lang-en hidden">Pricing</span></p>
+    <h2 class="h2 reveal"><span class="lang-id">Bayar untuk trafik, bukan kursi</span><span class="lang-en hidden">Pay for traffic, not seats</span></h2>
+    <p class="lede reveal" style="margin-bottom:32px">
+      <span class="lang-id">Tanpa setup fee. Biaya gateway tetap sesuai kontrak masing-masing provider. Tier Pro dan Enterprise ditetapkan admin.</span>
+      <span class="lang-en hidden">No setup fee. Gateway fees stay per each provider's own contract. Pro and Enterprise tiers are assigned by admin.</span>
+    </p>
+    <div class="grid g-3">
+      <div class="card price reveal">
+        <div class="price-name">Free</div>
+        <div class="price-rate">30</div>
+        <div class="price-unit"><span class="lang-id">request / menit</span><span class="lang-en hidden">requests / minute</span></div>
+        <ul>
+          <li><span class="lang-id">Semua gateway yang kredensialnya tersedia</span><span class="lang-en hidden">Every gateway with available credentials</span></li>
+          <li><span class="lang-id">Webhook + retry + dead-letter replay</span><span class="lang-en hidden">Webhooks + retry + dead-letter replay</span></li>
+          <li><span class="lang-id">Dashboard transaksi &amp; refund</span><span class="lang-en hidden">Transaction &amp; refund dashboard</span></li>
+        </ul>
+      </div>
+      <div class="card price reveal" style="border-color:rgba(129,140,248,.45)">
+        <div class="price-name">Pro</div>
+        <div class="price-rate">120</div>
+        <div class="price-unit"><span class="lang-id">request / menit</span><span class="lang-en hidden">requests / minute</span></div>
+        <ul>
+          <li><span class="lang-id">Semua yang ada di Free</span><span class="lang-en hidden">Everything in Free</span></li>
+          <li><span class="lang-id">Rate limit 4× lebih besar</span><span class="lang-en hidden">4× the rate limit</span></li>
+          <li><span class="lang-id">Kredensial gateway per merchant</span><span class="lang-en hidden">Per-merchant gateway credentials</span></li>
+        </ul>
+      </div>
+      <div class="card price reveal">
+        <div class="price-name">Enterprise</div>
+        <div class="price-rate">600</div>
+        <div class="price-unit"><span class="lang-id">request / menit</span><span class="lang-en hidden">requests / minute</span></div>
+        <ul>
+          <li><span class="lang-id">Semua yang ada di Pro</span><span class="lang-en hidden">Everything in Pro</span></li>
+          <li><span class="lang-id">Rate limit 20× Free</span><span class="lang-en hidden">20× the Free rate limit</span></li>
+          <li><span class="lang-id">Dukungan langsung</span><span class="lang-en hidden">Direct support</span></li>
+        </ul>
+      </div>
     </div>
-    <div class="faq-item reveal">
-      <details>
-        <summary><span class="lang-id">Di mana data saya disimpan?</span><span class="lang-en hidden">Where is my data stored?</span></summary>
-        <div class="faq-answer">
-          <span class="lang-id">Database LibSQL di infrastruktur kami, terisolasi per merchant. Kami mencatat event ternormalisasi (order_id, status, amount) — bukan payload gateway mentah. Tak ada API key tersimpan plaintext.</span>
-          <span class="lang-en hidden">LibSQL on our infrastructure, scoped per merchant. We log normalized events (order_id, status, amount) — never raw gateway payloads. No plaintext API keys.</span>
-        </div>
-      </details>
-    </div>
-    <div class="faq-item reveal">
-      <details>
-        <summary><span class="lang-id">Apakah ini relevan dengan PCI?</span><span class="lang-en hidden">Is this PCI-relevant?</span></summary>
-        <div class="faq-answer">
-          <span class="lang-id">Kami tak menyimpan, memproses, atau mentransmisikan nomor kartu. Data bayar langsung pelanggan → gateway; kami hanya terima payment URL + status callback. Konsultasikan QSA Anda untuk implementasi spesifik.</span>
-          <span class="lang-en hidden">We never store, process, or transmit card numbers. Payment data goes customer → gateway; we only receive payment URLs + status callbacks. Consult your QSA for specifics.</span>
-        </div>
-      </details>
-    </div>
-    <div class="faq-item reveal">
-      <details>
-        <summary><span class="lang-id">Bisa white-label untuk klien?</span><span class="lang-en hidden">Can I white-label for clients?</span></summary>
-        <div class="faq-answer">
-          <span class="lang-id">Ya — API key merchant-scoped + rate limit terisolasi dibuat untuk itu. Hubungi kami untuk agency pricing.</span>
-          <span class="lang-en hidden">Yes — merchant-scoped keys + isolated rate limits are built for it. Contact us for agency pricing.</span>
-        </div>
-      </details>
-    </div>
-    <div class="faq-item reveal">
-      <details>
-        <summary><span class="lang-id">Siapa yang mengoperasikan ini?</span><span class="lang-en hidden">Who operates this?</span></summary>
-        <div class="faq-answer">
-          <span class="lang-id">Tim BerkahKarya (CV Graha Insan Mandiri Berkah). Service PM2 dengan auto-restart + health check; dukungan langsung untuk merchant Pro/Enterprise.</span>
-          <span class="lang-en hidden">The BerkahKarya team (CV Graha Insan Mandiri Berkah). PM2 service with auto-restart + health checks; direct support for Pro/Enterprise.</span>
-        </div>
-      </details>
-    </div>
+    <p class="body-sm reveal" style="margin-top:18px">
+      <span class="lang-id">Butuh volume lebih besar atau white-label? <a href="mailto:pay@berkahkarya.org" style="color:var(--accent-soft)">Hubungi kami</a>.</span>
+      <span class="lang-en hidden">Need more volume or white-label? <a href="mailto:pay@berkahkarya.org" style="color:var(--accent-soft)">Talk to us</a>.</span>
+    </p>
   </div>
-  <div style="max-width:1100px;margin:64px auto 0">
-    <div style="background:linear-gradient(135deg,#161d35,#0f1529);border:1px solid #1e2745;border-radius:20px;padding:60px 40px;text-align:center;position:relative;overflow:hidden">
-      <div class="hero-bg" style="opacity:.3;animation-duration:12s"></div>
-      <div style="position:relative;z-index:2">
-        <h2 style="font-size:clamp(26px,3vw,36px);font-weight:700;margin-bottom:12px;letter-spacing:-.3px" class="reveal">
-          <span class="lang-id">Terima pembayaran pertama dalam hitungan menit.</span>
-          <span class="lang-en hidden">Take your first payment in minutes.</span>
-        </h2>
-        <p style="font-size:14px;color:#7c89b5;margin-bottom:28px" class="reveal">
-          <span class="lang-id">Tanpa dokumen. Tanpa approval. Satu API key.</span>
-          <span class="lang-en hidden">No paperwork. No approval. One API key.</span>
-        </p>
-        <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
-          <a href="/dashboard" class="btn-glow" style="display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:12px;font-size:15px;font-weight:600;background:#818cf8;color:#fff;transition:all .2s;text-decoration:none">
-            <span class="lang-id">Buat Merchant Account →</span>
-            <span class="lang-en hidden">Create Merchant Account →</span>
-          </a>
-          <a href="/reference" style="display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:12px;font-size:15px;font-weight:600;background:#0f1529;color:#e8edf5;border:1px solid #1e2745;transition:all .2s;text-decoration:none">
-            <span class="lang-id">Baca API Docs</span>
-            <span class="lang-en hidden">Read API Docs</span>
-          </a>
-        </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" class="section-pad">
+  <div class="wrap" style="max-width:820px">
+    <p class="eyebrow reveal">FAQ</p>
+    <h2 class="h2 reveal"><span class="lang-id">Pertanyaan yang sering muncul</span><span class="lang-en hidden">Questions we actually get</span></h2>
+    <div class="faq reveal">
+      <div class="faq-item">
+        <details>
+          <summary><span class="lang-id">Apa yang terjadi kalau satu gateway mati?</span><span class="lang-en hidden">What happens if one gateway goes down?</span></summary>
+          <div class="faq-answer"><span class="lang-id">Integrasi Anda tidak terikat gateway: ganti nilai <code>gateway</code> pada request berikutnya dan transaksi lewat jalur lain. Kode checkout Anda tidak berubah. Perlu dicatat: failover antar-gateway tidak otomatis — pemilihan gateway ada di sisi Anda.</span><span class="lang-en hidden">Your integration is not gateway-bound: change the <code>gateway</code> value on the next request and the transaction takes another path. Your checkout code does not change. Note that cross-gateway failover is not automatic — gateway selection is yours.</span></div>
+        </details>
+      </div>
+      <div class="faq-item">
+        <details>
+          <summary><span class="lang-id">Di mana data saya disimpan?</span><span class="lang-en hidden">Where is my data stored?</span></summary>
+          <div class="faq-answer"><span class="lang-id">Database LibSQL di infrastruktur kami, terisolasi per merchant. Order dan event webhook ternormalisasi disimpan untuk audit dan replay — termasuk payload mentah callback dan header-nya, yang dipakai untuk investigasi dan replay. Kredensial gateway yang Anda simpan dienkripsi AES-256-GCM; API key disimpan sebagai hash SHA-256.</span><span class="lang-en hidden">LibSQL on our infrastructure, scoped per merchant. Orders and normalized webhook events are stored for audit and replay — including the raw callback payload and its headers, which back investigation and replay. Gateway credentials you save are encrypted with AES-256-GCM; API keys are stored as SHA-256 hashes.</span></div>
+        </details>
+      </div>
+      <div class="faq-item">
+        <details>
+          <summary><span class="lang-id">Apakah ini relevan dengan PCI?</span><span class="lang-en hidden">Is this PCI-relevant?</span></summary>
+          <div class="faq-answer"><span class="lang-id">Kami tidak menyimpan, memproses, atau mentransmisikan nomor kartu. Data bayar mengalir dari pelanggan langsung ke gateway; kami hanya menerima payment URL dan callback status. Konsultasikan QSA Anda untuk pemetaan yang berlaku pada bisnis Anda.</span><span class="lang-en hidden">We do not store, process, or transmit card numbers. Payment data flows from the customer straight to the gateway; we only receive the payment URL and status callbacks. Consult your QSA for the mapping that applies to your business.</span></div>
+        </details>
+      </div>
+      <div class="faq-item">
+        <details>
+          <summary><span class="lang-id">Bisa dipakai white-label untuk klien?</span><span class="lang-en hidden">Can I white-label it for clients?</span></summary>
+          <div class="faq-answer"><span class="lang-id">Ya. API key bersifat merchant-scoped dan kredensial gateway bisa disimpan per merchant, jadi satu klien satu isolasi. Hubungi kami untuk penawaran agency.</span><span class="lang-en hidden">Yes. API keys are merchant-scoped and gateway credentials can be stored per merchant, so each client gets its own isolation. Contact us for agency pricing.</span></div>
+        </details>
+      </div>
+      <div class="faq-item">
+        <details>
+          <summary><span class="lang-id">Siapa yang mengoperasikan ini?</span><span class="lang-en hidden">Who operates this?</span></summary>
+          <div class="faq-answer"><span class="lang-id">Tim BerkahKarya (CV Graha Insan Mandiri Berkah). Layanan berjalan di PM2 dengan auto-restart dan health check; endpoint <code>/health</code> publik melaporkan status database dan jumlah gateway terkonfigurasi.</span><span class="lang-en hidden">The BerkahKarya team (CV Graha Insan Mandiri Berkah). The service runs under PM2 with auto-restart and health checks; the public <code>/health</code> endpoint reports database status and how many gateways are configured.</span></div>
+        </details>
+      </div>
+    </div>
+
+    <div class="cta reveal" style="margin-top:56px">
+      <h2 class="h2"><span class="lang-id">Terima pembayaran pertama hari ini</span><span class="lang-en hidden">Take your first payment today</span></h2>
+      <p class="body-sm" style="margin-bottom:26px"><span class="lang-id">Daftar, ambil API key, kirim satu request.</span><span class="lang-en hidden">Register, grab an API key, send one request.</span></p>
+      <div class="btn-row" style="justify-content:center">
+        <a href="/dashboard" class="btn btn-primary"><span class="lang-id">Buat Merchant Account</span><span class="lang-en hidden">Create Merchant Account</span> →</a>
+        <a href="/reference" class="btn btn-ghost"><span class="lang-id">Baca API Docs</span><span class="lang-en hidden">Read API Docs</span></a>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════ MOBILE CTA BAR ═══════════════ -->
-<div class="mobile-cta-bar">
-  <a href="/dashboard" style="background:#818cf8;color:#fff;text-decoration:none">
-    <span class="lang-id">Buat Akun</span>
-    <span class="lang-en hidden">Create Account</span>
-  </a>
-  <a href="/reference" style="background:#0f1529;color:#e8edf5;border:1px solid #1e2745;text-decoration:none">
-    <span class="lang-id">API Docs</span>
-    <span class="lang-en hidden">API Docs</span>
-  </a>
+<div class="mobile-cta">
+  <a href="/dashboard" style="background:var(--accent);color:#0b1020"><span class="lang-id">Buat Akun</span><span class="lang-en hidden">Create Account</span></a>
+  <a href="/reference" style="background:var(--surface);color:var(--fg);border:1px solid var(--border-strong)">API Docs</a>
 </div>
 
-<!-- ═══════════════ 10. FOOTER ═══════════════ -->
-<footer style="border-top:1px solid #1e2745;padding:32px 24px;text-align:center;font-size:13px;color:#7c89b5">
-  <div style="max-width:1100px;margin:0 auto">
-    <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-bottom:12px">
-      <a href="/" style="color:#7c89b5;text-decoration:none">1ai-payment</a>
-      <span style="color:#1e2745">·</span>
-      <a href="/reference" style="color:#7c89b5;text-decoration:none">
-        <span class="lang-id">Referensi API</span>
-        <span class="lang-en hidden">API Reference</span>
-      </a>
-      <span style="color:#1e2745">·</span>
-      <a href="/dashboard" style="color:#7c89b5;text-decoration:none">
-        <span class="lang-id">Dashboard</span>
-        <span class="lang-en hidden">Dashboard</span>
-      </a>
-      <span style="color:#1e2745">·</span>
-      <a href="https://berkahkarya.org" style="color:#7c89b5;text-decoration:none" target="_blank">BerkahKarya</a>
-      <span style="color:#1e2745">·</span>
-      <a href="mailto:pay@berkahkarya.org" style="color:#7c89b5;text-decoration:none">
-        <span class="lang-id">Kontak</span>
-        <span class="lang-en hidden">Contact</span>
-      </a>
+<footer>
+  <div class="wrap">
+    <div class="footer-links">
+      <a href="/">1ai-payment</a>
+      <a href="/reference"><span class="lang-id">Referensi API</span><span class="lang-en hidden">API Reference</span></a>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/health">Health</a>
+      <a href="https://berkahkarya.org" target="_blank" rel="noopener">BerkahKarya</a>
+      <a href="mailto:pay@berkahkarya.org"><span class="lang-id">Kontak</span><span class="lang-en hidden">Contact</span></a>
     </div>
-    <p style="font-size:12px;opacity:.6">CV Graha Insan Mandiri Berkah</p>
+    <p style="font-size:12px;opacity:.65">CV Graha Insan Mandiri Berkah</p>
   </div>
 </footer>
-
 <script>
-// ── API Examples ──
-const API_EXAMPLES = {
-  midtrans: {
-    request: `POST /api/payments HTTP/1.1
-Content-Type: application/json
-x-api-key: 1pay_...
+// ── API examples ─────────────────────────────────────────────
+// Response shape mirrors orderResponseSchema: { success, data } envelope.
+function example(gateway, opts) {
+  return {
+    request: 'POST /api/payments HTTP/1.1\n' +
+      'Content-Type: application/json\n' +
+      'X-API-Key: 1pay_...\n' +
+      '\n' +
+      '{\n' +
+      '  "gateway": "' + gateway + '",\n' +
+      '  "amount": ' + opts.amount + ',\n' +
+      '  "currency": "' + opts.currency + '",\n' +
+      '  "payment_method": "' + opts.method + '",\n' +
+      '  "callback_url": "https://your-app.com/payment/callback",\n' +
+      '  "project_order_id": "' + opts.ref + '",\n' +
+      '  "idempotency_key": "order-' + opts.ref.toLowerCase() + '"\n' +
+      '}',
+    response: 'HTTP/1.1 201 Created\n' +
+      '\n' +
+      '{\n' +
+      '  "success": true,\n' +
+      '  "data": {\n' +
+      '    "id": "' + opts.id + '",\n' +
+      '    "gateway": "' + gateway + '",\n' +
+      '    "gateway_reference": "' + opts.gwref + '",\n' +
+      '    "status": "pending",\n' +
+      '    "amount": ' + opts.amount + ',\n' +
+      '    "currency": "' + opts.currency + '",\n' +
+      '    "payment_method": "' + opts.method + '",\n' +
+      '    "payment_url": ' + JSON.stringify(opts.url) + ',\n' +
+      '    "fee": 0,\n' +
+      '    "net": ' + opts.amount + ',\n' +
+      '    "metadata": null,\n' +
+      '    "created_at": "2026-10-22T09:14:02.118Z",\n' +
+      '    "updated_at": "2026-10-22T09:14:02.118Z"\n' +
+      '  }\n' +
+      '}'
+  };
+}
 
-{
-  "amount": 150000,
-  "currency": "IDR",
-  "gateway": "midtrans",
-  "payment_method": "credit_card",
-  "callback_url": "https://mystore.com/payment/callback",
-  "metadata": { "order_id": "ORD-2026-001" }
-}`,
-    response: `HTTP/1.1 201 Created
-
-{
-  "id": "pay_mid_abc123",
-  "amount": 150000,
-  "currency": "IDR",
-  "gateway": "midtrans",
-  "status": "pending",
-  "payment_url": "https://app.sandbox.midtrans.com/snap/v2/...",
-  "created_at": "2026-07-05T10:00:00.000Z",
-  "updated_at": "2026-07-05T10:00:00.000Z"
-}`,
+var API_EXAMPLES = {
+  midtrans: example('midtrans', {
+    amount: 150000, currency: 'IDR', method: 'qris',
+    ref: 'ORD-2026-001', id: 'pay_mid_8f3a21', gwref: 'b1f2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d',
+    url: 'https://app.sandbox.midtrans.com/snap/v4/redirection/b1f2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d'
+  }),
+  duitku: example('duitku', {
+    amount: 120000, currency: 'IDR', method: 'VC',
+    ref: 'ORD-2026-002', id: 'pay_dui_44b19c', gwref: 'D1234567890ABCDEF',
+    url: 'https://api-sandbox.duitku.com/redirect_checkout?reference=D1234567890ABCDEF'
+  }),
+  ipaymu: example('ipaymu', {
+    amount: 75000, currency: 'IDR', method: 'qris',
+    ref: 'ORD-2026-003', id: 'pay_ipm_71c0de', gwref: 'IPM-20261022-0001',
+    url: 'https://my.ipaymu.com/payment/IPM-20261022-0001'
+  }),
+  nowpayments: example('nowpayments', {
+    amount: 25, currency: 'USDT', method: 'usdttrc20',
+    ref: 'ORD-2026-004', id: 'pay_np_2ab9f7', gwref: '5521983746',
+    url: 'https://nowpayments.io/payment/?iid=5521983746'
+  }),
+  lynk: example('lynk', {
+    amount: 50000, currency: 'IDR', method: 'qris',
+    ref: 'ORD-2026-005', id: 'pay_lynk_93de40', gwref: 'ORD-2026-005',
+    url: 'https://lynk.id/jendralbot/ox33n8n04792'
+  }),
+  tripay: example('tripay', {
+    amount: 100000, currency: 'IDR', method: 'QRIS',
+    ref: 'ORD-2026-006', id: 'pay_trip_5c81ba', gwref: 'T0001-20261022-XXXX',
+    url: 'https://tripay.co.id/checkout/T0001-20261022-XXXX'
+  }),
+  xendit: example('xendit', {
+    amount: 250000, currency: 'IDR', method: 'bca',
+    ref: 'ORD-2026-007', id: 'pay_xen_e07b32', gwref: '6f1c9e2a-3b4d-4e5f-8a9b-0c1d2e3f4a5b',
+    url: 'https://checkout-staging.xendit.co/web/6f1c9e2a-3b4d-4e5f-8a9b-0c1d2e3f4a5b'
+  }),
+  paypal: example('paypal', {
+    amount: 50, currency: 'USD', method: 'paypal',
+    ref: 'ORD-2026-008', id: 'pay_pp_c13d88', gwref: '8AB12345CD678901E',
+    url: 'https://www.sandbox.paypal.com/checkoutnow?token=8AB12345CD678901E'
+  }),
+  telegram_stars: example('telegram_stars', {
+    amount: 100, currency: 'XTR', method: 'stars',
+    ref: 'ORD-2026-009', id: 'pay_ts_6f0a17', gwref: 'ORD-2026-009',
+    url: 'https://t.me/$1ai_payment_bot?invoice=AQAAAA'
+  }),
+  telegram_payments: example('telegram_payments', {
+    amount: 9.99, currency: 'EUR', method: 'telegram',
+    ref: 'ORD-2026-010', id: 'pay_tp_b82f04', gwref: 'ORD-2026-010',
+    url: 'https://t.me/$1ai_payment_bot?invoice=AgAAAA'
+  }),
+  x402: example('x402', {
+    amount: 0.5, currency: 'USDC', method: 'usdc_base',
+    ref: 'ORD-2026-011', id: 'pay_x42_19c7fe', gwref: 'ORD-2026-011',
+    url: '{"x402Version":1,"accepts":[{"scheme":"exact","network":"eip155:8453","maxAmountRequired":"500000","payTo":"0xMerchant...","asset":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"}]}'
+  }),
+  erc8183: example('erc8183', {
+    amount: 1.2, currency: 'USDC', method: 'erc8183_escrow',
+    ref: 'ORD-2026-012', id: 'pay_e83_4a1d90', gwref: 'ORD-2026-012',
+    url: '{"escrowId":"0x9f...","evaluator":"0xEval...","token":"0xUSDC...","amount":"1200000"}'
+  }),
+  saweria: example('saweria', {
+    amount: 50000, currency: 'IDR', method: 'qris',
+    ref: 'ORD-2026-013', id: 'pay_saw_7d20bb', gwref: 'ORD-2026-013',
+    url: 'https://saweria.co/1aipayment'
+  }),
+  mutasiku: {
+    request: 'POST /webhook/mutasiku HTTP/1.1\n' +
+      'Content-Type: application/json\n' +
+      'X-Mutasiku-Signature: <hmac-sha256>\n' +
+      '\n' +
+      '{\n' +
+      '  "reference_id": "MUT-20261022-0001",\n' +
+      '  "amount": 99000,\n' +
+      '  "status": "success",\n' +
+      '  "notes": "ORD-2026-014"\n' +
+      '}',
+    response: 'HTTP/1.1 200 OK\n' +
+      '\n' +
+      '{\n' +
+      '  "ok": true\n' +
+      '}\n' +
+      '\n' +
+      '// Inbound-only aggregator: there is no POST /api/payments.\n' +
+      '// Read the ledger via GET /api/mutasiku/accounts\n' +
+      '// or POST /api/mutasiku/mutations.'
   },
-  xendit: {
-    request: `POST /api/payments HTTP/1.1
-Content-Type: application/json
-x-api-key: 1pay_...
-
-{
-  "amount": 250000,
-  "currency": "IDR",
-  "gateway": "xendit",
-  "payment_method": "virtual_account",
-  "callback_url": "https://mystore.com/payment/callback",
-  "metadata": { "order_id": "ORD-2026-002" }
-}`,
-    response: `HTTP/1.1 201 Created
-
-{
-  "id": "pay_xen_def456",
-  "amount": 250000,
-  "currency": "IDR",
-  "gateway": "xendit",
-  "status": "pending",
-  "payment_url": "https://checkout.xendit.co/...",
-  "created_at": "2026-07-05T10:00:00.000Z",
-  "updated_at": "2026-07-05T10:00:00.000Z"
-}`,
-  },
-  paypal: {
-    request: `POST /api/payments HTTP/1.1
-Content-Type: application/json
-x-api-key: 1pay_...
-
-{
-  "amount": 50,
-  "currency": "USD",
-  "gateway": "paypal",
-  "payment_method": "paypal_checkout",
-  "callback_url": "https://mystore.com/payment/callback",
-  "metadata": { "order_id": "ORD-2026-003" }
-}`,
-    response: `HTTP/1.1 201 Created
-
-{
-  "id": "pay_pp_ghi789",
-  "amount": 50,
-  "currency": "USD",
-  "gateway": "paypal",
-  "status": "pending",
-  "payment_url": "https://www.paypal.com/checkout/...",
-  "created_at": "2026-07-05T10:00:00.000Z",
-  "updated_at": "2026-07-05T10:00:00.000Z"
-}`,
-  },
-  tripay: {
-    request: `POST /api/payments HTTP/1.1
-Content-Type: application/json
-x-api-key: 1pay_...
-
-{
-  "amount": 100000,
-  "currency": "IDR",
-  "gateway": "tripay",
-  "payment_method": "qr_code",
-  "callback_url": "https://mystore.com/payment/callback",
-  "metadata": { "order_id": "ORD-2026-004" }
-}`,
-    response: `HTTP/1.1 201 Created
-
-{
-  "id": "pay_trip_jkl012",
-  "amount": 100000,
-  "currency": "IDR",
-  "gateway": "tripay",
-  "status": "pending",
-  "payment_url": "https://tripay.co.id/checkout/...",
-  "created_at": "2026-07-05T10:00:00.000Z",
-  "updated_at": "2026-07-05T10:00:00.000Z"
-}`,
-  },
-  telegram_stars: {
-    request: `POST /api/payments HTTP/1.1
-Content-Type: application/json
-x-api-key: 1pay_...
-
-{
-  "amount": 100,
-  "currency": "XTR",
-  "gateway": "telegram_stars",
-  "payment_method": "stars",
-  "callback_url": "https://mystore.com/payment/callback",
-  "metadata": { "order_id": "ORD-2026-005" }
-}`,
-    response: `HTTP/1.1 201 Created
-
-{
-  "id": "pay_ts_mno345",
-  "amount": 100,
-  "currency": "XTR",
-  "gateway": "telegram_stars",
-  "status": "pending",
-  "payment_url": "https://t.me/...",
-  "created_at": "2026-07-05T10:00:00.000Z",
-  "updated_at": "2026-07-05T10:00:00.000Z"
-}`,
-  },
-  duitku: {
-    request: `POST /api/payments HTTP/1.1
-Content-Type: application/json
-x-api-key: 1pay_...
-
-{
-  "amount": 120000,
-  "currency": "IDR",
-  "gateway": "duitku",
-  "payment_method": "virtual_account",
-  "callback_url": "https://mystore.com/payment/callback",
-  "metadata": { "order_id": "ORD-2026-006" }
-}`,
-    response: `HTTP/1.1 201 Created
-
-{
-  "id": "pay_dui_pqr678",
-  "amount": 120000,
-  "currency": "IDR",
-  "gateway": "duitku",
-  "status": "pending",
-  "payment_url": "https://api.duitku.com/...",
-  "created_at": "2026-07-05T10:00:00.000Z",
-  "updated_at": "2026-07-05T10:00:00.000Z"
-}`,
-  },
-  ipaymu: {
-    request: `POST /api/payments HTTP/1.1
-Content-Type: application/json
-x-api-key: 1pay_...
-
-{
-  "amount": 75000,
-  "currency": "IDR",
-  "gateway": "ipaymu",
-  "payment_method": "qris",
-  "callback_url": "https://mystore.com/payment/callback",
-  "metadata": { "order_id": "ORD-2026-007" }
-}`,
-    response: `HTTP/1.1 201 Created
-
-{
-  "id": "pay_ipm_stu901",
-  "amount": 75000,
-  "currency": "IDR",
-  "gateway": "ipaymu",
-  "status": "pending",
-  "payment_url": "https://ipaymu.com/checkout/...",
-  "created_at": "2026-07-05T10:00:00.000Z",
-  "updated_at": "2026-07-05T10:00:00.000Z"
-}`,
-  },
-  nowpayments: {
-    request: `POST /api/payments HTTP/1.1
-Content-Type: application/json
-x-api-key: 1pay_...
-
-{
-  "amount": 25,
-  "currency": "USDT",
-  "gateway": "nowpayments",
-  "payment_method": "crypto",
-  "callback_url": "https://mystore.com/payment/callback",
-  "metadata": { "order_id": "ORD-2026-009" }
-}`,
-    response: `HTTP/1.1 201 Created
-
-{
-  "id": "pay_np_yz012",
-  "amount": 25,
-  "currency": "USDT",
-  "gateway": "nowpayments",
-  "status": "pending",
-  "payment_url": "https://nowpayments.io/...",
-  "created_at": "2026-07-05T10:00:00.000Z",
-  "updated_at": "2026-07-05T10:00:00.000Z"
-}`,
-  },
-  x402: {
-    request: `POST /api/payments HTTP/1.1
-Content-Type: application/json
-x-api-key: 1pay_...
-
-{
-  "amount": 0.5,
-  "currency": "USDC",
-  "gateway": "x402",
-  "payment_method": "x402_facilitator",
-  "callback_url": "https://mystore.com/payment/callback",
-  "metadata": { "order_id": "ORD-2026-010" }
-}`,
-    response: `HTTP/1.1 201 Created
-
-{
-  "id": "pay_x42_abc345",
-  "amount": 0.5,
-  "currency": "USDC",
-  "gateway": "x402",
-  "status": "pending",
-  "payment_url": "https://facilitator.example/x402/...",
-  "created_at": "2026-07-05T10:00:00.000Z",
-  "updated_at": "2026-07-05T10:00:00.000Z"
-}`,
-  },
-  erc8183: {
-    request: `POST /api/payments HTTP/1.1
-Content-Type: application/json
-x-api-key: 1pay_...
-
-{
-  "amount": 1.2,
-  "currency": "USDC",
-  "gateway": "erc8183",
-  "payment_method": "erc8183_escrow",
-  "callback_url": "https://mystore.com/payment/callback",
-  "metadata": { "order_id": "ORD-2026-011", "evaluator": "0xEval..." }
-}`,
-    response: `HTTP/1.1 201 Created
-
-{
-  "id": "pay_e83_def678",
-  "amount": 1.2,
-  "currency": "USDC",
-  "gateway": "erc8183",
-  "status": "pending",
-  "payment_url": "https://erc8183.example/escrow/...",
-  "created_at": "2026-07-05T10:00:00.000Z",
-  "updated_at": "2026-07-05T10:00:00.000Z"
-}`,
-  },
-  telegram_payments: {
-    request: `POST /api/payments HTTP/1.1
-Content-Type: application/json
-x-api-key: 1pay_...
-
-{
-  "amount": 9.99,
-  "currency": "EUR",
-  "gateway": "telegram_payments",
-  "payment_method": "telegram_invoice",
-  "callback_url": "https://mystore.com/payment/callback",
-  "metadata": { "order_id": "ORD-2026-012" }
-}`,
-    response: `HTTP/1.1 201 Created
-
-{
-  "id": "pay_tp_ghi901",
-  "amount": 9.99,
-  "currency": "EUR",
-  "gateway": "telegram_payments",
-  "status": "pending",
-  "payment_url": "https://t.me/invoice/...",
-  "created_at": "2026-07-05T10:00:00.000Z",
-  "updated_at": "2026-07-05T10:00:00.000Z"
-}`,
-  },
-  saweria: {
-    request: `POST /api/payments HTTP/1.1
-Content-Type: application/json
-x-api-key: 1pay_...
-
-{
-  "amount": 50000,
-  "currency": "IDR",
-  "gateway": "saweria",
-  "payment_method": "donation",
-  "callback_url": "https://mystore.com/payment/callback",
-  "metadata": { "order_id": "ORD-2026-013" }
-}`,
-    response: `HTTP/1.1 201 Created
-
-{
-  "id": "pay_saw_jkl234",
-  "amount": 50000,
-  "currency": "IDR",
-  "gateway": "saweria",
-  "status": "pending",
-  "payment_url": "https://saweria.co/...",
-  "created_at": "2026-07-05T10:00:00.000Z",
-  "updated_at": "2026-07-05T10:00:00.000Z"
-}`,
-  },
+  moota: {
+    request: 'POST /webhook/moota HTTP/1.1\n' +
+      'Content-Type: application/json\n' +
+      'X-Moota-Signature: <hmac-sha256>\n' +
+      '\n' +
+      '{\n' +
+      '  "id": "MOO-20261022-0001",\n' +
+      '  "amount": 99000,\n' +
+      '  "type": "CR",\n' +
+      '  "note": "ORD-2026-015"\n' +
+      '}',
+    response: 'HTTP/1.1 200 OK\n' +
+      '\n' +
+      '{\n' +
+      '  "ok": true\n' +
+      '}\n' +
+      '\n' +
+      '// Inbound-only aggregator: there is no POST /api/payments.\n' +
+      '// Read the ledger via GET /api/moota/accounts\n' +
+      '// or POST /api/moota/mutations.'
+  }
 };
 
 function updatePreview() {
-  var gw = document.getElementById('gwSelect').value;
-  var ex = API_EXAMPLES[gw];
+  var select = document.getElementById('gwSelect');
+  if (!select) return;
+  var ex = API_EXAMPLES[select.value];
   if (!ex) return;
   document.getElementById('requestCode').textContent = ex.request;
   document.getElementById('responseCode').textContent = ex.response;
 }
 
 function switchPreviewTab(tab, btn) {
-  document.querySelectorAll('.preview-panel .tabs button').forEach(function(b) { b.classList.remove('active'); });
-  btn.classList.add('active');
-  document.querySelectorAll('.preview-panel .pane').forEach(function(p) { p.classList.remove('active'); });
-  document.getElementById('preview' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+  document.querySelectorAll('.preview-tabs button').forEach(function (b) {
+    var on = b === btn;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  document.querySelectorAll('.pane').forEach(function (p) {
+    p.classList.toggle('active', p.id === 'preview' + tab.charAt(0).toUpperCase() + tab.slice(1));
+  });
 }
 
-// ── Language Toggle ──
+// ── Language toggle ──────────────────────────────────────────
 function setLang(lang) {
-  localStorage.setItem('lang', lang);
+  try { localStorage.setItem('lang', lang); } catch (e) {}
   document.documentElement.setAttribute('lang', lang);
-  document.querySelectorAll('.lang-id').forEach(function(el) {
+  document.querySelectorAll('.lang-id').forEach(function (el) {
     el.classList.toggle('hidden', lang === 'en');
   });
-  document.querySelectorAll('.lang-en').forEach(function(el) {
+  document.querySelectorAll('.lang-en').forEach(function (el) {
     el.classList.toggle('hidden', lang === 'id');
   });
-  // Update toggle pill
-  document.querySelectorAll('.lang-toggle span').forEach(function(el) {
+  document.querySelectorAll('.lang-toggle button').forEach(function (el) {
     el.classList.toggle('active', el.getAttribute('data-lang') === lang);
   });
-  // Re-trigger scroll reveal
-  document.querySelectorAll('.reveal.visible').forEach(function(el) {
-    el.classList.remove('visible');
-    void el.offsetWidth;
-    el.classList.add('visible');
-  });
 }
 
-// ── Nav scroll shadow ──
-window.addEventListener('scroll', function() {
+// ── Nav ──────────────────────────────────────────────────────
+function toggleNav(btn) {
+  var menu = document.getElementById('navMenu');
+  var open = menu.classList.toggle('open');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+window.addEventListener('scroll', function () {
   var nav = document.getElementById('navbar');
-  if (window.scrollY > 20) {
-    nav.classList.add('scrolled');
-  } else {
-    nav.classList.remove('scrolled');
-  }
-});
+  if (nav) nav.classList.toggle('scrolled', window.scrollY > 20);
+}, { passive: true });
 
-// ── Scroll Reveal ──
+// ── Scroll reveal ────────────────────────────────────────────
 function observeReveals() {
-  var observer = new IntersectionObserver(function(entries) {
-    entries.forEach(function(entry) {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('visible');
-        observer.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.1 });
-  document.querySelectorAll('.reveal').forEach(function(el) {
-    observer.observe(el);
-  });
+  var items = document.querySelectorAll('.reveal');
+  var revealAll = function () {
+    items.forEach(function (el) { el.classList.add('visible'); });
+  };
+  // No observer support, or reduced motion: never hide anything.
+  if (!('IntersectionObserver' in window) ||
+      (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+    revealAll();
+    return;
+  }
+  try {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+    document.documentElement.classList.add('reveal-ready');
+    items.forEach(function (el) { observer.observe(el); });
+  } catch (e) {
+    revealAll();
+    return;
+  }
+  // Failsafe: if the observer never delivers (throttled/background tab, or a
+  // browser that silently drops callbacks), content must still be readable.
+  setTimeout(revealAll, 2500);
 }
 
-// ── Mobile nav close on link click ──
-document.getElementById('navMenu').querySelectorAll('a').forEach(function(a) {
-  a.addEventListener('click', function() { document.getElementById('navMenu').classList.remove('open'); });
+document.getElementById('navMenu').querySelectorAll('a').forEach(function (a) {
+  a.addEventListener('click', function () {
+    document.getElementById('navMenu').classList.remove('open');
+    var t = document.querySelector('.nav-toggle');
+    if (t) t.setAttribute('aria-expanded', 'false');
+  });
 });
 
-// ── Init ──
 (function init() {
-  var lang = localStorage.getItem('lang') || 'id';
+  var lang = 'id';
+  try { lang = localStorage.getItem('lang') || 'id'; } catch (e) {}
   setLang(lang);
   observeReveals();
   updatePreview();
 })();
 </script>
-
-</body>
-</html>
-
 
 </body>
 </html>
