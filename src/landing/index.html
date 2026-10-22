@@ -275,8 +275,8 @@ html.reveal-ready .reveal{transition:opacity .55s ease,transform .55s ease}
     </div>
     <p class="hero-status reveal">
       <span class="dot dot-live" aria-hidden="true"></span>
-      <span class="lang-id">5 gateway aktif di platform · 10 lain pakai kredensial Anda sendiri · tanpa setup fee</span>
-      <span class="lang-en hidden">5 gateways live on platform · 10 more with your own credentials · no setup fee</span>
+      <span class="lang-id"><span data-gw-live>5</span> gateway aktif di platform · <span data-gw-own>10</span> lain pakai kredensial Anda sendiri · tanpa setup fee</span>
+      <span class="lang-en hidden"><span data-gw-live>5</span> gateways live on platform · <span data-gw-own>10</span> more with your own credentials · no setup fee</span>
     </p>
     <div class="chip-row hero-chips reveal">
       <span class="chip"><span class="lang-id">Verifikasi timing-safe</span><span class="lang-en hidden">Timing-safe verification</span></span>
@@ -400,8 +400,8 @@ html.reveal-ready .reveal{transition:opacity .55s ease,transform .55s ease}
     <p class="eyebrow reveal"><span class="lang-id">Gateway</span><span class="lang-en hidden">Gateways</span></p>
     <h2 class="h2 reveal"><span class="lang-id"><span data-gw-count>15</span> gateway, satu bentuk</span><span class="lang-en hidden"><span data-gw-count>15</span> gateways, one shape</span></h2>
     <p class="lede reveal" style="margin-bottom:22px">
-      <span class="lang-id">Lima gateway aktif dengan kredensial platform. Sisanya tersedia begitu Anda menyimpan kredensial sendiri di dashboard.</span>
-      <span class="lang-en hidden">Five gateways are live with platform credentials. The rest become available as soon as you save your own credentials in the dashboard.</span>
+      <span class="lang-id"><span data-gw-live-word="id">Lima</span> gateway aktif dengan kredensial platform. Sisanya tersedia begitu Anda menyimpan kredensial sendiri di dashboard.</span>
+      <span class="lang-en hidden"><span data-gw-live-word="en">Five</span> gateways are live with platform credentials. The rest become available as soon as you save your own credentials in the dashboard.</span>
     </p>
     <div class="legend reveal">
       <span><span class="dot dot-live" aria-hidden="true"></span><span class="lang-id">Aktif di platform</span><span class="lang-en hidden">Live on platform</span></span>
@@ -746,13 +746,16 @@ var API_EXAMPLES = {
   mutasiku: {
     request: 'POST /webhook/mutasiku HTTP/1.1\n' +
       'Content-Type: application/json\n' +
-      'X-Mutasiku-Signature: <hmac-sha256>\n' +
+      'X-Webhook-Signature: <hmac-sha256-hex>\n' +
       '\n' +
       '{\n' +
-      '  "reference_id": "MUT-20261022-0001",\n' +
-      '  "amount": 99000,\n' +
-      '  "status": "success",\n' +
-      '  "notes": "ORD-2026-014"\n' +
+      '  "id": "mut_9f21c4",\n' +
+      '  "nominal": 99000,\n' +
+      '  "jenis": "kredit",\n' +
+      '  "keterangan": "TRF ORD-2026-014",\n' +
+      '  "tanggal": "2026-10-23T08:12:00Z",\n' +
+      '  "bank": "BCA",\n' +
+      '  "rekening": "1234567890"\n' +
       '}',
     response: 'HTTP/1.1 200 OK\n' +
       '\n' +
@@ -761,19 +764,23 @@ var API_EXAMPLES = {
       '}\n' +
       '\n' +
       '// Inbound-only aggregator: there is no POST /api/payments.\n' +
-      '// Read the ledger via GET /api/mutasiku/accounts\n' +
-      '// or POST /api/mutasiku/mutations.'
+      '// Credit mutations forward as payment.success and match your\n' +
+      '// order by the unique code inside keterangan.\n' +
+      '// Pull history: POST /api/mutasiku/mutations'
   },
   moota: {
     request: 'POST /webhook/moota HTTP/1.1\n' +
       'Content-Type: application/json\n' +
-      'X-Moota-Signature: <hmac-sha256>\n' +
+      'X-Webhook-Signature: <hmac-sha256-hex>\n' +
       '\n' +
       '{\n' +
-      '  "id": "MOO-20261022-0001",\n' +
+      '  "mutation_id": "moo_7712bd",\n' +
       '  "amount": 99000,\n' +
       '  "type": "CR",\n' +
-      '  "note": "ORD-2026-015"\n' +
+      '  "description": "TRF ORD-2026-015",\n' +
+      '  "date": "2026-10-23T08:12:00Z",\n' +
+      '  "bank": "BCA",\n' +
+      '  "account_number": "1234567890"\n' +
       '}',
     response: 'HTTP/1.1 200 OK\n' +
       '\n' +
@@ -782,8 +789,8 @@ var API_EXAMPLES = {
       '}\n' +
       '\n' +
       '// Inbound-only aggregator: there is no POST /api/payments.\n' +
-      '// Read the ledger via GET /api/moota/accounts\n' +
-      '// or POST /api/moota/mutations.'
+      '// CR mutations forward as payment.success; DB mutations stay pending.\n' +
+      '// Pull history: POST /api/moota/mutations (needs account_id)'
   }
 };
 
@@ -876,6 +883,13 @@ document.getElementById('navMenu').querySelectorAll('a').forEach(function (a) {
 
 // Catalogue size is server-owned (/health -> selectable). Static text is the
 // fallback; a stale number is worse than a brief default.
+var GW_WORDS = ['nol', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh'];
+var GW_WORDS_EN = ['zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
+function liveWord(n, lang) {
+  var list = lang === 'en' ? GW_WORDS_EN : GW_WORDS;
+  if (n >= 0 && n < list.length) return list[n];
+  return String(n);
+}
 function hydrateGatewayCount() {
   if (!window.fetch) return;
   fetch('/health')
@@ -885,6 +899,17 @@ function hydrateGatewayCount() {
       if (typeof n !== 'number') return;
       document.querySelectorAll('[data-gw-count]').forEach(function (el) {
         el.textContent = String(n);
+      });
+      var live = body.gateways.configured;
+      if (typeof live !== 'number' || live > n) return;
+      document.querySelectorAll('[data-gw-live]').forEach(function (el) {
+        el.textContent = String(live);
+      });
+      document.querySelectorAll('[data-gw-own]').forEach(function (el) {
+        el.textContent = String(n - live);
+      });
+      document.querySelectorAll('[data-gw-live-word]').forEach(function (el) {
+        el.textContent = liveWord(live, el.getAttribute('data-gw-live-word'));
       });
     })
     .catch(function () { /* keep the fallback */ });
