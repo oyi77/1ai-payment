@@ -12,6 +12,8 @@ scratch/
 data/
 *.db
 *.sqlite
+*.db-shm
+*.db-wal
 
 # Build
 dist/

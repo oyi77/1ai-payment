@@ -396,37 +396,6 @@ for (const gatewayName of GATEWAY_NAMES) {
 		});
 
 		webhooksReceivedCounter.inc({ gateway: gatewayName, status: event.status });
-		// Request ID replay detection — correlate retries with same signature.
-		if (requestId) {
-			const db = getDb();
-			try {
-				const existing = await db.execute({
-					sql: "SELECT id FROM webhook_requests WHERE request_id = ? AND gateway = ?",
-					args: [requestId, gatewayName],
-				});
-				if (existing.rows.length > 0) {
-					logger.info("Duplicate request ID detected (replay), skipping", {
-						request_id: requestId,
-						gateway: gatewayName,
-					});
-					return c.json({ ok: true as const }, 200);
-				}
-				await db.execute({
-					sql: "INSERT INTO webhook_requests (id, request_id, gateway, processed_at) VALUES (?, ?, ?, ?)",
-					args: [
-						crypto.randomUUID(),
-						requestId,
-						gatewayName,
-						new Date().toISOString(),
-					],
-				});
-			} catch (err) {
-				logger.warn("Request ID tracking failed", {
-					request_id: requestId,
-					error: err instanceof Error ? err.message : String(err),
-				});
-			}
-		}
 
 		// Look up order — try by gateway_reference first, then order_id
 		let order: Order | null = null;
@@ -678,6 +647,41 @@ for (const gatewayName of GATEWAY_NAMES) {
 			return c.json({ ok: true as const }, 200);
 		}
 
+		// Request ID replay detection — claim the ID only now. Every skip path
+		// above (underpaid success, unknown order, amount rejection) has
+		// already returned 200, and the webhook_events/UNIQUE guards remain
+		// the atomic dedupe. Claiming earlier turned any later withdrawal into
+		// a permanently locked payment: the retry carried the same request id,
+		// matched the stale row and got a 200 "duplicate" for an event that
+		// was never processed. The claim is released below when the event row
+		// fails to persist for any reason other than a duplicate.
+		const claimId = requestId ? crypto.randomUUID() : null;
+		if (requestId && claimId) {
+			const db = getDb();
+			try {
+				const existing = await db.execute({
+					sql: "SELECT id FROM webhook_requests WHERE request_id = ? AND gateway = ?",
+					args: [requestId, gatewayName],
+				});
+				if (existing.rows.length > 0) {
+					logger.info("Duplicate request ID detected (replay), skipping", {
+						request_id: requestId,
+						gateway: gatewayName,
+					});
+					return c.json({ ok: true as const }, 200);
+				}
+				await db.execute({
+					sql: "INSERT INTO webhook_requests (id, request_id, gateway, processed_at) VALUES (?, ?, ?, ?)",
+					args: [claimId, requestId, gatewayName, new Date().toISOString()],
+				});
+			} catch (err) {
+				logger.warn("Request ID tracking failed", {
+					request_id: requestId,
+					error: err instanceof Error ? err.message : String(err),
+				});
+			}
+		}
+
 		// Re-normalize with metadata from order
 		const fullEvent = gateway.normalizeEvent(body, order.metadata);
 
@@ -711,6 +715,24 @@ for (const gatewayName of GATEWAY_NAMES) {
 					gateway: gatewayName,
 				});
 				return c.json({ ok: true as const }, 200);
+			}
+			// Nothing was recorded, so the claim must not outlive this attempt:
+			// the gateway retries and the event has to be processable then.
+			if (claimId) {
+				try {
+					await getDb().execute({
+						sql: "DELETE FROM webhook_requests WHERE id = ?",
+						args: [claimId],
+					});
+				} catch (releaseErr: unknown) {
+					logger.warn("Request ID claim release failed", {
+						request_id: requestId,
+						error:
+							releaseErr instanceof Error
+								? releaseErr.message
+								: String(releaseErr),
+					});
+				}
 			}
 			// Unexpected DB error — still return 200 per webhook contract
 			logger.error("Failed to log webhook event, skipping forward", {
