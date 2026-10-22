@@ -31,6 +31,7 @@ import {
 	revokeNexusAccess,
 } from "../services/nexus-fulfillment";
 import {
+	createOrder,
 	getOrderByGatewayRef,
 	getOrderById,
 	updateOrderStatus,
@@ -527,34 +528,48 @@ for (const gatewayName of GATEWAY_NAMES) {
 					const callbackUrl = String(r.callback_url ?? "");
 					const secret = decryptWebhookSecret(r.webhook_secret);
 					if (callbackUrl && secret) {
-						const orderRef = `ord_lynk_${event.gateway_reference || event.order_id || Date.now()}`;
-						const directOrder: Order = {
-							id: orderRef,
-							merchant_id: String(r.merchant_id),
-							project_id: String(r.merchant_id),
-							project_order_id: event.order_id,
-							callback_url: callbackUrl,
-							gateway: "lynk",
-							gateway_reference: event.gateway_reference,
-							amount: event.amount,
-							currency: event.currency,
-							payment_method: "lynk",
-							payment_url: null,
-							status: event.status,
-							metadata: event.metadata,
-							idempotency_key: null,
-							fee: 0,
-							net: event.amount,
-							created_at: new Date().toISOString(),
-							updated_at: new Date().toISOString(),
-							forwarded_at: null,
-							forward_attempts: 0,
-							forward_status: null,
-						};
+						// Persist the order before forwarding: forwardEvent's
+						// markForwarded() is an UPDATE, so without a row the
+						// delivery leaves no audit trail and dead letters
+						// reference an order that never existed.
+						const existingOrder = event.gateway_reference
+							? await getOrderByGatewayRef(event.gateway_reference)
+							: null;
+						let directOrder: Order;
+						if (existingOrder) {
+							directOrder = existingOrder;
+						} else {
+							try {
+								directOrder = await createOrder({
+									project_id: String(r.merchant_id),
+									merchant_id: String(r.merchant_id),
+									project_order_id: event.order_id,
+									callback_url: callbackUrl,
+									gateway: "lynk",
+									amount: event.amount,
+									currency: event.currency,
+									payment_method: "lynk",
+									metadata: event.metadata ?? undefined,
+								});
+								await updateOrderStatus(directOrder.id, event.status);
+							} catch (createErr: unknown) {
+								logger.error(
+									"Direct lynk checkout: failed to persist order, skipping forward",
+									{
+										gateway_reference: event.gateway_reference,
+										error:
+											createErr instanceof Error
+												? createErr.message
+												: String(createErr),
+									},
+								);
+								return c.json({ ok: true as const }, 200);
+							}
+						}
 						trackForward(
 							forwardEvent(event, directOrder, secret).catch((err: unknown) => {
 								logger.error("Async forward failed for direct lynk checkout", {
-									order_id: orderRef,
+									order_id: directOrder.id,
 									error: err instanceof Error ? err.message : String(err),
 								});
 							}),
