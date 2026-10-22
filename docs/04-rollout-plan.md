@@ -15,7 +15,8 @@ Phase 0 (Foundation) is **complete**. The in-repo pieces of Phase 5 (Commerciali
 16 gateways registered (midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria, lynk, mutasiku, moota)
 
 **Verification:**
-- `bun test` — 759 pass / 0 fail (verified 2026-10-20, 78 files)
+- `bun test` — 825 pass / 0 fail (verified 2026-10-23, 87 files, 5 consecutive runs)
+- `bun run lint` — biome clean
 - `bun x tsc --noEmit` — exit 0
 
 **In-place production features (verified in source):**
