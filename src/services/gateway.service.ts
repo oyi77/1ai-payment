@@ -59,8 +59,13 @@ function isConfigured(name: string, config: unknown): boolean {
 		case "scalev":
 			return Boolean(cfg.storefrontApiKey && cfg.storeId);
 		case "telegram_stars":
-		case "telegram_payments":
+			// Stars needs no provider token: XTR is settled by Telegram itself.
 			return Boolean(cfg.botToken && cfg.webhookSecret);
+		case "telegram_payments":
+			// Fiat invoices require a provider_token (Stripe/PayPal/etc).
+			// Without it createInvoiceLink is rejected upstream, so a bot
+			// token alone must not advertise this gateway as ready.
+			return Boolean(cfg.botToken && cfg.webhookSecret && cfg.providerToken);
 		case "paypal":
 			return Boolean(cfg.clientId && cfg.clientSecret && cfg.webhookId);
 		case "mutasiku":

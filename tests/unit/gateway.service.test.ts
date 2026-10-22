@@ -3,7 +3,7 @@
  *
  * Pure logic — no database needed.
  */
-import { beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
 	getGateway,
 	getGatewayHealth,
@@ -11,6 +11,7 @@ import {
 	getAvailableGateways,
 	getGatewayNames,
 } from "../../src/services/gateway.service";
+import { resetConfigCache } from "../../src/config/env";
 
 beforeAll(() => {
 	// Ensure config is fresh — test-mode getConfig() already re-reads each call.
@@ -114,5 +115,44 @@ describe("re-exports", () => {
 	test("getGatewayNames and getGateway are re-exported", () => {
 		expect(typeof getGatewayNames).toBe("function");
 		expect(typeof getGateway).toBe("function");
+	});
+});
+
+describe("telegram gateways require what they actually use", () => {
+	const saved = {
+		bot: process.env.TELEGRAM_BOT_TOKEN,
+		secret: process.env.TELEGRAM_WEBHOOK_SECRET,
+		provider: process.env.TELEGRAM_PAYMENT_PROVIDER_TOKEN,
+	};
+
+	afterAll(() => {
+		for (const [key, value] of Object.entries({
+			TELEGRAM_BOT_TOKEN: saved.bot,
+			TELEGRAM_WEBHOOK_SECRET: saved.secret,
+			TELEGRAM_PAYMENT_PROVIDER_TOKEN: saved.provider,
+		})) {
+			if (value === undefined) delete process.env[key];
+			else process.env[key] = value;
+		}
+		resetConfigCache();
+	});
+
+	test("telegram_stars is ready with a bot token + webhook secret", () => {
+		process.env.TELEGRAM_BOT_TOKEN = "bot:stars";
+		process.env.TELEGRAM_WEBHOOK_SECRET = "whsec_stars";
+		delete process.env.TELEGRAM_PAYMENT_PROVIDER_TOKEN;
+		resetConfigCache();
+		const health = getGatewayHealth();
+		expect(health.telegram_stars.configured).toBe(true);
+		// Fiat invoices cannot work without a provider token.
+		expect(health.telegram_payments.configured).toBe(false);
+	});
+
+	test("telegram_payments needs a provider token, not just a bot", () => {
+		process.env.TELEGRAM_BOT_TOKEN = "bot:pay";
+		process.env.TELEGRAM_WEBHOOK_SECRET = "whsec_pay";
+		process.env.TELEGRAM_PAYMENT_PROVIDER_TOKEN = "prov:token";
+		resetConfigCache();
+		expect(getGatewayHealth().telegram_payments.configured).toBe(true);
 	});
 });
