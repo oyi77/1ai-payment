@@ -69,10 +69,13 @@ describe('TelegramStarsGateway.normalizeEvent', () => {
     expect(() => gateway.normalizeEvent({ update_id: 3 })).toThrow('Unknown Telegram payment update type');
   });
 
-  test('preserves metadata', () => {
+  test('preserves caller metadata and adds the payer id for refunds', () => {
     const meta = { source: 'telegram' };
     const event = gateway.normalizeEvent(makeSuccessUpdate(), meta);
-    expect(event.metadata).toEqual(meta);
+    // Caller keys survive untouched; telegram_user_id is required by
+    // refundStarPayment and can only be captured from this update.
+    expect(event.metadata).toMatchObject(meta);
+    expect(event.metadata?.telegram_user_id).toBe(12345);
   });
 });
 

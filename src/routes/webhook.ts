@@ -16,6 +16,10 @@ import { getDb } from "../config/database";
 import { MERCHANT_CREDENTIAL_KEYS, getConfig } from "../config/env";
 import { getGateway } from "../gateways";
 import type { NormalizedPaymentEvent } from "../gateways/base";
+import {
+	getPreCheckoutQuery,
+	handlePreCheckout,
+} from "../gateways/telegram-stars/precheckout";
 import { MAX_BODY_BYTES } from "../middleware/body-limit";
 import { webhooksReceivedCounter } from "../middleware/metrics";
 import {
@@ -352,6 +356,23 @@ for (const gatewayName of GATEWAY_NAMES) {
 				order_ref: orderRef,
 			});
 			return c.json({ error: "Invalid signature" }, 401);
+		}
+
+		// Telegram Stars requires an answer to pre_checkout_query within 10s or
+		// it cancels the payment. Answer BEFORE normalizing: normalization is
+		// downstream bookkeeping, while a missed answer kills the sale.
+		if (gatewayName === "telegram_stars" && getPreCheckoutQuery(body)) {
+			const answered = await handlePreCheckout(body);
+			// Contract for this route is `{ ok: true }` (200). The answer itself
+			// was already delivered to Telegram — or explicitly failed and was
+			// logged. Returning 5xx would only make Telegram retry a query we
+			// can no longer answer, so both branches stay 200.
+			if (!answered) {
+				logger.error("Telegram Stars: pre-checkout left unanswered", {
+					order_id: null,
+				});
+			}
+			return c.json({ ok: true as const }, 200);
 		}
 
 		// Normalize event (no metadata yet — we'll look up the order)

@@ -95,7 +95,13 @@ export function normalizeEvent(
 			currency: "XTR",
 			payment_method: "telegram_stars",
 			paid_at: new Date().toISOString(),
-			metadata: metadata ?? null,
+			// refundStarPayment REQUIRES the payer's user_id. Telegram only
+			// sends it on the update, so it must be captured here or the
+			// payment becomes unrefundable forever.
+			metadata: {
+				...(metadata ?? {}),
+				telegram_user_id: update.message.from?.id,
+			},
 		};
 	}
 

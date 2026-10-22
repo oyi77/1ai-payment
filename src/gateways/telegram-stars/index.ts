@@ -18,13 +18,16 @@
 import type {
 	CreatePaymentParams,
 	CreatePaymentResult,
+	GatewayVerifyOpts,
 	NormalizedPaymentEvent,
 	PaymentGateway,
 	PaymentMethod,
 	PaymentStatus,
+	RefundResult,
 } from "../base";
 
 import { createInvoice, getPaymentMethods } from "./payment";
+import { getTelegramUserIdForCharge, refundStarsPayment } from "./refund";
 import { extractStatus, normalizeEvent, verifySignature } from "./webhook";
 
 export class TelegramStarsGateway implements PaymentGateway {
@@ -51,6 +54,25 @@ export class TelegramStarsGateway implements PaymentGateway {
 	 */
 	verifySignature(body: unknown, headers: Record<string, string>): boolean {
 		return verifySignature(body, headers);
+	}
+
+	/**
+	 * Refund a Stars payment.
+	 *
+	 * Telegram identifies the charge by `telegram_payment_charge_id`, which is
+	 * exactly what normalizeEvent stores as gateway_reference. Refunds are
+	 * full-value only — the Bot API does not accept a partial amount — so a
+	 * partial refund request is rejected rather than silently rounded.
+	 */
+	async refundPayment(
+		gatewayRef: string,
+		amount: number,
+		opts?: GatewayVerifyOpts,
+	): Promise<RefundResult> {
+		// Telegram requires the payer's user_id, captured at payment time and
+		// stored on the order metadata. Look it up from the charge id.
+		const userId = await getTelegramUserIdForCharge(gatewayRef);
+		return refundStarsPayment(gatewayRef, amount, opts?.merchantId, userId);
 	}
 
 	/**
