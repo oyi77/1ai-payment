@@ -713,11 +713,21 @@ for (const gatewayName of GATEWAY_NAMES) {
 		// here resolves via notes so scalev_order_id = gateway_reference.
 		if (gatewayName === "scalev" && fullEvent.status === "success") {
 			const meta = order.metadata ?? {};
+			// Scalev's webhook carries no variant (verified against a real
+			// payload: no `items` array). For API-created orders the variant
+			// lives in the merchant's metadata, which extractVariantFromPayload
+			// already reads via `metadata.variant`. Without this merge the
+			// fulfillment path could never identify a product on this route.
+			const rawBody = body as Record<string, unknown>;
+			const bodyWithMetadata: Record<string, unknown> =
+				rawBody.metadata === undefined
+					? { ...rawBody, metadata: meta }
+					: rawBody;
 			const result = await handleNexusPayment(
 				gatewayName,
-				body as Record<string, unknown>,
-				String((body as Record<string, unknown>).customer_email ?? ""),
-				String((body as Record<string, unknown>).customer_name ?? ""),
+				bodyWithMetadata,
+				String(rawBody.customer_email ?? ""),
+				String(rawBody.customer_name ?? ""),
 				typeof meta.telegram_username === "string"
 					? meta.telegram_username
 					: undefined,

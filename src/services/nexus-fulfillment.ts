@@ -118,9 +118,19 @@ export async function handleNexusPayment(
 		return { success: false, error: "Not a Scalev payment" };
 	}
 
-	// Reject anything without an explicit success status (incl. missing status)
-	const rawStatus = body.status ?? body.payment_status;
-	if (rawStatus !== "success") {
+	// Scalev sends its own vocabulary ("paid"), not our normalized "success".
+	// The webhook route calls this with the RAW body, so accept both — gating
+	// on "success" alone silently rejected every real Scalev payment.
+	const rawStatus = String(
+		body.status ?? body.payment_status ?? "",
+	).toLowerCase();
+	const PAID_STATUSES: Record<string, true> = {
+		success: true,
+		paid: true,
+		completed: true,
+		settled: true,
+	};
+	if (!PAID_STATUSES[rawStatus]) {
 		return { success: false, error: "Payment not successful" };
 	}
 
