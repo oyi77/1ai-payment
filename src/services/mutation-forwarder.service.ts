@@ -16,6 +16,8 @@
  * unreachable project never blocks another).
  */
 
+import { randomUUID } from "node:crypto";
+
 import { getDb } from "../config/database";
 import type { NormalizedPaymentEvent } from "../gateways/base";
 import { decryptWebhookSecret, signPayload } from "../utils/crypto";
@@ -234,9 +236,10 @@ export async function fanoutMutation(
 					.map((result) =>
 						db.execute({
 							sql:
-								"INSERT INTO dead_letter_queue (type, payload, error_reason, retry_count, first_seen, last_attempt)" +
-								" VALUES (?, ?, 'failed_delivery', 0, ?, ?)",
+								"INSERT INTO dead_letter_queue (id, type, payload, error_reason, retry_count, first_seen, last_attempt)" +
+								" VALUES (?, ?, ?, 'failed_delivery', 0, ?, ?)",
 							args: [
+								randomUUID(),
 								"mutation_fanout",
 								JSON.stringify({
 									event_id: event.gateway_reference,
