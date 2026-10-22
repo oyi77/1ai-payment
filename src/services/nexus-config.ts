@@ -91,8 +91,53 @@ export function getVariantMap(): Record<string, NexusProduct> {
 	return variantMap;
 }
 
+/**
+ * Lowercase, strip diacritics, collapse punctuation/whitespace to single
+ * spaces. Scalev composes variant names as "<Product> - <Variant>", so the
+ * separators around the variant suffix must not affect matching.
+ */
+function normalizeVariantKey(value: string): string {
+	return value
+		.normalize("NFKD")
+		.replace(/\p{Diacritic}/gu, "")
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, " ")
+		.trim();
+}
+
+/**
+ * Resolve a product from a Scalev variant name.
+ *
+ * Scalev sends the FULL composed name ("Vilona Crypto Trading Assistant -
+ * Bot Crypto"), while operators configure short keys ("Bot Crypto"). Exact
+ * matching alone therefore never fired for real traffic. Resolution order:
+ *
+ *   1. exact key match (keeps any existing full-name config working)
+ *   2. normalized equality ("Intelegent" vs "Intelligent" aside, spacing and
+ *      punctuation differences collapse)
+ *   3. normalized suffix match ("<anything> - <key>")
+ *
+ * Returns null when nothing matches or when a suffix matches more than one
+ * product — guessing between tiers would grant the wrong access, so an
+ * ambiguous name fails closed instead.
+ */
 export function getProductByVariant(variantName: string): NexusProduct | null {
-	return getVariantMap()[variantName] ?? null;
+	const map = getVariantMap();
+	if (map[variantName]) return map[variantName];
+
+	const target = normalizeVariantKey(variantName);
+	if (!target) return null;
+
+	const entries = Object.entries(map);
+	for (const [key, product] of entries) {
+		if (normalizeVariantKey(key) === target) return product;
+	}
+
+	const suffixMatches = entries.filter(([key]) => {
+		const normalizedKey = normalizeVariantKey(key);
+		return normalizedKey.length > 0 && target.endsWith(` ${normalizedKey}`);
+	});
+	return suffixMatches.length === 1 ? suffixMatches[0][1] : null;
 }
 
 /**

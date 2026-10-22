@@ -121,3 +121,40 @@ describe("variant map", () => {
 		expect(getProductByVariant("Late Variant")).not.toBeNull();
 	});
 });
+
+/**
+ * Real Scalev variant names, read from the live API (store 62793).
+ *
+ * Scalev composes names as "<Product> - <Variant>", so a map keyed by the
+ * short variant ("Bot Crypto") never matched real traffic and every paid
+ * order ended as "Unrecognized variant".
+ */
+describe("getProductByVariant with real Scalev names", () => {
+	const realNames: Array<[string, string]> = [
+		["Vilona Crypto Trading Assistant - Bot Crypto", "auto_bot"],
+		["Vilona Crypto Trading Assistant - Chanel Signal Crypto", "signal_channel"],
+		["Vilona Crypto Trading Assistant - Nexus Data Intelegent", "nexus_terminal"],
+	];
+
+	for (const [name, tier] of realNames) {
+		test(`resolves "${name}" to ${tier}`, () => {
+			expect(getProductByVariant(name)?.tier).toBe(tier);
+		});
+	}
+
+	test("still accepts the short configured key", () => {
+		expect(getProductByVariant("Bot Crypto")?.tier).toBe("auto_bot");
+	});
+
+	test("tolerates spacing, punctuation, and case differences", () => {
+		expect(
+			getProductByVariant("VILONA CRYPTO TRADING ASSISTANT - bot   crypto")
+				?.tier,
+		).toBe("auto_bot");
+	});
+
+	test("unknown variants resolve to null instead of guessing", () => {
+		expect(getProductByVariant("Some Unrelated Product - Premium")).toBeNull();
+		expect(getProductByVariant("")).toBeNull();
+	});
+});
