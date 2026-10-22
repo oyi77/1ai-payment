@@ -10,9 +10,9 @@ import {
 	gatewayNameSchema,
 } from "../../schemas";
 import {
-	getAvailableGateways,
 	getGateway,
 	getGatewayMethods,
+	getSelectableGateways,
 } from "../../services/gateway.service";
 
 import { logger } from "../../utils/logger";
@@ -31,7 +31,7 @@ const listGatewaysRoute = createRoute({
 	tags: ["Gateways"],
 	summary: "List available gateways",
 	description:
-		"Returns all registered gateways with their configuration status, currencies, and payment methods.",
+		"Returns the gateways a merchant can select, with configuration status, currencies, and payment methods. Gateways that are temporarily unavailable are omitted.",
 	security: [{ ApiKeyAuth: [] }],
 	responses: {
 		200: {
@@ -58,7 +58,7 @@ const listGatewaysRoute = createRoute({
 
 gatewaysRouter.openapi(listGatewaysRoute, async (c) => {
 	try {
-		const gateways = getAvailableGateways();
+		const gateways = getSelectableGateways();
 		return c.json({ success: true as const, data: gateways }, 200);
 	} catch (err: unknown) {
 		logger.error("Error listing gateways", {

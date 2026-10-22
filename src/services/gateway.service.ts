@@ -3,7 +3,12 @@
  */
 
 import { getGatewayConfig } from "../config/env";
-import { getGateway, getGatewayNames } from "../gateways";
+import {
+	PARKED_GATEWAYS,
+	getGateway,
+	getGatewayNames,
+	isGatewayParked,
+} from "../gateways";
 import type { PaymentGateway, PaymentMethod } from "../gateways/base";
 
 export { getGateway, getGatewayNames };
@@ -27,9 +32,12 @@ export function getGatewayHealth(): Record<string, GatewayStatus> {
 	for (const name of names) {
 		try {
 			const config = getGatewayConfig(name);
+			// A parked gateway keeps its credentials but cannot transact, so
+			// reporting it configured would overstate readiness (health is the
+			// public readiness signal).
 			result[name] = {
 				name,
-				configured: isConfigured(name, config),
+				configured: !isGatewayParked(name) && isConfigured(name, config),
 			};
 		} catch {
 			result[name] = { name, configured: false };
@@ -89,6 +97,15 @@ export function getAvailableGateways(): GatewayInfo[] {
 	});
 }
 
+/**
+ * Gateways a merchant may actually select. Parked gateways are omitted
+ * entirely: listing one with enabled=false still invites a client to try it
+ * and get an error that looks retryable.
+ */
+export function getSelectableGateways(): GatewayInfo[] {
+	return getAvailableGateways().filter((g) => !isGatewayParked(g.gateway));
+}
+
 export function getGatewayMethods(name: string): GatewayInfo | undefined {
 	const gateway = getGateway(name);
 	if (!gateway) return undefined;
@@ -99,10 +116,11 @@ export function getGatewayMethods(name: string): GatewayInfo | undefined {
 
 	return {
 		gateway: name,
-		enabled: health[name]?.configured ?? false,
+		enabled: !isGatewayParked(name) && (health[name]?.configured ?? false),
 		currencies,
 		methods,
 	};
 }
 
+export { PARKED_GATEWAYS };
 export { getGatewayConfigForMerchant } from "../config/env";

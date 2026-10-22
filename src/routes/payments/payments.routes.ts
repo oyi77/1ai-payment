@@ -2,6 +2,7 @@
 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { getDb } from "../../config/database";
+import { PARKED_GATEWAYS, isGatewayParked } from "../../gateways";
 import { authMiddleware } from "../../middleware/auth";
 import {
 	errorsCounter,
@@ -174,6 +175,28 @@ paymentsRouter.openapi(createPaymentRoute, async (c) => {
 				},
 			},
 			400,
+		);
+	}
+
+	// Parked gateways are registered but cannot transact. Fail here with a
+	// distinct, non-retryable code: the generic GATEWAY_ERROR path tells the
+	// caller to "retry or contact support", which sends clients into a retry
+	// loop against a gateway that is off by design.
+	if (isGatewayParked(body.gateway)) {
+		return c.json(
+			{
+				success: false as const,
+				error: {
+					code: "GATEWAY_UNAVAILABLE",
+					message:
+						PARKED_GATEWAYS[body.gateway] ??
+						`Gateway temporarily unavailable: ${body.gateway}`,
+				},
+			},
+			// 422, not 5xx: this is an anticipated state, and behind
+			// Cloudflare any 5xx body is replaced by an HTML error page, so
+			// clients would lose the JSON contract entirely.
+			422,
 		);
 	}
 

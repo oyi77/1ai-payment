@@ -35,6 +35,29 @@ export type {
 	PaymentMethod,
 } from "./base";
 
+/**
+ * Gateways that are registered but must NOT be advertised to merchants.
+ *
+ * "Registered" and "usable" are different states: a gateway can stay wired
+ * (webhook + fulfillment + stored credentials keep resolving) while it cannot
+ * take new payments. Scalev is parked because its business plan lapsed — every
+ * storefront route returns 404 "Store not found" until the owner reactivates
+ * it, even though the store, key, and variant all still exist.
+ *
+ * Parking a gateway here is the ONLY thing needed to hide it from
+ * /api/gateways, /api/gateways/:name/methods, and the /health configured
+ * count, and to make POST /api/payments return GATEWAY_UNAVAILABLE instead of
+ * a misleading retryable error. Inbound webhooks keep working.
+ */
+export const PARKED_GATEWAYS: Record<string, string> = {
+	scalev:
+		"Scalev is temporarily unavailable: the storefront API requires an active business plan. Contact support to enable it.",
+};
+
+export function isGatewayParked(name: string): boolean {
+	return Boolean(PARKED_GATEWAYS[name]);
+}
+
 const registry: Record<string, PaymentGateway> = {
 	midtrans: new MidtransGateway(),
 	tripay: new TripayGateway(),
