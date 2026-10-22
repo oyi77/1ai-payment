@@ -685,6 +685,9 @@ const order = await payment.create({
       ipaymu: [["apiKey", "API Key"], ["vaKey", "VA Key"]],
       xendit: [["apiKey", "API Key"], ["callbackToken", "Callback Token"]],
       saweria: [["username", "Username"], ["userId", "User ID"]],
+      mutasiku: [["apiKey", "API Key"], ["webhookSecret", "Webhook Secret"]],
+      moota: [["apiKey", "API Key"], ["webhookSecret", "Webhook Secret"]],
+      lynk: [["merchantKey", "Merchant Key"]],
     };
 
     async function merchantId() {
