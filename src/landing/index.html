@@ -755,18 +755,17 @@ var API_EXAMPLES = {
       '  "keterangan": "TRF ORD-2026-014",\n' +
       '  "tanggal": "2026-10-23T08:12:00Z",\n' +
       '  "bank": "BCA",\n' +
-      '  "rekening": "1234567890"\n' +
+      '  "rekening": "1234567890",\n' +
+      '  "note": "Inbound-only aggregator: there is no POST /api/payments.\\n' +
+      'Credit mutations forward as payment.success and match your order\\n' +
+      'by the unique code inside keterangan.\\n' +
+      'Pull history: POST /api/mutasiku/mutations"\n' +
       '}',
     response: 'HTTP/1.1 200 OK\n' +
       '\n' +
       '{\n' +
       '  "ok": true\n' +
-      '}\n' +
-      '\n' +
-      '// Inbound-only aggregator: there is no POST /api/payments.\n' +
-      '// Credit mutations forward as payment.success and match your\n' +
-      '// order by the unique code inside keterangan.\n' +
-      '// Pull history: POST /api/mutasiku/mutations'
+      '}'
   },
   moota: {
     request: 'POST /webhook/moota HTTP/1.1\n' +
@@ -780,17 +779,16 @@ var API_EXAMPLES = {
       '  "description": "TRF ORD-2026-015",\n' +
       '  "date": "2026-10-23T08:12:00Z",\n' +
       '  "bank": "BCA",\n' +
-      '  "account_number": "1234567890"\n' +
+      '  "account_number": "1234567890",\n' +
+      '  "note": "Inbound-only aggregator: there is no POST /api/payments.\\n' +
+      'CR mutations forward as payment.success; DB mutations stay pending.\\n' +
+      'Pull request body: account_id is required for POST /api/moota/mutations"\n' +
       '}',
     response: 'HTTP/1.1 200 OK\n' +
       '\n' +
       '{\n' +
       '  "ok": true\n' +
-      '}\n' +
-      '\n' +
-      '// Inbound-only aggregator: there is no POST /api/payments.\n' +
-      '// CR mutations forward as payment.success; DB mutations stay pending.\n' +
-      '// Pull history: POST /api/moota/mutations (needs account_id)'
+      '}'
   }
 };
 
