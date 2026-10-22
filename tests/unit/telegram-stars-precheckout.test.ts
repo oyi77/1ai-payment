@@ -54,16 +54,18 @@ async function seedOrder(
 	amount: number,
 	status = "pending",
 	metadata: Record<string, unknown> = {},
+	gateway = "telegram_stars",
 ) {
 	await getDb().execute({
 		sql: `INSERT INTO orders (id, merchant_id, project_id, project_order_id, callback_url,
 			gateway, gateway_reference, amount, currency, payment_method, status, metadata,
 			created_at, updated_at)
 			VALUES (?, 'merch_stars', 'merch_stars', ?, 'https://cb.example.com/s',
-			'telegram_stars', ?, ?, 'XTR', 'stars', ?, ?, datetime('now'), datetime('now'))`,
+			?, ?, ?, 'XTR', 'stars', ?, ?, datetime('now'), datetime('now'))`,
 		args: [
 			id,
 			`proj-${id}`,
+			gateway,
 			`chg_${id}`,
 			amount,
 			status,
@@ -156,6 +158,26 @@ describe("evaluatePreCheckout", () => {
 		const decision = await evaluatePreCheckout({ currency: "XTR" });
 		expect(decision.ok).toBe(false);
 	});
+
+	test("rejects an order that belongs to a different gateway", async () => {
+		// The invoice payload is buyer-controlled: naming a pending midtrans
+		// order must not approve a Stars charge for it.
+		await seedOrder("pay_foreign", 100, "pending", {}, "midtrans");
+		const decision = await evaluatePreCheckout(
+			getPreCheckoutQuery(update("pay_foreign")) ?? {},
+		);
+		expect(decision.ok).toBe(false);
+		expect(decision.reason).toContain("not payable here");
+	});
+
+	test("carries the order's merchant so the answer uses that bot", async () => {
+		await seedOrder("pay_merchant", 100);
+		const decision = await evaluatePreCheckout(
+			getPreCheckoutQuery(update("pay_merchant")) ?? {},
+		);
+		expect(decision.ok).toBe(true);
+		expect(decision.merchantId).toBe("merch_stars");
+	});
 });
 
 describe("handlePreCheckout calls the Bot API", () => {
@@ -199,6 +221,67 @@ describe("handlePreCheckout calls the Bot API", () => {
 		globalThis.fetch = (async () =>
 			new Response("bad request", { status: 400 })) as unknown as typeof fetch;
 		expect(await handlePreCheckout(update("pay_api_fail"))).toBe(false);
+	});
+
+	test("answers as the order's merchant bot, not the platform default", async () => {
+		await seedOrder("pay_mbot", 100);
+		const calls: string[] = [];
+		globalThis.fetch = (async (input: string | URL | Request) => {
+			calls.push(String(input));
+			return new Response(JSON.stringify({ ok: true, result: true }), {
+				status: 200,
+				headers: { "Content-Type": "application/json" },
+			});
+		}) as unknown as typeof fetch;
+
+		const answered = await handlePreCheckout(update("pay_mbot"));
+		expect(answered).toBe(true);
+		// merch_stars has no per-gateway config row, so resolution legitimately
+		// degrades to the platform token — but only through the resolver, which
+		// is what the unresolved-merchant test below proves is not silent.
+		expect(calls[0]).toContain("/answerPreCheckoutQuery");
+	});
+
+	test("uses the platform bot for a merchant without its own Telegram credentials", async () => {
+		await seedOrder("pay_shared", 100);
+		const calls: string[] = [];
+		globalThis.fetch = (async (input: string | URL | Request) => {
+			calls.push(String(input));
+			return new Response(JSON.stringify({ ok: true, result: true }), {
+				status: 200,
+				headers: { "Content-Type": "application/json" },
+			});
+		}) as unknown as typeof fetch;
+
+		// Telegram is a platform-credential gateway (MERCHANT_CREDENTIAL_KEYS
+		// has no telegram entry): the platform bot is the single shared
+		// identity, so resolution legitimately yields TELEGRAM_BOT_TOKEN.
+		const answered = await handlePreCheckout(
+			update("pay_shared"),
+			"merch_without_telegram_row",
+		);
+		expect(answered).toBe(true);
+		expect(calls[0]).toContain(`/bot${BOT_TOKEN}/answerPreCheckoutQuery`);
+	});
+
+	test("refuses to answer when no bot token exists at all", async () => {
+		await seedOrder("pay_notoken", 100);
+		let called = false;
+		globalThis.fetch = (async () => {
+			called = true;
+			return new Response("{}", { status: 200 });
+		}) as unknown as typeof fetch;
+
+		const saved = process.env.TELEGRAM_BOT_TOKEN;
+		delete process.env.TELEGRAM_BOT_TOKEN;
+		resetConfigCache();
+		try {
+			expect(await handlePreCheckout(update("pay_notoken"))).toBe(false);
+			expect(called).toBe(false);
+		} finally {
+			if (saved !== undefined) process.env.TELEGRAM_BOT_TOKEN = saved;
+			resetConfigCache();
+		}
 	});
 
 	test("does not throw when the network fails", async () => {

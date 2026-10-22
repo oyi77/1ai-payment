@@ -29,6 +29,7 @@ export interface PreCheckoutDecision {
 	ok: boolean;
 	reason?: string;
 	orderId?: string;
+	merchantId?: string;
 }
 
 /** Extract the pre-checkout query from an update, if present. */
@@ -67,6 +68,18 @@ export async function evaluatePreCheckout(
 		return { ok: false, reason: "Order not found or already expired." };
 	}
 
+	// The invoice payload is attacker-controlled: any order id can be named.
+	// Approving a non-Stars order here would let the buyer pay while the
+	// subsequent successful_payment resolves against a gateway that never
+	// asked for the charge.
+	if (order.gateway !== "telegram_stars") {
+		logger.warn("Telegram Stars pre-checkout for foreign gateway order", {
+			order_id: orderId,
+			order_gateway: order.gateway,
+		});
+		return { ok: false, reason: "This invoice is not payable here." };
+	}
+
 	// XTR is the only currency Telegram allows for digital goods.
 	if (query.currency !== "XTR") {
 		return { ok: false, reason: "Unsupported currency for this order." };
@@ -86,7 +99,7 @@ export async function evaluatePreCheckout(
 		return { ok: false, reason: "This order is no longer payable." };
 	}
 
-	return { ok: true, orderId };
+	return { ok: true, orderId, merchantId: order.merchant_id };
 }
 
 /**
@@ -103,6 +116,10 @@ export async function answerPreCheckoutQuery(
 	merchantId?: string,
 ): Promise<boolean> {
 	const base = getConfig();
+	// Telegram is a platform-credential gateway: resolveGatewayConfig merges a
+	// merchant override when one exists and yields the platform identity
+	// otherwise, so the resolved token is always the one that issued the
+	// invoice. Only a completely absent token is a failure.
 	let botToken = base.TELEGRAM_BOT_TOKEN;
 	if (merchantId) {
 		try {
@@ -110,9 +127,22 @@ export async function answerPreCheckoutQuery(
 				"telegram_stars",
 				merchantId,
 			)) as { botToken?: string };
-			botToken = resolved.botToken || botToken;
-		} catch {
-			// Fall back to the platform token; failure to resolve is not fatal.
+			// resolveGatewayConfig already falls back to platform config, so an
+			// empty value here means misconfiguration, not a missing override.
+			if (!resolved.botToken) {
+				logger.error(
+					"Telegram Stars: gateway config resolved without a bot token",
+					{ merchant_id: merchantId },
+				);
+				return false;
+			}
+			botToken = resolved.botToken;
+		} catch (err: unknown) {
+			logger.error("Telegram Stars: merchant gateway config unresolved", {
+				merchant_id: merchantId,
+				error: err instanceof Error ? err.message : String(err),
+			});
+			return false;
 		}
 	}
 	if (!botToken) {
@@ -172,5 +202,11 @@ export async function handlePreCheckout(
 		approved: decision.ok,
 		reason: decision.reason ?? null,
 	});
-	return answerPreCheckoutQuery(query.id, decision, merchantId);
+	// Answer as the bot that owns the order; the caller cannot know it, so the
+	// decision carries it and an explicit argument still wins when supplied.
+	return answerPreCheckoutQuery(
+		query.id,
+		decision,
+		merchantId ?? decision.merchantId,
+	);
 }

@@ -33,6 +33,20 @@ export async function createInvoice(
 		);
 	}
 
+	// Fiat invoices are settled by an external provider (Stripe, PayPal, ...),
+	// so provider_token is mandatory: an empty string is rejected upstream with
+	// an opaque 400. Fail here instead, and keep this guard in sync with
+	// isConfigured so /api/gateways never advertises a gateway that can only
+	// produce failed orders.
+	const providerToken =
+		m?.providerToken || base.TELEGRAM_PAYMENT_PROVIDER_TOKEN || "";
+	if (!providerToken) {
+		throw new GatewayError(
+			"telegram_payments",
+			"TELEGRAM_PAYMENT_PROVIDER_TOKEN not configured",
+		);
+	}
+
 	// Use provider-specific currency
 	const currency = params.currency || "USD";
 
@@ -46,8 +60,7 @@ export async function createInvoice(
 			order_id: params.orderId,
 			gateway: "telegram_payments",
 		}),
-		provider_token:
-			m?.providerToken || base.TELEGRAM_PAYMENT_PROVIDER_TOKEN || "",
+		provider_token: providerToken,
 		currency,
 		prices: [
 			{
