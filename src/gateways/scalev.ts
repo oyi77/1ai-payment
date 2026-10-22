@@ -5,6 +5,27 @@
  * dashboard user surfaces. Code stays wired (registry, webhook, nexus,
  * merchant-creds contract) so existing credentials keep resolving.
  *
+ * VERIFIED 2026-10-22 — root cause isolated, it is NOT our code:
+ *   - Store exists. `GET /v3/stores` with the business key returns it:
+ *     id 62793, unique_id store_xdK72UFPYZRo8zvgOmdFgYeP,
+ *     "Berkah karya digital", business_id 59736.
+ *   - Storefront key is valid and active. `GET /v3/stores/62793/public-api-keys`
+ *     lists sfpk_A6Mjh3… status "active" for that store — the same key in .env.
+ *   - Yet every storefront route returns 404 {"error":"Store not found"}:
+ *     /public/items and /public/payment-methods both 404, while the business
+ *     API on the same store returns 200.
+ *   - Scalev's Storefront docs state this exact 404 is what they return when
+ *     the business is on Free/Lite/inactive/unpaid, so the storefront key is
+ *     gated on the business plan. The request body also matches the documented
+ *     PublicCheckoutRequest schema (items/customer/payment_method/notes), so
+ *     the payload is not the problem either.
+ *   - Variant is fine: GET /v3/stores/62793/variants/457297 → 200
+ *     "BerkahKarya All-Access Pass" (product 378879, one_time, digital).
+ *
+ * ACTION REQUIRED (owner, not code): reactivate/upgrade the Scalev business
+ * plan for business 59736. Until then no new Scalev payment can be created.
+ * Inbound webhooks are unaffected and are covered by tests.
+ *
  * IMPORTANT: Scalev is a HEADLESS COMMERCE PLATFORM, not a simple payment gateway.
  * It requires:
  * 1. A Scalev store with products/variants configured
