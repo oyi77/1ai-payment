@@ -2,7 +2,7 @@
  * Gateway service — registry lookup, health status, and methods listing.
  */
 
-import { getGatewayConfig } from "../config/env";
+import { getConfig, getGatewayConfig } from "../config/env";
 import {
 	PARKED_GATEWAYS,
 	getGateway,
@@ -98,11 +98,21 @@ export function getAvailableGateways(): GatewayInfo[] {
 }
 
 /**
- * Gateways a merchant may actually select. Parked gateways are omitted
- * entirely: listing one with enabled=false still invites a client to try it
- * and get an error that looks retryable.
+ * Gateways a merchant may actually select.
+ *
+ * PARKED_GATEWAY_MODE decides how parked gateways appear:
+ * - "hidden" (default): omitted entirely.
+ * - "listed": included but forced to enabled:false, so the gateway is
+ *   discoverable while making clear it cannot be used.
+ * Creation is refused either way (GATEWAY_UNAVAILABLE).
  */
 export function getSelectableGateways(): GatewayInfo[] {
+	const mode = getConfig().PARKED_GATEWAY_MODE;
+	if (mode === "listed") {
+		return getAvailableGateways().map((g) =>
+			isGatewayParked(g.gateway) ? { ...g, enabled: false } : g,
+		);
+	}
 	return getAvailableGateways().filter((g) => !isGatewayParked(g.gateway));
 }
 

@@ -95,6 +95,14 @@ export interface Config {
 	LOG_LEVEL: "debug" | "info" | "warn" | "error";
 	/** Honor leftmost X-Forwarded-For hop for client-IP rate limiting. Default false: prefer CF-Connecting-IP. Enable only behind a non-Cloudflare proxy you control. */
 	TRUST_PROXY: boolean;
+	/**
+	 * How gateways in PARKED_GATEWAYS appear to merchants.
+	 * - "hidden" (default): omitted from GET /api/gateways entirely.
+	 * - "listed": included with enabled:false so clients can see the gateway
+	 *   exists but is unavailable.
+	 * Either way POST /api/payments returns GATEWAY_UNAVAILABLE for them.
+	 */
+	PARKED_GATEWAY_MODE: "hidden" | "listed";
 	/** Legacy alias for ERC8183_EVALUATOR_ADDRESS — ADDRESS wins when both set. */
 	ERC8183_EVALUATOR_PUBLIC_KEY: string;
 
@@ -160,6 +168,18 @@ export function getConfig(): Config {
 	// (adminAuthMiddleware) compare against different headers but the same
 	// value would promote any merchant-key holder to full admin (list all
 	// merchants, reset any key, change plans). Refuse to boot instead.
+	// Parked-gateway visibility. Unknown values are rejected at boot rather
+	// than silently defaulting: a typo must not flip the public catalogue.
+	const parkedModeRaw = optional("PARKED_GATEWAY_MODE", "hidden")
+		.trim()
+		.toLowerCase();
+	if (parkedModeRaw !== "hidden" && parkedModeRaw !== "listed") {
+		throw new Error(
+			`PARKED_GATEWAY_MODE must be "hidden" or "listed" (got "${parkedModeRaw}")`,
+		);
+	}
+	const parkedMode = parkedModeRaw as Config["PARKED_GATEWAY_MODE"];
+
 	const apiKey = required("API_KEY");
 	const adminApiKey = required("ADMIN_API_KEY");
 	if (apiKey === adminApiKey) {
@@ -261,6 +281,7 @@ export function getConfig(): Config {
 		LYNK_MERCHANT_KEY: optional("LYNK_MERCHANT_KEY"),
 		LOG_LEVEL: optional("LOG_LEVEL", "info") as Config["LOG_LEVEL"],
 		TRUST_PROXY: bool("TRUST_PROXY", false),
+		PARKED_GATEWAY_MODE: parkedMode,
 		ERC8183_EVALUATOR_PUBLIC_KEY: optional("ERC8183_EVALUATOR_PUBLIC_KEY"),
 		NEXUS_TELEGRAM_CHANNEL_ID: optional("NEXUS_TELEGRAM_CHANNEL_ID"),
 		NEXUS_TELEGRAM_BOT_TOKEN: optional("NEXUS_TELEGRAM_BOT_TOKEN"),

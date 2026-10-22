@@ -13,6 +13,8 @@ import { existsSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
+import { getConfig } from "../../src/config/env";
+import { resetConfigCache } from "../../src/config/env";
 import { getDb, initDatabase } from "../../src/config/database";
 import { PARKED_GATEWAYS, getGateway, getGatewayNames } from "../../src/gateways";
 import { paymentRoutes } from "../../src/routes/payment";
@@ -69,12 +71,41 @@ describe("parked gateway visibility", () => {
 		expect(getGatewayHealth().scalev?.configured).toBe(false);
 	});
 
-	test("is omitted from the selectable gateway list", () => {
+	test("is omitted from the selectable gateway list in hidden mode", () => {
 		const names = getSelectableGateways().map((g) => g.gateway);
 		expect(names).not.toContain("scalev");
 		// The rest of the catalogue is unaffected.
 		expect(names).toContain("midtrans");
 		expect(names.length).toBe(getGatewayNames().length - 1);
+	});
+
+	test("appears as enabled:false in listed mode, never enabled", () => {
+		process.env.PARKED_GATEWAY_MODE = "listed";
+		resetConfigCache();
+		try {
+			const listed = getSelectableGateways();
+			const scalev = listed.find((g) => g.gateway === "scalev");
+			expect(scalev).toBeDefined();
+			expect(scalev?.enabled).toBe(false);
+			// Everything else keeps its real state.
+			expect(listed.length).toBe(getGatewayNames().length);
+			// Parking still outranks configuration.
+			expect(getGatewayHealth().scalev?.configured).toBe(false);
+		} finally {
+			delete process.env.PARKED_GATEWAY_MODE;
+			resetConfigCache();
+		}
+	});
+
+	test("rejects an unknown mode at boot instead of guessing", () => {
+		process.env.PARKED_GATEWAY_MODE = "visible";
+		resetConfigCache();
+		try {
+			expect(() => getConfig()).toThrow(/PARKED_GATEWAY_MODE/);
+		} finally {
+			delete process.env.PARKED_GATEWAY_MODE;
+			resetConfigCache();
+		}
 	});
 
 	test("methods lookup reports it disabled rather than available", () => {
