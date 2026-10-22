@@ -256,8 +256,13 @@ export const healthResponseSchema = z
 		database: z.enum(["ok", "error"]).openapi({ example: "ok" }),
 		gateways: z
 			.object({
-				configured: z.number().openapi({ example: 9 }),
-				total: z.number().openapi({ example: 13 }),
+				configured: z.number().openapi({ example: 5 }),
+				total: z.number().openapi({ example: 16 }),
+				selectable: z.number().openapi({
+					description:
+						"Gateways a merchant can select (excludes parked gateways)",
+					example: 15,
+				}),
 			})
 			.openapi({
 				description:

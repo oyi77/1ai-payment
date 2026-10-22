@@ -7,6 +7,7 @@
 
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
 import { getDb } from "../config/database";
+import { getCatalogueCounts } from "../gateways";
 import { defaultHook, healthResponseSchema } from "../schemas";
 import { getGatewayHealth } from "../services/gateway.service";
 
@@ -43,6 +44,10 @@ healthRoutes.openapi(healthRoute, async (c) => {
 	// Counts only: per-gateway configured/missing_key map would leak the live
 	// attack surface on an unauthenticated endpoint (Sweep108).
 	const configured = entries.filter((g) => g.configured).length;
+	// `total` stays the registered count (including parked). `selectable` is
+	// what a merchant can actually pick, so public surfaces (landing,
+	// dashboard) have one authoritative number to display.
+	const selectable = getCatalogueCounts().selectable;
 
 	return c.json(
 		{
@@ -50,7 +55,7 @@ healthRoutes.openapi(healthRoute, async (c) => {
 			version: "0.1.0",
 			uptime: process.uptime(),
 			database: databaseOk ? ("ok" as const) : ("error" as const),
-			gateways: { configured, total: entries.length },
+			gateways: { configured, total: entries.length, selectable },
 		},
 		200,
 	);

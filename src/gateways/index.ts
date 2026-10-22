@@ -54,6 +54,21 @@ export const PARKED_GATEWAYS: Record<string, string> = {
 		"Scalev is temporarily unavailable: the storefront API requires an active business plan. Contact support to enable it.",
 };
 
+/**
+ * Catalogue size as advertised to humans (landing page, dashboard, docs).
+ *
+ * Derived at runtime from the registry so a hardcoded number can never drift
+ * again. `selectable` excludes parked gateways; `registered` includes them.
+ */
+export function getCatalogueCounts(): {
+	registered: number;
+	selectable: number;
+} {
+	const names = getGatewayNames();
+	const selectable = names.filter((name) => !isGatewayParked(name)).length;
+	return { registered: names.length, selectable };
+}
+
 export function isGatewayParked(name: string): boolean {
 	return Boolean(PARKED_GATEWAYS[name]);
 }

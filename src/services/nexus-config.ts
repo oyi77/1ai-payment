@@ -62,7 +62,8 @@ function loadVariantMap(): Record<string, NexusProduct> {
 }
 
 function getDefaultVariantMap(): Record<string, NexusProduct> {
-	// keys must match `variant_name` from Scalev webhook payload
+	// Short variant keys; getProductByVariant also matches Scalev's composed
+	// "<Product> - <Variant>" names by suffix, so renames keep working.
 	return {
 		"Bot Crypto": { tier: "auto_bot", label: "Auto Bot", durationDays: 30 },
 		"Channel Signal Crypto": {
@@ -97,12 +98,19 @@ export function getVariantMap(): Record<string, NexusProduct> {
  * separators around the variant suffix must not affect matching.
  */
 function normalizeVariantKey(value: string): string {
-	return value
-		.normalize("NFKD")
-		.replace(/\p{Diacritic}/gu, "")
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, " ")
-		.trim();
+	return (
+		value
+			.normalize("NFKD")
+			.replace(/\p{Diacritic}/gu, "")
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, " ")
+			.trim()
+			// Historical spellings that exist in live Scalev data and in older
+			// NEXUS_VARIANT_MAP values. Folding them keeps existing paid orders
+			// resolvable after the keys were corrected.
+			.replace(/\bchanel\b/g, "channel")
+			.replace(/\bintelegent\b/g, "intelligent")
+	);
 }
 
 /**

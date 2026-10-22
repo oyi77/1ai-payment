@@ -4,16 +4,16 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
-<title>1ai-payment — Satu API untuk 15 gateway pembayaran</title>
+<title>1ai-payment — Satu API untuk semua gateway pembayaran</title>
 <meta name="description" content="Satu API untuk Midtrans, Duitku, iPaymu, NOWPayments, Lynk.id, Xendit, Tripay, PayPal, Telegram, dan crypto. Webhook ternormalisasi dengan HMAC, retry 3x, dead-letter replay, dan isolasi per merchant." />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="1ai-payment" />
-<meta property="og:title" content="1ai-payment — Satu API untuk 15 gateway pembayaran" />
-<meta property="og:description" content="Satu API untuk 15 gateway. Ganti gateway cukup ganti satu parameter. Webhook ternormalisasi, retry + dead-letter replay, isolasi per merchant." />
+<meta property="og:title" content="1ai-payment — Satu API untuk semua gateway pembayaran" />
+<meta property="og:description" content="Satu API untuk semua gateway pembayaran. Ganti gateway cukup ganti satu parameter. Webhook ternormalisasi, retry + dead-letter replay, isolasi per merchant." />
 <meta property="og:image" content="/favicon.svg" />
 <meta name="twitter:card" content="summary" />
-<meta name="twitter:title" content="1ai-payment — Satu API untuk 15 gateway pembayaran" />
-<meta name="twitter:description" content="Satu API untuk 15 gateway. Ganti gateway cukup ganti satu parameter." />
+<meta name="twitter:title" content="1ai-payment — Satu API untuk semua gateway pembayaran" />
+<meta name="twitter:description" content="Satu API untuk semua gateway pembayaran. Ganti gateway cukup ganti satu parameter." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -262,8 +262,8 @@ html.reveal-ready .reveal{transition:opacity .55s ease,transform .55s ease}
   <div class="wrap">
     <p class="eyebrow reveal"><span class="lang-id">Infrastruktur pembayaran</span><span class="lang-en hidden">Payment infrastructure</span></p>
     <h1 class="h1 reveal">
-      <span class="lang-id">Satu API. <span class="grad">15 gateway.</span><br />Tanpa integrasi ulang.</span>
-      <span class="lang-en hidden">One API. <span class="grad">15 gateways.</span><br />No re-integration.</span>
+      <span class="lang-id">Satu API. <span class="grad"><span data-gw-count>15</span> gateway.</span><br />Tanpa integrasi ulang.</span>
+      <span class="lang-en hidden">One API. <span class="grad"><span data-gw-count>15</span> gateways.</span><br />No re-integration.</span>
     </h1>
     <p class="lede reveal">
       <span class="lang-id">Midtrans, Duitku, iPaymu, NOWPayments, Lynk.id, Xendit, PayPal, Telegram, dan crypto — dinormalisasi jadi satu kontrak. Ganti gateway cukup ganti satu parameter, bukan kirim integrasi baru.</span>
@@ -291,7 +291,7 @@ html.reveal-ready .reveal{transition:opacity .55s ease,transform .55s ease}
   <div class="wrap">
     <div class="stats">
       <div class="glass stat reveal">
-        <div class="stat-num grad">15</div>
+        <div class="stat-num grad" data-gw-count>15</div>
         <div class="stat-label"><span class="lang-id">Gateway</span><span class="lang-en hidden">Gateways</span></div>
         <div class="stat-sub"><span class="lang-id">Indonesia, global &amp; Telegram</span><span class="lang-en hidden">Indonesia, global &amp; Telegram</span></div>
       </div>
@@ -398,7 +398,7 @@ html.reveal-ready .reveal{transition:opacity .55s ease,transform .55s ease}
 <section id="gateways" class="section-pad">
   <div class="wrap">
     <p class="eyebrow reveal"><span class="lang-id">Gateway</span><span class="lang-en hidden">Gateways</span></p>
-    <h2 class="h2 reveal"><span class="lang-id">15 gateway, satu bentuk</span><span class="lang-en hidden">15 gateways, one shape</span></h2>
+    <h2 class="h2 reveal"><span class="lang-id"><span data-gw-count>15</span> gateway, satu bentuk</span><span class="lang-en hidden"><span data-gw-count>15</span> gateways, one shape</span></h2>
     <p class="lede reveal" style="margin-bottom:22px">
       <span class="lang-id">Lima gateway aktif dengan kredensial platform. Sisanya tersedia begitu Anda menyimpan kredensial sendiri di dashboard.</span>
       <span class="lang-en hidden">Five gateways are live with platform credentials. The rest become available as soon as you save your own credentials in the dashboard.</span>
@@ -874,12 +874,29 @@ document.getElementById('navMenu').querySelectorAll('a').forEach(function (a) {
   });
 });
 
+// Catalogue size is server-owned (/health -> selectable). Static text is the
+// fallback; a stale number is worse than a brief default.
+function hydrateGatewayCount() {
+  if (!window.fetch) return;
+  fetch('/health')
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (body) {
+      var n = body && body.gateways && body.gateways.selectable;
+      if (typeof n !== 'number') return;
+      document.querySelectorAll('[data-gw-count]').forEach(function (el) {
+        el.textContent = String(n);
+      });
+    })
+    .catch(function () { /* keep the fallback */ });
+}
+
 (function init() {
   var lang = 'id';
   try { lang = localStorage.getItem('lang') || 'id'; } catch (e) {}
   setLang(lang);
   observeReveals();
   updatePreview();
+  hydrateGatewayCount();
 })();
 </script>
 

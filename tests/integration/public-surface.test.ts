@@ -59,6 +59,7 @@ describe("public surface (Sweep150)", () => {
 		expect(typeof body.gateways.total).toBe("number");
 		expect(Object.keys(body.gateways).sort()).toEqual([
 			"configured",
+			"selectable",
 			"total",
 		]);
 	});
