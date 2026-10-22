@@ -2,7 +2,7 @@
 
 ## What is 1ai-payment?
 
-Unified API for creating payments across 14 payment gateways (midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria, lynk) plus 2 bank-mutation aggregators (mutasiku, moota) that deliver verified transfer events without creating payments. 16 gateways are registered in total.
+Unified API for creating payments across 14 payment gateways (midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria, lynk) plus 2 bank-mutation aggregators (mutasiku, moota) that deliver verified transfer events without creating payments. 16 gateways are registered in total; 15 are selectable today because `scalev` is parked (`PARKED_GATEWAY_MODE=hidden`), while its registry, webhook and Nexus fulfillment stay wired.
 
 It also operates a **multi-tenant merchant platform**: any merchant can self-register, manage per-merchant API keys and per-gateway credentials, and control which gateways are enabled. One subsystem — **Nexus** — implements direct-to-customer fulfillment: Scalev checkout callbacks create subscription records and issue Telegram channel invites without any owning project in between.
 

@@ -2,7 +2,7 @@
 
 Payment gateway **aggregator** microservice for the 1ai-ecosystem.
 
-**Purpose:** Unified API for creating payments across 14 payment gateways plus 2 bank-mutation aggregators (16 registered), routing callbacks to the correct project.
+**Purpose:** Unified API for creating payments across 14 payment gateways plus 2 bank-mutation aggregators — 16 registered, 15 selectable (`scalev` parked, hidden from API/UI surfaces) — routing callbacks to the correct project.
 
 ## Problem
 
