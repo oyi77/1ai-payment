@@ -214,6 +214,19 @@ Key properties:
   fingerprint lookup on `(gateway, order_id / gateway_reference)` — a
   non-atomic check (TOCTOU), an accepted residual since duplicate unknown
   events only re-insert a log row and are never forwarded.
+- **Gateway request ids are claimed late and released on failure.** A
+  gateway-supplied request id (`X-Request-Id`, `Idempotency-Key`,
+  `X-Correlation-Id`) is inserted into `webhook_requests` only after every
+  pre-persist gate has passed (signature, order lookup, amount match), and the
+  claim row is deleted again when the event turn ends without recording it.
+  Without that release a crash between claim and write left a stale claim, and
+  the gateway's retry was answered as a duplicate for an event that was never
+  recorded.
+- **Oversized request ids are dropped, not rejected.** Ids longer than 128
+  chars are ignored (event recorded, id not stored) so a broken correlation
+  header can never turn a valid payment callback into a permanent gateway
+  retry loop. The event-level UNIQUE index remains the atomic dedupe.
+  Regression: `tests/integration/webhook-replay-claim.test.ts`.
 - **Unknown orders are recorded, not dropped.** They are inserted into
   `webhook_events` (never forwarded), and the gateway gets `200` so it stops
   retrying. For `scalev`, unknown orders additionally trigger Nexus
@@ -579,7 +592,7 @@ graph LR
 | Project callback down | Forwarding retries in-process | 3 retries (5s, 30s, 300s), then `dead_letter_events` + `forward_attempts=3`; replayable manually via `replayDeadLetter(id)` (stamps `replayed_at`) |
 | Gateway signature invalid | Event rejected | `401` before any state change; x402 requires on-chain USDC confirmation, ERC-8183 requires a valid evaluator attestation signature |
 | Order not found | Event logged, not forwarded | Insert into `webhook_events`, return `200` to gateway (stop retries); scalev additionally triggers Nexus fulfillment |
-| Duplicate webhook | Idempotent — same result | Partial UNIQUE index on `webhook_events(order_id, gateway, status)` → `200` skip |
+| Duplicate webhook | Idempotent — same result | Partial UNIQUE index on `webhook_events(order_id, gateway, status)` → `200` skip; the `webhook_requests` claim is written before that INSERT and kept on a duplicate hit (the guarded event is already recorded) |
 | Duplicate payment request | Same result | `idempotency-key` hit → `200` with existing order; else `409 DUPLICATE_ORDER`; the global `UNIQUE` on `orders.idempotency_key` also 409s when another merchant already used the key |
 | Database down | All operations fail | `500` responses; `/health` reports degraded; gateways will retry webhooks |
 | Scalev/Nexus fulfillment failure | Subscription/invite skipped | Error logged, order still created; manual follow-up required |

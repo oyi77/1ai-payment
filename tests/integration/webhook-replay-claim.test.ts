@@ -136,6 +136,29 @@ describe("request-id replay claim ordering", () => {
 		expect(await orderStatus(order.id)).toBe("success");
 	});
 
+	test("ignores an oversized request id but still records the payment", async () => {
+		const order = await createOrder({
+			project_id: "replay_test",
+			merchant_id: "merch_replay",
+			callback_url: "https://example.com/cb",
+			gateway: "midtrans",
+			amount: 10000,
+			currency: "IDR",
+		});
+		const oversized = `req_${"x".repeat(128)}`;
+		expect(oversized.length).toBeGreaterThan(128);
+
+		const res = await post(order.id, "10000.00", oversized);
+		expect(res.status).toBe(200);
+		expect(await claims(oversized)).toBe(0);
+		expect(await eventCount(order.id)).toBe(1);
+
+		const atLimit = "y".repeat(128);
+		const accepted = await post(order.id, "10000.00", atLimit);
+		expect(accepted.status).toBe(200);
+		expect(await claims(atLimit)).toBe(1);
+	});
+
 	test("a processed event claims its request id and blocks a replay", async () => {
 		const order = await createOrder({
 			project_id: "replay_test",

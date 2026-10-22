@@ -53,6 +53,8 @@ const errorJson = {
 	"application/json": { schema: webhookErrorSchema },
 } as const;
 
+const MAX_REQUEST_ID_LENGTH = 128;
+
 /**
  * Determine whether an incoming webhook request was transported over TLS.
  * Behind Cloudflare the app sees plain HTTP, so the edge signal decides.
@@ -272,10 +274,23 @@ for (const gatewayName of GATEWAY_NAMES) {
 			headers[key.toLowerCase()] = value;
 		});
 		// Extract correlation/request ID from common gateway header conventions.
-		const requestId =
+		// Capped like `Idempotency-Key` on the payment route (128). An oversized
+		// id is dropped, not rejected: a 4xx here would make the gateway retry a
+		// payment event forever, and the event still has to be recorded. The
+		// event-level UNIQUE index stays the atomic dedupe without the id.
+		const rawRequestId =
 			headers["x-request-id"] ??
 			headers["idempotency-key"] ??
 			headers["x-correlation-id"];
+		const requestId =
+			rawRequestId && rawRequestId.length <= MAX_REQUEST_ID_LENGTH
+				? rawRequestId
+				: undefined;
+		if (rawRequestId && !requestId) {
+			logger.warn(
+				`Webhook ${gatewayName}: oversized request id ignored (${rawRequestId.length} chars)`,
+			);
+		}
 
 		// HTTPS enforcement (configurable; defaults to production-only)
 		if (
