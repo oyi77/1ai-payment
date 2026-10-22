@@ -533,6 +533,20 @@ for (const gatewayName of GATEWAY_NAMES) {
 					const callbackUrl = String(r.callback_url ?? "");
 					const secret = decryptWebhookSecret(r.webhook_secret);
 					if (callbackUrl && secret) {
+						// A success callback that reports no amount cannot be booked: the
+						// order below IS the record of what the buyer paid, so a 0 here would
+						// persist and forward revenue that never happened. 200 (not 4xx)
+						// matches the underpay guard: retries cannot materialise an amount.
+						if (!(event.amount > 0)) {
+							logger.warn(
+								"Direct lynk checkout: no amount reported, not persisting",
+								{
+									gateway_reference: event.gateway_reference,
+									order_id: event.order_id,
+								},
+							);
+							return c.json({ ok: true as const }, 200);
+						}
 						// Persist the order before forwarding: forwardEvent's
 						// markForwarded() is an UPDATE, so without a row the
 						// delivery leaves no audit trail and dead letters

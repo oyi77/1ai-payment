@@ -9,6 +9,7 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
+import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { getConfig } from "./config/env";
@@ -180,6 +181,22 @@ app.onError((err, c) => {
 				error: { code: err.code, message: err.message },
 			},
 			err.statusCode as ContentfulStatusCode,
+		);
+	}
+	// Hono validators signal client faults by throwing HTTPException (415 for a
+	// missing/unsupported Content-Type, 413 for an oversized body). Cloudflare
+	// rewrites 5xx origin bodies, so anything below 500 must keep its status and
+	// stay inside the JSON envelope instead of degrading to 500/INTERNAL_ERROR.
+	if (err instanceof HTTPException && err.status < 500) {
+		return c.json(
+			{
+				success: false as const,
+				error: {
+					code: err.status === 413 ? "PAYLOAD_TOO_LARGE" : "BAD_REQUEST",
+					message: err.message || "Invalid request",
+				},
+			},
+			err.status,
 		);
 	}
 	// Body parse failures (c.req.json() throws a standard Error, not the module-local

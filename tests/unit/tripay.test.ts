@@ -77,7 +77,44 @@ describe('TripayGateway.normalizeEvent', () => {
     expect(event.gateway_reference).toBe('TRIPAY-REF-001');
   });
 
-  test('extracts amount as number', () => {
+  test('maps documented IPN total_amount as the event amount', () => {
+    const event = gateway.normalizeEvent({
+      reference: 'T1234567890',
+      merchant_ref: 'INV-001',
+      payment_method: 'BRIVA',
+      total_amount: 100000,
+      fee_merchant: 4250,
+      amount_received: 95750,
+      status: 'PAID',
+      paid_at: '2024-01-15 10:30:00',
+    });
+    expect(event.amount).toBe(100000);
+    expect(event.order_id).toBe('INV-001');
+    expect(event.status).toBe('success');
+  });
+
+  test('falls back to amount_received when total_amount is absent', () => {
+    const event = gateway.normalizeEvent({
+      reference: 'T1',
+      merchant_ref: 'INV-002',
+      payment_method: 'BRIVA',
+      amount_received: 95750,
+      status: 'PAID',
+    });
+    expect(event.amount).toBe(95750);
+  });
+
+  test('reports 0 when the body carries no amount field at all', () => {
+    const event = gateway.normalizeEvent({
+      reference: 'T2',
+      merchant_ref: 'INV-003',
+      payment_method: 'BRIVA',
+      status: 'PAID',
+    });
+    expect(event.amount).toBe(0);
+  });
+
+  test('still honours a legacy amount field', () => {
     const event = gateway.normalizeEvent(makePayload({ amount: 50000 }));
     expect(event.amount).toBe(50000);
   });

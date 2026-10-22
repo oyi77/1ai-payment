@@ -724,19 +724,19 @@ var API_EXAMPLES = {
     url: 'https://t.me/$1ai_payment_bot?invoice=AQAAAA'
   }),
   telegram_payments: example('telegram_payments', {
-    amount: 9.99, currency: 'EUR', method: 'telegram',
+    amount: 999, currency: 'EUR', method: 'telegram',
     ref: 'ORD-2026-010', id: 'pay_tp_b82f04', gwref: 'ORD-2026-010',
     url: 'https://t.me/$1ai_payment_bot?invoice=AgAAAA'
   }),
   x402: example('x402', {
-    amount: 0.5, currency: 'USDC', method: 'usdc_base',
+    amount: 50, currency: 'USD', method: 'usdc_base',
     ref: 'ORD-2026-011', id: 'pay_x42_19c7fe', gwref: 'ORD-2026-011',
     url: '{"x402Version":1,"accepts":[{"scheme":"exact","network":"eip155:8453","maxAmountRequired":"500000","payTo":"0xMerchant...","asset":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"}]}'
   }),
   erc8183: example('erc8183', {
-    amount: 1.2, currency: 'USDC', method: 'erc8183_escrow',
+    amount: 1200000, currency: 'USD', method: 'erc8183_escrow',
     ref: 'ORD-2026-012', id: 'pay_e83_4a1d90', gwref: 'ORD-2026-012',
-    url: '{"escrowId":"0x9f...","evaluator":"0xEval...","token":"0xUSDC...","amount":"1200000"}'
+    url: '{"id":"ORD-2026-012","status":"pending","employer":"0xMerchant...","provider":"0xAgent...","evaluator":"0xEval...","job":{"title":"Data enrichment job","budget":"1200000","token":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913","network":"eip155:8453"},"tokenAmount":"1200000","tokenAddress":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913","network":"eip155:8453","createdAt":"2026-07-05T10:00:00.000Z","updatedAt":"2026-07-05T10:00:00.000Z"}'
   }),
   saweria: example('saweria', {
     amount: 50000, currency: 'IDR', method: 'qris',

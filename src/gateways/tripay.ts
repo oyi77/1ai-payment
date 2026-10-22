@@ -26,8 +26,15 @@ interface TripayCallbackPayload {
 	merchant_ref: string;
 	reference: string;
 	status: string;
-	amount: number;
+	/** Gross paid by the buyer (Tripay IPN). */
+	total_amount?: number;
+	/** Net credited to the merchant after Tripay's fee. */
+	amount_received?: number;
+	fee_merchant?: number;
+	/** Legacy/manual-replay field; not present in documented IPN bodies. */
+	amount?: number;
 	payment_method: string;
+	paid_at?: string;
 }
 
 interface TripayMerchantConfig {
@@ -220,7 +227,9 @@ export class TripayGateway implements PaymentGateway {
 			order_id: payload.merchant_ref,
 			gateway_reference: payload.reference,
 			status,
-			amount: payload.amount,
+			amount: Number(
+				payload.total_amount ?? payload.amount_received ?? payload.amount ?? 0,
+			),
 			currency: "IDR",
 			payment_method: payload.payment_method,
 			paid_at: status === "success" ? new Date().toISOString() : null,

@@ -140,7 +140,7 @@ Response:
 
 Redirect the end user to `data.payment_url` to complete payment.
 
-Errors use a uniform envelope: `{ "success": false, "error": { "code", "message" } }` (e.g. `INVALID_BODY`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `GATEWAY_ERROR`), returned with the appropriate HTTP status. Cross-tenant access to another merchant's `:id` resources returns `404 NOT_FOUND`, not `403`, so resource existence is not disclosed.
+Errors use a uniform envelope: `{ "success": false, "error": { "code", "message" } }` (e.g. `INVALID_BODY`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `GATEWAY_ERROR`), returned with the appropriate HTTP status. Cross-tenant access to another merchant's `:id` resources returns `404 NOT_FOUND`, not `403`, so resource existence is not disclosed. Client faults raised inside the router keep their status and envelope: an unsupported or missing `Content-Type` on a JSON route returns `415 BAD_REQUEST` and an oversized body returns `413 PAYLOAD_TOO_LARGE` — neither degrades to `500 INTERNAL_ERROR`. This matters behind Cloudflare, which replaces 5xx origin bodies with its own error page, so a 5xx would hide the JSON contract from the caller.
 
 ### Idempotency
 

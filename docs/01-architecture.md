@@ -164,19 +164,24 @@ sequenceDiagram
         W-->>G: 200 {ok: true} (not forwarded)
     else order found
         W->>N: Re-normalize with order.metadata
-        W->>DB: INSERT webhook_events first (dedup check)
-        alt duplicate (UNIQUE partial index)
-            W-->>G: 200 (idempotent skip)
+        W->>DB: Claim request id (webhook_requests)<br/>skip gates above never reach here
+        alt request id already claimed
+            W-->>G: 200 (replay skip)
         else
-            W->>DB: updateOrderStatus(id, status,<br/>gateway_reference)
-            W->>F: forwardEvent(...) (async, fire-and-forget)
-            F->>P: POST callback_url (signed payload)
-            alt success
-                F->>DB: markForwarded(id, statusCode, attempts)
-            else retries exhausted
-                F->>DB: INSERT dead_letter_events<br/>+ markForwarded(id, 0, 3)
+            W->>DB: INSERT webhook_events first (dedup check)
+            alt duplicate (UNIQUE partial index)
+                W-->>G: 200 (idempotent skip)
+            else
+                W->>DB: updateOrderStatus(id, status,<br/>gateway_reference)
+                W->>F: forwardEvent(...) (async, fire-and-forget)
+                F->>P: POST callback_url (signed payload)
+                alt success
+                    F->>DB: markForwarded(id, statusCode, attempts)
+                else retries exhausted
+                    F->>DB: INSERT dead_letter_events<br/>+ markForwarded(id, 0, 3)
+                end
+                W-->>G: 200 {ok: true}
             end
-            W-->>G: 200 {ok: true}
         end
     end
 ```
@@ -215,13 +220,18 @@ Key properties:
   non-atomic check (TOCTOU), an accepted residual since duplicate unknown
   events only re-insert a log row and are never forwarded.
 - **Gateway request ids are claimed late and released on failure.** A
-  gateway-supplied request id (`X-Request-Id`, `Idempotency-Key`,
-  `X-Correlation-Id`) is inserted into `webhook_requests` only after every
-  pre-persist gate has passed (signature, order lookup, amount match), and the
-  claim row is deleted again when the event turn ends without recording it.
-  Without that release a crash between claim and write left a stale claim, and
-  the gateway's retry was answered as a duplicate for an event that was never
-  recorded.
+  gateway-supplied request id (`X-Request-Id`, then `Idempotency-Key`, then
+  `X-Correlation-Id`) is inserted into `webhook_requests` (UNIQUE on
+  `(request_id, gateway)`) only after every skip gate has returned 200 —
+  signature, order lookup, amount match. A skipped callback therefore never
+  consumes the id, so the gateway's retry with the same id is processed
+  normally. A repeat of a claimed id returns `200` as a replay without
+  recording. The claim row is deleted again when the event insert fails for
+  any reason other than a duplicate: nothing was recorded, so the retry has
+  to be processable, while a duplicate keeps its claim because the event it
+  guards is already recorded. Regression:
+  `tests/integration/webhook-replay-claim.test.ts` (skip does not consume an
+  id, oversized id is ignored, replay is blocked, failed insert releases).
 - **Oversized request ids are dropped, not rejected.** Ids longer than 128
   chars are ignored (event recorded, id not stored) so a broken correlation
   header can never turn a valid payment callback into a permanent gateway

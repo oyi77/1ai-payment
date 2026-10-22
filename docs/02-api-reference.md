@@ -117,9 +117,12 @@ Gateway callback receiver. One route for all gateways; the `gateway` path segmen
 2. Lowercase-normalize headers, verify the gateway signature (reject with `401` on mismatch).
 3. Normalize the payload into a `NormalizedPaymentEvent`.
 4. Look up the order (by gateway reference, then by order id).
-5. Record the webhook event; duplicate events (`UNIQUE(order_id, gateway, status)`) are acknowledged with `200` without reprocessing (idempotency).
-6. Update the order status, then asynchronously forward the event to the project's callback URL.
-7. Acknowledge with `200`.
+5. Claim the gateway request id if present (`X-Request-Id`, `Idempotency-Key`, `X-Correlation-Id`; ids longer than 128 chars are ignored) — claimed only after every skip gate above has passed, so a skip never consumes it.
+6. Record the webhook event; duplicate events (`UNIQUE(order_id, gateway, status)`) are acknowledged with `200` without reprocessing (idempotency). A repeated request id returns `200` as a replay without recording.
+7. Update the order status, then asynchronously forward the event to the project's callback URL.
+8. Acknowledge with `200`.
+
+If the event insert fails for any reason other than a duplicate, the request-id claim is released so the gateway's retry with the same id is still processed.
 
 An event for an **unknown order** is still acknowledged with `200` (and logged) so gateways do not retry forever.
 
@@ -860,11 +863,10 @@ Webhook endpoints use a simpler shape instead: `{ error: string }` (e.g. `{ erro
 | 404 | `GATEWAY_NOT_FOUND` | Gateway not found |
 | 404 | `NOT_FOUND` | Merchant / resource not found |
 | 404 | `GATEWAY_ERROR` | Order not found on refund (message contains "not found") |
+| 413 | `PAYLOAD_TOO_LARGE` | Request body over 1MB |
+| 415 | `BAD_REQUEST` | Unsupported/missing `Content-Type` on a route that requires JSON (validator `HTTPException`); the status is preserved rather than degrading to `500` |
 | 409 | `DUPLICATE` | Merchant name already in use |
 | 409 | `DUPLICATE_ORDER` | Idempotency key already used |
-| 413 | `PAYLOAD_TOO_LARGE` | Request body over 1MB |
-| 403 | `GATEWAY_DISABLED` | Gateway explicitly disabled for this merchant |
-| 429 | `RATE_LIMITED` | Rate limit exceeded (includes `Retry-After` header) |
 | 500 | `INTERNAL_ERROR` | Unexpected server error |
 | 502 | `GATEWAY_ERROR` | Gateway API returned an error |
 

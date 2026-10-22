@@ -280,19 +280,23 @@ export class LynkGateway implements PaymentGateway {
 
 		// Extract amount. grandTotal/totalPrice are camelCase in the payload;
 		// Lynk formats money with thousands separators ("72,000"), so strip
-		// non-digits before coercing.
+		// non-digits before coercing. An absent/unparseable amount is 0, never
+		// a guessed nominal: the webhook route builds a real order from this
+		// value for direct checkouts, so a fabricated 254000 would book and
+		// forward revenue nobody paid.
 		const rawAmount =
 			msgData?.totals?.grandTotal ??
 			msgData?.totals?.totalPrice ??
+			msgData?.totals?.grand_total ??
+			msgData?.totals?.total_price ??
 			payload.grand_total ??
 			payload.total ??
-			payload.amount ??
-			254000;
+			payload.amount;
 		const parsedAmount =
 			typeof rawAmount === "number"
 				? rawAmount
-				: Number(String(rawAmount).replace(/[^\d.-]/g, ""));
-		const amount = Number.isFinite(parsedAmount) ? parsedAmount : 254000;
+				: Number(String(rawAmount ?? "").replace(/[^\d.-]/g, ""));
+		const amount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
 
 		// Extract status. Lynk states the outcome in data.message_action
 		// ("SUCCESS") and data.message_code ("0"), not in a top-level status.

@@ -15,11 +15,12 @@ beforeAll(() => {
 const gateway = new LynkGateway();
 
 describe("LynkGateway.normalizeEvent", () => {
-	test("maps Starsender / Lynk nested payload to normalized event", () => {
+	test("maps real Lynk camelCase payload (grandTotal) to normalized event", () => {
 		const payload = {
 			data: {
+				message_action: "SUCCESS",
 				message_data: {
-					ref_id: "LYNK-1792314-ABC",
+					refId: "LYNK-1792314-ABC",
 					customer: {
 						name: "Budi Santoso",
 						email: "budi@example.com",
@@ -27,8 +28,8 @@ describe("LynkGateway.normalizeEvent", () => {
 					},
 					items: [{ title: "Lifetime VIP", qty: 1, price: 254000 }],
 					totals: {
-						total_price: 254000,
-						grand_total: 254000,
+						totalPrice: 254000,
+						grandTotal: "254,000",
 					},
 					custom_fields: [
 						{ label: "Telegram Chat ID", value: "356063384" },
@@ -48,6 +49,48 @@ describe("LynkGateway.normalizeEvent", () => {
 		expect(event.metadata?.customer_email).toBe("budi@example.com");
 	});
 
+	test("accepts legacy snake_case totals spellings", () => {
+		const payload = {
+			data: {
+				message_data: {
+					ref_id: "LYNK-LEGACY-1",
+					totals: { grand_total: "72,000" },
+				},
+			},
+		};
+
+		const event = gateway.normalizeEvent(payload);
+		expect(event.order_id).toBe("LYNK-LEGACY-1");
+		expect(event.amount).toBe(72000);
+	});
+
+	test("reports 0 for a success payload that carries no amount", () => {
+		const payload = {
+			data: {
+				message_action: "SUCCESS",
+				message_data: { refId: "LYNK-NO-AMOUNT" },
+			},
+		};
+
+		const event = gateway.normalizeEvent(payload);
+		expect(event.status).toBe("success");
+		expect(event.order_id).toBe("LYNK-NO-AMOUNT");
+		expect(event.amount).toBe(0);
+	});
+
+	test("reports 0 for an unparseable amount instead of a guessed nominal", () => {
+		const payload = {
+			data: {
+				message_data: {
+					refId: "LYNK-BAD-AMOUNT",
+					totals: { grandTotal: "not-a-number" },
+				},
+			},
+		};
+
+		expect(gateway.normalizeEvent(payload).amount).toBe(0);
+	});
+
 	test("maps flat payload to normalized event", () => {
 		const payload = {
 			order_number: "ORD-998877",
@@ -61,6 +104,7 @@ describe("LynkGateway.normalizeEvent", () => {
 		const event = gateway.normalizeEvent(payload);
 		expect(event.status).toBe("success");
 		expect(event.order_id).toBe("ORD-998877");
+		expect(event.amount).toBe(254000);
 		expect(event.metadata?.chat_id).toBe("8964729873");
 	});
 
