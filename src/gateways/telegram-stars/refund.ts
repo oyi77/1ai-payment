@@ -27,20 +27,41 @@ const TELEGRAM_API = "https://api.telegram.org";
 export async function getTelegramUserIdForCharge(
 	gatewayRef: string,
 ): Promise<number | undefined> {
+	let res: Awaited<ReturnType<ReturnType<typeof getDb>["execute"]>>;
 	try {
-		const res = await getDb().execute({
+		res = await getDb().execute({
 			sql: "SELECT metadata FROM orders WHERE gateway = 'telegram_stars' AND gateway_reference = ? LIMIT 1",
 			args: [gatewayRef],
 		});
-		if (res.rows.length === 0) return undefined;
-		const raw = (res.rows[0] as Record<string, unknown>).metadata;
-		if (typeof raw !== "string" || !raw) return undefined;
-		const meta = JSON.parse(raw) as { telegram_user_id?: unknown };
-		const id = Number(meta.telegram_user_id);
-		return Number.isFinite(id) && id > 0 ? id : undefined;
+	} catch (err: unknown) {
+		// A DB fault is not "this order has no payer". Swallowing it made the
+		// refund fail later with a misleading "missing telegram_user_id",
+		// pointing operators at the order instead of the database.
+		logger.error("Telegram Stars: cannot read order for refund", {
+			gateway_reference: gatewayRef,
+			error: err instanceof Error ? err.message : String(err),
+		});
+		throw new GatewayError(
+			"telegram_stars",
+			"Could not read the order for this charge",
+		);
+	}
+	if (res.rows.length === 0) return undefined;
+	const raw = (res.rows[0] as Record<string, unknown>).metadata;
+	if (typeof raw !== "string" || !raw) return undefined;
+	let meta: { telegram_user_id?: unknown };
+	try {
+		meta = JSON.parse(raw) as { telegram_user_id?: unknown };
 	} catch {
+		// Stored metadata is written by normalizeEvent, so unparseable JSON is
+		// corruption, not a legitimate "no payer" case.
+		logger.error("Telegram Stars: order metadata is not valid JSON", {
+			gateway_reference: gatewayRef,
+		});
 		return undefined;
 	}
+	const id = Number(meta.telegram_user_id);
+	return Number.isFinite(id) && id > 0 ? id : undefined;
 }
 
 export async function refundStarsPayment(

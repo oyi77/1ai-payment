@@ -105,4 +105,22 @@ describe("gateway.refundPayment resolves the payer from order metadata", () => {
 		await seedPaidOrder("chg_nouser", {});
 		await expect(gateway.refundPayment("chg_nouser", 100)).rejects.toThrow(/user_id/);
 	});
+
+	test("surfaces a database fault instead of reporting a missing payer", async () => {
+		// Close the handle behind the service: a DB fault must not masquerade as
+		// "this order has no telegram_user_id", which sends operators hunting
+		// the order instead of the database.
+		const db = getDb();
+		const originalExecute = db.execute.bind(db);
+		db.execute = (() => {
+			throw new Error("disk I/O error");
+		}) as typeof db.execute;
+		try {
+			await expect(
+				gateway.refundPayment("chg_db", 100),
+			).rejects.toThrow(/Could not read the order/);
+		} finally {
+			db.execute = originalExecute;
+		}
+	});
 });
