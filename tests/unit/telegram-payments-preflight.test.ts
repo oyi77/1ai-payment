@@ -44,10 +44,10 @@ describe("createInvoice pre-flight", () => {
 			return new Response("{}", { status: 200 });
 		}) as unknown as typeof fetch;
 
-		expect(createInvoice(params)).rejects.toThrow(
+		await expect(createInvoice(params)).rejects.toThrow(
 			"TELEGRAM_PAYMENT_PROVIDER_TOKEN not configured",
 		);
-		await Bun.sleep(10);
+		// No sleep: the rejection resolves before the guard could ever reach fetch.
 		expect(called).toBe(false);
 	});
 
