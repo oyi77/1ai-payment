@@ -29,6 +29,11 @@ import { registerRoutes } from "./routes/register";
 import { savedMethodsRouter } from "./routes/saved-methods";
 import { webhookRoutes } from "./routes/webhook";
 import { defaultHook } from "./schemas";
+import {
+	type OpenApiDocument,
+	decorateOpenApiDocument,
+	serversFor,
+} from "./services/openapi-document";
 import { PaymentError } from "./utils/errors";
 import { logger } from "./utils/logger";
 const config = getConfig();
@@ -161,14 +166,22 @@ app.route("/api", savedMethodsRouter);
 // Admin routes — protected by adminAuthMiddleware via adminRoutes
 app.route("/api", adminRoutes);
 
-// Auto-generated OpenAPI JSON spec at /doc
-app.doc("/doc", {
+const openApiInfo = {
 	openapi: "3.1.0",
 	info: {
 		title: "1ai-payment",
 		version: "0.1.0",
-		description: "Payment gateway aggregator microservice for 1ai-ecosystem",
+		description:
+			"Payment gateway aggregator microservice for 1ai-ecosystem. 16 registered gateways, 15 selectable (scalev is parked).",
 	},
+};
+
+// Hono emits the raw document from every createRoute declaration; this layer
+// adds the contract code generators need (stable operationIds, tag order,
+// server URLs) without touching any individual route file.
+app.get("/doc", (c) => {
+	const raw = app.getOpenAPIDocument(openApiInfo) as unknown as OpenApiDocument;
+	return c.json(decorateOpenApiDocument(raw, serversFor(config)));
 });
 
 // Unified error envelope — every handler error and unhandled route falls back
