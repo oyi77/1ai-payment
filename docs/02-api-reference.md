@@ -826,7 +826,7 @@ Prometheus metrics endpoint. Requires the `X-Admin-Key` header. Not rate limited
 | `GET /` | Landing page (`src/landing/index.html`) |
 | `GET /dashboard`, `GET /dashboard/` | Dashboard (`src/dashboard/index.html`, `Cache-Control: no-cache`) |
 | `GET /favicon.svg` | Favicon |
-| `GET /doc` | OpenAPI JSON spec (OpenAPI 3.1.0, title `1ai-payment`, version `0.1.0`) — always in sync with the code |
+| `GET /doc` | OpenAPI JSON spec (OpenAPI 3.1.0, title `1ai-payment`, version `0.1.0`) — always in sync with the code. Every operation carries a unique deterministic `operationId`; paths/tags/servers are decorated in `src/services/openapi-document.ts` — see [06 — OpenAPI Derivation Contract](./06-openapi-derivation.md) |
 | `GET /payment/finish`, `/payment/cancel`, `/payment/success`, `/payment/virtual-account` | Buyer redirect landing (gateway default when the merchant sets no successUrl/cancelUrl; VA number rendered from query) |
 | `GET /reference` | Swagger UI (auto-generated). `persistAuthorization` always on — auth via the Authorize dialog (`X-API-Key` header). API keys are never accepted in query params (log/history leak). |
 

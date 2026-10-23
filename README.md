@@ -208,7 +208,7 @@ OpenAPI spec is **auto-generated from Zod schemas** in `src/schemas.ts` and rout
 | Endpoint | Description |
 |----------|-------------|
 | `/reference` | Interactive Swagger UI (try-it-out, auth persistence always on) |
-| `/doc` | Auto-generated OpenAPI 3.1 JSON spec |
+| `/doc` | OpenAPI 3.1 JSON spec with unique deterministic `operationId`s; paths/tags/servers decorated in `src/services/openapi-document.ts` — see [docs/06-openapi-derivation.md](docs/06-openapi-derivation.md) |
 
 Open `/reference`, click Authorize, paste your API key as the `X-API-Key` header value. `persistAuthorization` keeps it across reloads. API keys are never accepted in query params (they leak into access logs and browser history).
 
@@ -222,6 +222,7 @@ Open `/reference`, click Authorize, paste your API key as the `X-API-Key` header
 | [docs/03-gateway-specs.md](docs/03-gateway-specs.md) | Per-gateway integration specs |
 | [docs/04-rollout-plan.md](docs/04-rollout-plan.md) | Migration and rollout plan |
 | [docs/05-product-roadmap.md](docs/05-product-roadmap.md) | Product roadmap: internal tool → SaaS (atomic steps) |
+| [docs/06-openapi-derivation.md](docs/06-openapi-derivation.md) | `/doc` contract: operationId derivation, tag/path ordering, servers |
 
 ## Adding a New Gateway
 

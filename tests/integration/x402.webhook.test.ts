@@ -94,8 +94,11 @@ async function waitFor(
 function makeRpcFetch(
 	transferTo: string,
 	declaredAmount = 1000000n,
-): { mockFetch: typeof fetch; callbackCount: () => number } {
-	let callbacks = 0;
+): { mockFetch: typeof fetch; callbackCount: (orderId: string) => number } {
+	// Count callbacks BY BODY, not by call: every test file shares the one
+	// globalThis.fetch, so a fire-and-forget retry from another file's order
+	// (same cb.example.com/hook URL) can land here and inflate a bare count.
+	const bodies: string[] = [];
 	const mockFetch = ((url, init) => {
 		if (String(url).includes("mock-rpc.invalid")) {
 			const payload = JSON.parse(String(init?.body ?? "{}")) as {
@@ -164,11 +167,15 @@ function makeRpcFetch(
 		}
 
 		// Project callback URL
-		callbacks++;
+		bodies.push(String(init?.body ?? ""));
 		return Promise.resolve(new Response("ok", { status: 200 }));
 	}) as unknown as typeof fetch;
 
-	return { mockFetch, callbackCount: () => callbacks };
+	return {
+		mockFetch,
+		callbackCount: (orderId: string) =>
+			bodies.filter((body) => body.includes(orderId)).length,
+	};
 }
 
 beforeAll(async () => {
@@ -235,7 +242,7 @@ describe("POST /webhook/x402", () => {
 		const body = await res.json();
 		expect(body.ok).toBe(true);
 
-		await waitFor(() => callbackCount() >= 1);
+		await waitFor(() => callbackCount(order.id) >= 1);
 
 		const { getDb } = await import("../../src/config/database");
 		const db = getDb();
@@ -260,7 +267,7 @@ describe("POST /webhook/x402", () => {
 		const stored = String(eventRows.rows[0].raw_payload);
 		expect(stored).toContain(order.id);
 		expect(stored).toContain(TX_HASH_SUCCESS);
-		expect(callbackCount()).toBe(1);
+		expect(callbackCount(order.id)).toBe(1);
 	});
 
 	test("transfer to a non-merchant wallet is rejected with 401", async () => {
@@ -285,7 +292,7 @@ describe("POST /webhook/x402", () => {
 		expect(res.status).toBe(401);
 		const body = await res.json();
 		expect(body.error).toBe("Invalid signature");
-		expect(callbackCount()).toBe(0);
+		expect(callbackCount(order.id)).toBe(0);
 
 		const { getDb } = await import("../../src/config/database");
 		const db = getDb();
