@@ -30,6 +30,8 @@ export interface Order {
 	created_at: string;
 	updated_at: string;
 	forwarded_at: string | null;
+	unique_amount: number | null;
+	last_polled_at: string | null;
 	forward_attempts: number;
 	forward_status: number | null;
 }
@@ -46,6 +48,7 @@ export interface CreateOrderParams {
 	payment_url?: string;
 	metadata?: Record<string, unknown>;
 	idempotency_key?: string;
+	unique_amount?: number;
 }
 
 /**
@@ -71,8 +74,8 @@ export async function createOrder(params: CreateOrderParams): Promise<Order> {
 
 	try {
 		await db.execute({
-			sql: `INSERT INTO orders (id, project_id, merchant_id, project_order_id, callback_url, gateway, amount, currency, payment_method, payment_url, metadata, idempotency_key)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			sql: `INSERT INTO orders (id, project_id, merchant_id, project_order_id, callback_url, gateway, amount, currency, payment_method, payment_url, metadata, idempotency_key, unique_amount)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			args: [
 				id,
 				params.project_id,
@@ -91,6 +94,7 @@ export async function createOrder(params: CreateOrderParams): Promise<Order> {
 							params.merchant_id ?? params.project_id,
 						)
 					: null,
+				params.unique_amount ?? null,
 			],
 		});
 		logger.info("Order created", {
@@ -299,6 +303,37 @@ export async function listOrders(params: {
 	};
 }
 
+export async function getActivePendingUniqueAmounts(
+	gateway: string,
+): Promise<Set<number>> {
+	const db = getDb();
+	const r = await db.execute({
+		sql: "SELECT unique_amount FROM orders WHERE gateway = ? AND status = 'pending' AND unique_amount IS NOT NULL",
+		args: [gateway],
+	});
+	return new Set(r.rows.map((x) => Number(x.unique_amount)));
+}
+
+export async function getPendingOrderByUniqueAmount(
+	gateway: string,
+	uniqueAmount: number,
+): Promise<Order | null> {
+	const db = getDb();
+	const r = await db.execute({
+		sql: "SELECT * FROM orders WHERE gateway = ? AND status = 'pending' AND unique_amount = ?",
+		args: [gateway, uniqueAmount],
+	});
+	return r.rows.length ? mapRow(r.rows[0] as Record<string, unknown>) : null;
+}
+
+export async function updateOrderPolled(id: string): Promise<void> {
+	const db = getDb();
+	await db.execute({
+		sql: "UPDATE orders SET last_polled_at = datetime('now') WHERE id = ?",
+		args: [id],
+	});
+}
+
 function mapRow(row: Record<string, unknown>): Order {
 	let metadata: Record<string, unknown> | null = null;
 	if (row.metadata && typeof row.metadata === "string") {
@@ -343,6 +378,8 @@ function mapRow(row: Record<string, unknown>): Order {
 		created_at: row.created_at as string,
 		updated_at: row.updated_at as string,
 		forwarded_at: (row.forwarded_at as string) ?? null,
+		unique_amount: (row.unique_amount as number) ?? null,
+		last_polled_at: (row.last_polled_at as string) ?? null,
 		forward_attempts: (row.forward_attempts as number) ?? 0,
 		forward_status: (row.forward_status as number) ?? null,
 	};

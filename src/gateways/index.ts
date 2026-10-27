@@ -11,6 +11,7 @@
 import type { PaymentGateway } from "./base";
 import { DuitkuGateway } from "./duitku";
 import { ERC8183Gateway } from "./erc8183";
+import { GoPayGateway } from "./gopay";
 import { IPaymuGateway } from "./ipaymu";
 import { LynkGateway } from "./lynk";
 import { MidtransGateway } from "./midtrans";
@@ -20,20 +21,22 @@ import { NowPaymentsGateway } from "./nowpayments";
 import { PayPalGateway } from "./paypal";
 import { SaweriaGateway } from "./saweria";
 import { ScalevGateway } from "./scalev";
+import { ShopeeGateway } from "./shopee";
 import { TelegramPaymentsGateway } from "./telegram-payments";
 import { TelegramStarsGateway } from "./telegram-stars";
 import { TripayGateway } from "./tripay";
 import { X402Gateway } from "./x402";
 import { XenditGateway } from "./xendit";
-
 export type {
 	PaymentGateway,
 	NormalizedPaymentEvent,
-	PaymentStatus,
+	FeedGateway,
+	MerchantTransaction,
 	CreatePaymentParams,
 	CreatePaymentResult,
 	PaymentMethod,
 } from "./base";
+export { isFeedGateway } from "./base";
 
 /**
  * Gateways that are registered but must NOT be advertised to merchants.
@@ -90,9 +93,11 @@ const registry: Record<string, PaymentGateway> = {
 	mutasiku: new MutasikuGateway(),
 	moota: new MootaGateway(),
 	lynk: new LynkGateway(),
+	gopay: new GoPayGateway(),
+	shopee: new ShopeeGateway(),
 };
 
-// Snapshot of production gateways so tests can register fakes and restore.
+// Snapshot production gateways so tests can register fakes and restore.
 const defaultRegistry: Record<string, PaymentGateway> = { ...registry };
 
 export function getGateway(name: string): PaymentGateway | undefined {

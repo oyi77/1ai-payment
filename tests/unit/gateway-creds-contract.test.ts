@@ -50,9 +50,10 @@ afterAll(() => {
 });
 
 describe("merchant credential key contract", () => {
-	test("contract covers the 11 merchant-credential gateways", () => {
+	test("contract covers the 13 merchant-credential gateways", () => {
 		expect(Object.keys(MERCHANT_CREDENTIAL_KEYS).sort()).toEqual([
 			"duitku",
+			"gopay",
 			"ipaymu",
 			"lynk",
 			"midtrans",
@@ -61,6 +62,7 @@ describe("merchant credential key contract", () => {
 			"nowpayments",
 			"saweria",
 			"scalev",
+			"shopee",
 			"tripay",
 			"xendit",
 		]);

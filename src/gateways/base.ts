@@ -147,3 +147,20 @@ export interface PaymentGateway {
 		opts?: GatewayVerifyOpts,
 	): Promise<RefundResult>;
 }
+
+export interface MerchantTransaction {
+	transaction_id: string;
+	amount: number;
+	status: string;
+	created_at: string;
+}
+
+export interface FeedGateway extends PaymentGateway {
+	fetchRecentTransactions(
+		opts?: GatewayVerifyOpts,
+	): Promise<MerchantTransaction[]>;
+}
+
+export function isFeedGateway(gateway: PaymentGateway): gateway is FeedGateway {
+	return typeof (gateway as FeedGateway).fetchRecentTransactions === "function";
+}

@@ -34,6 +34,7 @@ import {
 	handleNexusPayment,
 	revokeNexusAccess,
 } from "../services/nexus-fulfillment";
+import { settleOrder } from "../services/order-settlement.service";
 import {
 	createOrder,
 	getOrderByGatewayRef,
@@ -45,7 +46,6 @@ import { decryptWebhookSecret, generateEventId } from "../utils/crypto";
 import { logger } from "../utils/logger";
 
 export const webhookRoutes = new OpenAPIHono({ defaultHook });
-
 const webhookAckJson = {
 	"application/json": { schema: webhookAckSchema },
 } as const;
@@ -115,7 +115,7 @@ export function isHttpsRequest(
 export const MERCHANT_VERIFY_GATEWAYS: Record<string, true> =
 	Object.fromEntries(
 		Object.keys(MERCHANT_CREDENTIAL_KEYS)
-			.filter((g) => g !== "saweria")
+			.filter((g) => g !== "saweria" && g !== "shopee" && g !== "gopay")
 			.map((g) => [g, true as const]),
 	);
 async function verifyAgainstMerchantKeys(
@@ -771,95 +771,15 @@ for (const gatewayName of GATEWAY_NAMES) {
 			return c.json({ ok: true as const }, 200);
 		}
 
-		// New event — update order and forward
-		await updateOrderStatus(
-			order.id,
-			fullEvent.status,
-			fullEvent.gateway_reference,
-		);
-
-		// NexusDM: Scalev success on an API-created order carries the merchant's
-		// metadata (incl. telegram_username captured pre-checkout). The B2 path
-		// above only fires for direct checkout (no order row) — this covers the
-		// API path. Fulfillment is idempotent on scalev_order_id; the order row
-		// here resolves via notes so scalev_order_id = gateway_reference.
-		if (gatewayName === "scalev" && fullEvent.status === "success") {
-			const meta = order.metadata ?? {};
-			// Scalev's webhook carries no variant (verified against a real
-			// payload: no `items` array). For API-created orders the variant
-			// lives in the merchant's metadata, which extractVariantFromPayload
-			// already reads via `metadata.variant`. Without this merge the
-			// fulfillment path could never identify a product on this route.
-			const rawBody = body as Record<string, unknown>;
-			const bodyWithMetadata: Record<string, unknown> =
-				rawBody.metadata === undefined
-					? { ...rawBody, metadata: meta }
-					: rawBody;
-			const result = await handleNexusPayment(
-				gatewayName,
-				bodyWithMetadata,
-				String(rawBody.customer_email ?? ""),
-				String(rawBody.customer_name ?? ""),
-				typeof meta.telegram_username === "string"
-					? meta.telegram_username
-					: undefined,
-			);
-			if (result.success) {
-				logger.info("Nexus: fulfillment complete for API order", {
-					order_id: order.id,
-					subId: result.subscriptionId,
-				});
-			}
-		}
-
-		// Look up merchant's webhook_secret for signing — no fallback. Only
-		// forward when a real secret exists; signing with anything else would
-		// make verification fail on the project side. Stored encrypted at
-		// rest (Sweep154): decrypt here; undecryptable rows are treated as
-		// missing (loud warn below), never used raw.
-		let webhookSecret: string | null = null;
+		// New event — settle (status update + forward)
 		try {
-			// merchant_id first: it is the canonical owner (project_id is a
-			// legacy alias, kept equal at creation but not guaranteed).
-			const merchantResult = await getDb().execute({
-				sql: "SELECT webhook_secret FROM merchants WHERE id = ?",
-				args: [order.merchant_id],
+			await settleOrder({ order, event: fullEvent, gatewayName, body });
+		} catch (err: unknown) {
+			logger.error("settleOrder failed", {
+				order_id: order.id,
+				error: err instanceof Error ? err.message : String(err),
 			});
-			if (merchantResult.rows.length > 0) {
-				webhookSecret = decryptWebhookSecret(
-					merchantResult.rows[0].webhook_secret,
-				);
-			}
-		} catch {
-			/* treat as missing secret */
 		}
-
-		if (!webhookSecret || webhookSecret.length === 0) {
-			logger.warn(
-				"Webhook: merchant webhook_secret missing, skipping forward",
-				{
-					gateway: gatewayName,
-					order_id: order.id,
-					status: fullEvent.status,
-				},
-			);
-			return c.json({ ok: true as const }, 200);
-		}
-
-		// Tracked for shutdown drain (Sweep141): a restart mid-forward no
-		// longer loses the event silently — drain writes a replayable dead
-		// letter for anything still in flight past the budget.
-		trackForward(
-			forwardEvent(fullEvent, order, webhookSecret).catch((err: unknown) => {
-				logger.error("Async forward failed", {
-					order_id: order?.id,
-					error: err instanceof Error ? err.message : String(err),
-				});
-			}),
-			order,
-			fullEvent,
-		);
-
 		return c.json({ ok: true as const }, 200);
 	});
 }

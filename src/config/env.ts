@@ -14,8 +14,14 @@ export interface Config {
 	PUBLIC_BASE_URL: string;
 	CORS_ORIGIN: string;
 	ADMIN_API_KEY: string;
-
-	// Midtrans
+	// Shopee (feed-based gateway)
+	SHOPEE_API_KEY: string;
+	SHOPEE_ENVIRONMENT: "sandbox" | "production";
+	SHOPEE_CHECKOUT_URL: string;
+	// GoPay (feed-based gateway)
+	GOPAY_API_KEY: string;
+	GOPAY_ENVIRONMENT: "sandbox" | "production";
+	GOPAY_CHECKOUT_URL: string;
 	MIDTRANS_SERVER_KEY: string;
 	MIDTRANS_CLIENT_KEY: string;
 	MIDTRANS_ENVIRONMENT: "sandbox" | "production";
@@ -272,6 +278,18 @@ export function getConfig(): Config {
 		) as Config["SAWERIA_ENVIRONMENT"],
 		MUTASIKU_API_KEY: optional("MUTASIKU_API_KEY"),
 		MUTASIKU_WEBHOOK_SECRET: optional("MUTASIKU_WEBHOOK_SECRET"),
+		SHOPEE_API_KEY: optional("SHOPEE_API_KEY"),
+		SHOPEE_ENVIRONMENT: optional(
+			"SHOPEE_ENVIRONMENT",
+			"sandbox",
+		) as Config["SHOPEE_ENVIRONMENT"],
+		SHOPEE_CHECKOUT_URL: optional("SHOPEE_CHECKOUT_URL", ""),
+		GOPAY_API_KEY: optional("GOPAY_API_KEY"),
+		GOPAY_ENVIRONMENT: optional(
+			"GOPAY_ENVIRONMENT",
+			"sandbox",
+		) as Config["GOPAY_ENVIRONMENT"],
+		GOPAY_CHECKOUT_URL: optional("GOPAY_CHECKOUT_URL", ""),
 		MUTASIKU_ENVIRONMENT: optional(
 			"MUTASIKU_ENVIRONMENT",
 			"production",
@@ -392,6 +410,18 @@ export function getGatewayConfig(gateway: string) {
 			return {
 				merchantKey: config.LYNK_MERCHANT_KEY,
 			};
+		case "shopee":
+			return {
+				apiKey: config.SHOPEE_API_KEY,
+				environment: config.SHOPEE_ENVIRONMENT,
+				checkoutUrl: config.SHOPEE_CHECKOUT_URL,
+			};
+		case "gopay":
+			return {
+				apiKey: config.GOPAY_API_KEY,
+				environment: config.GOPAY_ENVIRONMENT,
+				checkoutUrl: config.GOPAY_CHECKOUT_URL,
+			};
 		default:
 			throw new Error(`Unknown gateway: ${gateway}`);
 	}
@@ -416,6 +446,8 @@ export const MERCHANT_CREDENTIAL_KEYS: Record<string, string[]> = {
 	mutasiku: ["apiKey", "webhookSecret"],
 	moota: ["apiKey", "webhookSecret"],
 	lynk: ["merchantKey"],
+	shopee: ["apiKey", "checkoutUrl"],
+	gopay: ["apiKey", "checkoutUrl"],
 };
 export async function resolveGatewayConfig(
 	gateway: string,

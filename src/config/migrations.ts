@@ -334,6 +334,19 @@ const MIGRATIONS: Migration[] = [
       `);
 		},
 	},
+	{
+		version: "014",
+		name: "orders unique_amount last_polled_at",
+		run: async (db: Client) => {
+			await db.executeMultiple(`
+        ALTER TABLE orders ADD COLUMN unique_amount INTEGER;
+        ALTER TABLE orders ADD COLUMN last_polled_at TEXT;
+        CREATE INDEX IF NOT EXISTS idx_orders_pending_unique_amount
+          ON orders(gateway, unique_amount)
+          WHERE status = 'pending';
+      `);
+		},
+	},
 ];
 export async function runMigrations(db: Client): Promise<void> {
 	// Ensure the tracking table exists

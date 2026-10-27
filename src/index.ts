@@ -8,11 +8,12 @@
 import { app, config } from "./app";
 import { initDatabase } from "./config/database";
 import { startNexusCron, stopNexusCron } from "./services/nexus-cron";
+import { startPoller, stopPoller } from "./services/poller.service";
 import { logger } from "./utils/logger";
 await initDatabase();
 
 startNexusCron();
-
+startPoller();
 logger.info(`Starting 1ai-payment on port ${config.PORT}...`);
 
 // Localhost-only: the only ingress is the Cloudflare tunnel (see
@@ -40,6 +41,7 @@ logger.info(`OpenAPI spec: http://localhost:${config.PORT}/doc`);
 function shutdown(signal: string) {
 	logger.info(`Received ${signal}, starting graceful shutdown...`);
 	stopNexusCron();
+	stopPoller();
 	const forceExit = setTimeout(() => {
 		logger.error("Graceful shutdown timed out, forcing exit");
 		process.exit(1);
