@@ -20,6 +20,8 @@ export interface NormalizedPaymentEvent {
 	gateway_reference: string;
 	status: PaymentStatus;
 	amount: number;
+	/** Real gross amount when feed reports both gross and real_gross (GoPay). */
+	real_amount?: number;
 	currency: string;
 	payment_method: string;
 	paid_at: string | null;
@@ -40,6 +42,9 @@ export interface CreatePaymentParams {
 	cancelUrl?: string;
 	/** Owning merchant — gateways resolve per-merchant credentials via getGatewayConfigForMerchant; absent = platform env config. */
 	merchantId?: string;
+	/** Unique amount (base + offset) allocated by the feed-gateway payment route.
+	 * Feed gateways embed this into dynamic QRIS to disambiguate same-amount orders. */
+	uniqueAmount?: number;
 }
 
 export interface CreatePaymentResult {
@@ -151,8 +156,12 @@ export interface PaymentGateway {
 export interface MerchantTransaction {
 	transaction_id: string;
 	amount: number;
+	/** Real gross amount — used when feed reports both gross and real_gross (GoPay). */
+	real_amount?: number;
 	status: string;
 	created_at: string;
+	/** Provider-specific raw payload for debugging. */
+	raw?: unknown;
 }
 
 export interface FeedGateway extends PaymentGateway {

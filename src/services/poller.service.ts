@@ -16,7 +16,7 @@ import { getGateway, getGatewayNames } from "../gateways/index";
 import { logger } from "../utils/logger";
 import { matchesPayment } from "./matcher.service";
 import { settleOrder } from "./order-settlement.service";
-import { listOrders, updateOrderPolled } from "./order.service";
+import { listOrders, updateOrderPolled, updateOrderStatus } from "./order.service";
 import type { Order } from "./order.service";
 
 const DEFAULT_INTERVAL_MS = 30_000;
@@ -92,61 +92,110 @@ export class PollerService {
 
 				if (pendingOrders.length === 0) continue;
 
-				let transactions: MerchantTransaction[];
-				try {
-					transactions = await gw.fetchRecentTransactions();
-				} catch (fetchErr: unknown) {
-					logger.error("Poller: gateway fetchRecentTransactions failed", {
-						gateway: name,
-						error:
-							fetchErr instanceof Error ? fetchErr.message : String(fetchErr),
-					});
-					continue;
+				// paygateme parity: scope the feed fetch per merchant and dedupe
+				// consumed transactions so a settled tx never settles twice.
+				const consumedTxIds = new Set<string>();
+				const merchantIds = [
+					...new Set(
+						pendingOrders
+							.map((o) => o.merchant_id)
+							.filter((m): m is string => Boolean(m)),
+					),
+				];
+				if (merchantIds.length === 0) merchantIds.push("merch_default");
+
+				for (const merchantId of merchantIds) {
+					const merchantOrders = pendingOrders.filter(
+						(o) => (o.merchant_id ?? "merch_default") === merchantId,
+					);
+					if (merchantOrders.length === 0) continue;
+
+					let transactions: MerchantTransaction[];
+					try {
+						transactions = await gw.fetchRecentTransactions({ merchantId });
+					} catch (fetchErr: unknown) {
+						logger.error("Poller: gateway fetchRecentTransactions failed", {
+							gateway: name,
+							merchantId,
+							error:
+								fetchErr instanceof Error ? fetchErr.message : String(fetchErr),
+						});
+						continue;
+					}
+
+					const fresh = transactions.filter((t) => !consumedTxIds.has(t.transaction_id));
+					polledCount += fresh.length;
+
+					for (const tx of fresh) {
+						const event: NormalizedPaymentEvent = {
+							gateway: name,
+							order_id: tx.transaction_id,
+							gateway_reference: tx.transaction_id,
+							status: "success",
+							amount: tx.amount,
+							real_amount: tx.real_amount,
+							currency: "IDR",
+							payment_method: name,
+							paid_at: tx.created_at,
+							metadata: null,
+						};
+
+						for (const order of merchantOrders) {
+							if (order.status !== "pending") continue;
+							if (!matchesPayment(order, event, { clockSkewMs })) continue;
+
+							consumedTxIds.add(tx.transaction_id);
+							try {
+								await settleOrder({ order, event, gatewayName: name });
+								settledCount++;
+								order.status = "success";
+							} catch (settleErr: unknown) {
+								logger.error("Poller: settleOrder failed", {
+									order_id: order.id,
+									error:
+										settleErr instanceof Error
+											? settleErr.message
+											: String(settleErr),
+								});
+							}
+
+							try {
+								await updateOrderPolled(order.id);
+							} catch (updateErr: unknown) {
+								logger.error("Poller: updateOrderPolled failed", {
+									order_id: order.id,
+									error:
+										updateErr instanceof Error
+											? updateErr.message
+											: String(updateErr),
+								});
+							}
+						}
+					}
 				}
 
-				polledCount += transactions.length;
-
-				for (const tx of transactions) {
-					const event: NormalizedPaymentEvent = {
-						gateway: name,
-						order_id: tx.transaction_id,
-						gateway_reference: tx.transaction_id,
-						status: "success",
-						amount: tx.amount,
-						currency: "IDR",
-						payment_method: name,
-						paid_at: tx.created_at,
-						metadata: null,
-					};
-
-					for (const order of pendingOrders) {
-						if (order.status !== "pending") continue;
-						const matched = matchesPayment(order, event, { clockSkewMs });
-						if (!matched) continue;
-
+				// Expiry sweep: paygateme runs matching BEFORE expiry. A payment is
+				// only expired once expires_at + skew has passed — the exact moment
+				// the matcher stops accepting transactions for it.
+				const now = Date.now();
+				for (const order of pendingOrders) {
+					if (order.status !== "pending") continue;
+					const expiresRaw =
+						(order as Order & { expires_at?: string | null }).expires_at ??
+						(order.metadata?.expires_at as string | undefined);
+					if (!expiresRaw) continue;
+					const exp = new Date(expiresRaw).getTime();
+					if (!Number.isNaN(exp) && exp + clockSkewMs <= now) {
 						try {
-							await settleOrder({ order, event, gatewayName: name });
-							settledCount++;
-							order.status = "success";
-						} catch (settleErr: unknown) {
-							logger.error("Poller: settleOrder failed", {
+							await updateOrderStatus(order.id, "expired");
+							logger.info("Poller: order expired", {
 								order_id: order.id,
-								error:
-									settleErr instanceof Error
-										? settleErr.message
-										: String(settleErr),
+								status: order.status,
 							});
-						}
-
-						try {
-							await updateOrderPolled(order.id);
-						} catch (updateErr: unknown) {
-							logger.error("Poller: updateOrderPolled failed", {
+						} catch (expErr: unknown) {
+							logger.error("Poller: expire failed", {
 								order_id: order.id,
-								error:
-									updateErr instanceof Error
-										? updateErr.message
-										: String(updateErr),
+								error: expErr instanceof Error ? expErr.message : String(expErr),
 							});
 						}
 					}

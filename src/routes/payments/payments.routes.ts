@@ -2,7 +2,9 @@
 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { getDb } from "../../config/database";
-import { PARKED_GATEWAYS, isGatewayParked } from "../../gateways";
+import { isFeedGateway, PARKED_GATEWAYS, isGatewayParked } from "../../gateways";
+import { AmountAllocator } from "../../services/allocator.service";
+import { getActivePendingUniqueAmounts } from "../../services/order.service";
 import { authMiddleware } from "../../middleware/auth";
 import {
 	errorsCounter,
@@ -229,6 +231,35 @@ paymentsRouter.openapi(createPaymentRoute, async (c) => {
 	}
 
 	// Create order in registry
+	// For feed-based gateways (Shopee, GoPay), allocate a unique amount to
+	// disambiguate payments that land on the same base amount via bank mutation.
+	// paygateme parity: uniqueAmount = baseAmount + smallest free offset in [1..999].
+	let uniqueAmount: number | undefined;
+	if (isFeedGateway(gw)) {
+		try {
+			const taken = await getActivePendingUniqueAmounts(body.gateway);
+			uniqueAmount = new AmountAllocator(999).allocateUniqueAmount(body.amount, taken);
+		} catch (err: unknown) {
+			// Amount pool exhausted (all 999 slots claimed for this base amount).
+			// Non-retryable caller-visible state, not a server fault.
+			logger.warn("Unique amount pool exhausted", {
+				gateway: body.gateway,
+				amount: body.amount,
+				error: err instanceof Error ? err.message : String(err),
+			});
+			return c.json(
+				{
+					success: false as const,
+					error: {
+						code: "CONFLICT",
+						message:
+							"No unique amount slot free for this amount. Try a different amount or retry shortly.",
+					},
+				},
+				409,
+			);
+		}
+	}
 	const orderParams: CreateOrderParams = {
 		project_id: merchantId,
 		merchant_id: merchantId,
@@ -240,6 +271,7 @@ paymentsRouter.openapi(createPaymentRoute, async (c) => {
 		payment_method: body.payment_method,
 		metadata: body.metadata as Record<string, unknown> | undefined,
 		idempotency_key: idempotencyKey,
+		unique_amount: uniqueAmount,
 	};
 	let order: Order;
 	try {
@@ -272,6 +304,7 @@ paymentsRouter.openapi(createPaymentRoute, async (c) => {
 			successUrl: body.success_url,
 			cancelUrl: body.cancel_url,
 			merchantId,
+			uniqueAmount,
 		});
 		endTimer();
 

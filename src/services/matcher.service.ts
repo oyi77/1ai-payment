@@ -1,8 +1,14 @@
 /**
  * Matcher service — pure, DB-free payment reconciliation.
  *
- * matchesPayment: amount equality + settled-status whitelist + time window with clock skew.
- * reconcile: sort pending by ascending unique_amount, greedy match, consume transactions.
+ * Port of paygateme's payment/matcher.go:
+ * - amount equality (accepts real_amount when present) + settled-status
+ *   check with fail-open on unknown/empty statuses + time window w/ skew.
+ * - reconcile: sort pending by ascending unique_amount, greedy match, consume txs.
+ *
+ * Fail-open rationale: feed variations add new status labels silently; only
+ * known-bad statuses (pending/failed/cancelled/expired/refunded) reject.
+ * ponytail: add `capture` to statuses if a provider uses it; ceiling = one-line whitelist.
  */
 
 import type { NormalizedPaymentEvent } from "../gateways/base";
@@ -18,12 +24,21 @@ export interface Match {
 	event: NormalizedPaymentEvent;
 }
 
-const SETTLED_STATUSES: Record<string, true> = {
-	success: true,
-	paid: true,
-	completed: true,
-	settled: true,
-};
+// paygateme fails OPEN on status: only known-bad labels reject; unknown or
+// empty labels accept. Feeds add status labels silently, and providers emit
+// provider-prefixed tags (e.g. "shopee:5") — whitelist-reject would strand
+// genuinely-paid transactions forever.
+const REJECTED_STATUSES = new Set([
+	"pending",
+	"failed",
+	"cancelled",
+	"expired",
+	"refunded",
+]);
+function statusAllowsSettle(status: string): boolean {
+	const s = status.toLowerCase().trim();
+	return !REJECTED_STATUSES.has(s);
+}
 
 const DEFAULT_CLOCK_SKEW_MS = 30000;
 
@@ -41,10 +56,17 @@ export function matchesPayment(
 	options: MatchOptions = {},
 ): boolean {
 	const skew = options.clockSkewMs ?? DEFAULT_CLOCK_SKEW_MS;
-	if (!SETTLED_STATUSES[event.status]) return false;
+	if (!statusAllowsSettle(event.status)) return false;
 
 	const targetAmount = order.unique_amount ?? order.amount;
-	if (event.amount > 0 && event.amount !== targetAmount) return false;
+	// paygateme: accept real_gross when present (GoPay reports both gross & real_gross)
+	if (event.amount > 0 && event.amount !== targetAmount) {
+		if (event.real_amount != null && event.real_amount === targetAmount) {
+			// real_amount wins if gross doesn't match but real_gross does
+		} else {
+			return false;
+		}
+	}
 
 	const createdAt = new Date(order.created_at).getTime();
 	const expiresAt = expiresAtMs(order);

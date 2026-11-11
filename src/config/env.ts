@@ -14,14 +14,20 @@ export interface Config {
 	PUBLIC_BASE_URL: string;
 	CORS_ORIGIN: string;
 	ADMIN_API_KEY: string;
-	// Shopee (feed-based gateway)
+	// Shopee (feed-based gateway — experimental, paygateme port)
 	SHOPEE_API_KEY: string;
 	SHOPEE_ENVIRONMENT: "sandbox" | "production";
 	SHOPEE_CHECKOUT_URL: string;
-	// GoPay (feed-based gateway)
+	/** Platform-default session JSON (merchant rows override via merchant_gateways). */
+	SHOPEE_SESSION_JSON: string;
+	/** Platform-default static EMVCo QRIS payload. */
+	SHOPEE_STATIC_QRIS: string;
+	// GoPay (feed-based gateway — experimental, paygateme port)
 	GOPAY_API_KEY: string;
 	GOPAY_ENVIRONMENT: "sandbox" | "production";
 	GOPAY_CHECKOUT_URL: string;
+	GOPAY_SESSION_JSON: string;
+	GOPAY_STATIC_QRIS: string;
 	MIDTRANS_SERVER_KEY: string;
 	MIDTRANS_CLIENT_KEY: string;
 	MIDTRANS_ENVIRONMENT: "sandbox" | "production";
@@ -284,12 +290,16 @@ export function getConfig(): Config {
 			"sandbox",
 		) as Config["SHOPEE_ENVIRONMENT"],
 		SHOPEE_CHECKOUT_URL: optional("SHOPEE_CHECKOUT_URL", ""),
+		SHOPEE_SESSION_JSON: optional("SHOPEE_SESSION_JSON", ""),
+		SHOPEE_STATIC_QRIS: optional("SHOPEE_STATIC_QRIS", ""),
 		GOPAY_API_KEY: optional("GOPAY_API_KEY"),
 		GOPAY_ENVIRONMENT: optional(
 			"GOPAY_ENVIRONMENT",
 			"sandbox",
 		) as Config["GOPAY_ENVIRONMENT"],
 		GOPAY_CHECKOUT_URL: optional("GOPAY_CHECKOUT_URL", ""),
+		GOPAY_SESSION_JSON: optional("GOPAY_SESSION_JSON", ""),
+		GOPAY_STATIC_QRIS: optional("GOPAY_STATIC_QRIS", ""),
 		MUTASIKU_ENVIRONMENT: optional(
 			"MUTASIKU_ENVIRONMENT",
 			"production",
@@ -415,12 +425,16 @@ export function getGatewayConfig(gateway: string) {
 				apiKey: config.SHOPEE_API_KEY,
 				environment: config.SHOPEE_ENVIRONMENT,
 				checkoutUrl: config.SHOPEE_CHECKOUT_URL,
+				session: config.SHOPEE_SESSION_JSON,
+				staticQris: config.SHOPEE_STATIC_QRIS,
 			};
 		case "gopay":
 			return {
 				apiKey: config.GOPAY_API_KEY,
 				environment: config.GOPAY_ENVIRONMENT,
 				checkoutUrl: config.GOPAY_CHECKOUT_URL,
+				session: config.GOPAY_SESSION_JSON,
+				staticQris: config.GOPAY_STATIC_QRIS,
 			};
 		default:
 			throw new Error(`Unknown gateway: ${gateway}`);
@@ -446,8 +460,11 @@ export const MERCHANT_CREDENTIAL_KEYS: Record<string, string[]> = {
 	mutasiku: ["apiKey", "webhookSecret"],
 	moota: ["apiKey", "webhookSecret"],
 	lynk: ["merchantKey"],
-	shopee: ["apiKey", "checkoutUrl"],
-	gopay: ["apiKey", "checkoutUrl"],
+	// Feed-based gateways: session JSON (minted externally, e.g. paygateme CLI)
+	// + static QRIS payload bound to the merchant's outlet. apiKey remains as
+	// legacy fallback; preferred path is `session`.
+	shopee: ["apiKey", "checkoutUrl", "session", "staticQris"],
+	gopay: ["apiKey", "checkoutUrl", "session", "staticQris"],
 };
 export async function resolveGatewayConfig(
 	gateway: string,
