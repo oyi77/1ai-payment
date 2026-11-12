@@ -126,6 +126,28 @@ export class GoPayProvider {
 				},
 			},
 			tokenSet,
+			{
+				// Persist rotated tokens back into platform_gateways.
+				onTokenRefreshed: async (tokens: TokenSet) => {
+					const updated: GoPaySessionState = {
+						accessToken: tokens.accessToken,
+						refreshToken: tokens.refreshToken,
+						tokenType: tokens.tokenType,
+						expiresAt: tokens.expiresAt,
+						merchantId: s.merchantId,
+						merchantName: s.merchantName,
+						staticQris: s.staticQris,
+					};
+					const { getDb } = await import("../../config/database");
+					const { encrypt } = await import("../../utils/crypto");
+					const db = getDb();
+					await db.execute({
+						sql: `UPDATE platform_gateways SET credentials = ?, updated_at = datetime('now') WHERE gateway = 'gopay'`,
+						args: [encrypt(JSON.stringify({ session: JSON.stringify(updated), staticQris: updated.staticQris }))],
+					});
+				},
+				refreshBeforeExpiryMs: 5 * 60 * 1000,
+			},
 		);
 
 		return new GoPayProvider(
