@@ -248,6 +248,7 @@
           <button onclick="dashTab('methods', this)">Saved Methods</button>
           <button onclick="dashTab('deliveries', this)">Deliveries</button>
           <button onclick="dashTab('settings', this)">Settings</button>
+          <button onclick="dashTab('platform', this)">Platform (admin)</button>
         </nav>
         <div class="logout-btn">
         <button class="btn btn-secondary btn-small" onclick="logout()">Sign Out</button>
@@ -377,6 +378,28 @@
             <p style="font-size:13px;color:#94a3b8">Full API documentation with try-it-out:</p>
             <a href="/reference" target="_blank" style="font-size:14px">Open Swagger UI →</a>
           </div>
+        </div>
+
+        <!-- Platform connections (admin only) -->
+        <div id="dPlatform" class="hidden">
+          <h1>Platform Connections</h1>
+          <p style="color:#94a3b8;font-size:14px;margin-bottom:16px">
+            Admin-owned third-party payment accounts (Shopee / GoPay). Customers never see this —
+            they integrate via the public API only. Sessions are AES-256-GCM encrypted at rest and
+            never shown back. OTP connect requires <code>ADMIN_AUTH_EXPERIMENTAL=true</code>.
+          </p>
+
+          <div class="settings-group">
+            <h3>Admin Key</h3>
+            <label>X-Admin-Key (this browser only, never sent anywhere else)</label>
+            <input type="password" id="platAdminKey" placeholder="paste ADMIN_API_KEY" autocomplete="off" />
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn btn-primary btn-small" onclick="loadPlatform()">Load connections</button>
+            </div>
+            <div class="error-msg" id="platErr"></div>
+          </div>
+
+          <div id="platList"></div>
         </div>
       </main>
     </div>
@@ -553,7 +576,7 @@ const order = await payment.create({
 
     // ── Dashboard ────────────────────────────────────
     function dashTab(name, btn) {
-      ['dOverview', 'dTransactions', 'dRefunds', 'dGateways', 'dMethods', 'dDeliveries', 'dSettings'].forEach(id =>
+      ['dOverview', 'dTransactions', 'dRefunds', 'dGateways', 'dMethods', 'dDeliveries', 'dSettings', 'dPlatform'].forEach(id =>
         document.getElementById(id).classList.toggle('hidden', id !== 'd' + name.charAt(0).toUpperCase() + name.slice(1))
       );
       document.querySelectorAll('.sidebar nav button').forEach(b => b.classList.remove('active'));
@@ -564,6 +587,7 @@ const order = await payment.create({
       if (name === 'methods') loadMethods();
       if (name === 'deliveries') loadDeliveries();
       if (name === 'settings') loadSettings();
+      if (name === 'platform') loadPlatform();
     }
 
     async function loadDashboard() {
@@ -675,6 +699,200 @@ const order = await payment.create({
     async function replayDelivery(id) {
       await api('POST', '/api/webhook-deliveries/' + id + '/replay');
       loadDeliveries();
+    }
+
+    // ── Platform connections (admin) ────────────────────
+    let adminKey = localStorage.getItem('1pay_admin_key') || '';
+
+    function adminHeaders() {
+      return { 'X-Admin-Key': adminKey, 'Content-Type': 'application/json' };
+    }
+
+    async function adminApi(method, path, body) {
+      const res = await fetch(API + path, {
+        method,
+        headers: adminHeaders(),
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = await res.json().catch(() => null);
+      if (res.status === 401) { logoutAdmin(); return null; }
+      return data;
+    }
+
+    function showAdminKeyInput() {
+      const val = document.getElementById('platAdminKey').value.trim();
+      if (val) {
+        adminKey = val;
+        localStorage.setItem('1pay_admin_key', adminKey);
+      }
+    }
+
+    function logoutAdmin() {
+      adminKey = '';
+      localStorage.removeItem('1pay_admin_key');
+    }
+
+    async function loadPlatform() {
+      showAdminKeyInput();
+      const err = document.getElementById('platErr');
+      const list = document.getElementById('platList');
+      if (!adminKey) {
+        showError(err, 'Enter your Admin Key first.');
+        return;
+      }
+      hideError(err);
+      list.innerHTML = '<p style="color:#94a3b8">Loading…</p>';
+
+      try {
+        const res = await adminApi('GET', '/api/admin/platform');
+        if (!res || !res.success) {
+          showError(err, (res && res.error && res.error.message) || 'Failed to load.');
+          return;
+        }
+        const { supported, connections } = res.data;
+        let html = '<table><thead><tr><th>Gateway</th><th>Env</th><th>Enabled</th><th>Updated</th><th>Session</th><th>Static QRIS</th><th>Actions</th></tr></thead><tbody>';
+        for (const gw of supported) {
+          const conn = connections.find(c => c.gateway === gw);
+          if (conn) {
+            html += '<tr>'
+              + '<td><strong>' + escapeHtml(conn.gateway) + '</strong></td>'
+              + '<td>' + escapeHtml(conn.environment) + '</td>'
+              + '<td><span class="badge ' + (conn.enabled ? 'success' : 'pending') + '">' + (conn.enabled ? 'Enabled' : 'Disabled') + '</span></td>'
+              + '<td>' + escapeHtml(new Date(conn.updated_at).toLocaleString('id-ID')) + '</td>'
+              + '<td style="font-family:mono;font-size:12px">session stored</td>'
+              + '<td style="font-family:mono;font-size:12px">staticQris stored</td>'
+              + '<td style="white-space:nowrap">'
+              + '  <button class="btn btn-secondary btn-small" onclick="togglePlatformGateway(\'' + gw + '\', ' + !conn.enabled + ')">' + (conn.enabled ? 'Disable' : 'Enable') + '</button>'
+              + '  <button class="btn btn-secondary btn-small" onclick="removePlatformGateway(\'' + gw + '\')">Remove</button>'
+              + '  <button class="btn btn-primary btn-small" onclick="updatePlatformGateway(\'' + gw + '\')">Update session/QRIS</button>'
+              + '</td>'
+              + '</tr>';
+          } else {
+            html += '<tr>'
+              + '<td><strong>' + escapeHtml(gw) + '</strong></td>'
+              + '<td>—</td>'
+              + '<td>—</td>'
+              + '<td>—</td>'
+              + '<td>—</td>'
+              + '<td>—</td>'
+              + '<td>—</td>'
+              + '<td style="white-space:nowrap">'
+              + '  <button class="btn btn-primary btn-small" onclick="connectPlatformGateway(\'' + gw + '\')">Paste session</button>'
+              + (gw === 'shopee' ? '  <button class="btn btn-secondary btn-small" onclick="startShopeeOtp()">OTP connect</button>' : '')
+              + '</td>'
+              + '</tr>';
+          }
+        }
+        html += '</tbody></table>';
+        list.innerHTML = html;
+      } catch (e) {
+        showError(err, 'Load failed: ' + (e instanceof Error ? e.message : String(e)));
+      }
+    }
+
+    async function connectPlatformGateway(gateway) {
+      const err = document.getElementById('platErr');
+      hideError(err);
+      const session = prompt('Paste the full session JSON for ' + gateway + ':');
+      if (!session) return;
+      try {
+        const creds = JSON.parse(session);
+      } catch (e) {
+        showError(err, 'Invalid JSON: ' + (e instanceof Error ? e.message : String(e)));
+        return;
+      }
+      const staticQris = prompt('Optional: paste static EMVCo QRIS payload for ' + gateway + ':') || '';
+      try {
+        const res = await adminApi('PUT', '/api/admin/platform/' + gateway, {
+          credentials: { session, staticQris },
+          environment: 'production',
+        });
+        if (!res || !res.success) {
+          showError(err, (res && res.error && res.error.message) || 'Connect failed.');
+          return;
+        }
+        loadPlatform();
+      } catch (e) {
+        showError(err, 'Connect failed: ' + (e instanceof Error ? e.message : String(e)));
+      }
+    }
+
+    async function updatePlatformGateway(gateway) {
+      const err = document.getElementById('platErr');
+      hideError(err);
+      const session = prompt('Paste new session JSON for ' + gateway + ' (leave blank to keep current):');
+      const staticQris = prompt('Optional: paste new static EMVCo QRIS for ' + gateway + ' (leave blank to keep current):') || '';
+      const creds: Record<string, string> = {};
+      if (session) creds.session = session;
+      if (staticQris) creds.staticQris = staticQris;
+      if (Object.keys(creds).length === 0) { showError(err, 'Nothing to update.'); return; }
+      try {
+        const res = await adminApi('PUT', '/api/admin/platform/' + gateway, { credentials: creds, environment: 'production' });
+        if (!res || !res.success) { showError(err, (res && res.error && res.error.message) || 'Update failed.'); return; }
+        loadPlatform();
+      } catch (e) {
+        showError(err, 'Update failed: ' + (e instanceof Error ? e.message : String(e)));
+      }
+    }
+
+    async function togglePlatformGateway(gateway, enabled) {
+      const err = document.getElementById('platErr');
+      hideError(err);
+      try {
+        const res = await adminApi('PATCH', '/api/admin/platform/' + gateway, { enabled });
+        if (!res || !res.success) { showError(err, (res && res.error && res.error.message) || 'Toggle failed.'); return; }
+        loadPlatform();
+      } catch (e) {
+        showError(err, 'Toggle failed: ' + (e instanceof Error ? e.message : String(e)));
+      }
+    }
+
+    async function removePlatformGateway(gateway) {
+      const err = document.getElementById('platErr');
+      hideError(err);
+      if (!confirm('Remove platform ' + gateway + ' connection?')) return;
+      try {
+        const res = await adminApi('DELETE', '/api/admin/platform/' + gateway);
+        if (!res || !res.success) { showError(err, (res && res.error && res.error.message) || 'Remove failed.'); return; }
+        loadPlatform();
+      } catch (e) {
+        showError(err, 'Remove failed: ' + (e instanceof Error ? e.message : String(e)));
+      }
+    }
+
+    async function startShopeeOtp() {
+      const err = document.getElementById('platErr');
+      hideError(err);
+      const phone = prompt('Enter phone number for Shopee OTP (e.g. 081234567890):');
+      if (!phone) return;
+      try {
+        const res = await adminApi('POST', '/api/admin/platform/shopee/otp/start', { phone: phone.trim() });
+        if (!res || !res.success) { showError(err, (res && res.error && res.error.message) || 'OTP start failed.'); return; }
+        const { challenge_id, has_password, available_channels } = res.data;
+        alert('OTP sent! Challenge ID: ' + challenge_id + (has_password ? '\\nThis account has a password — OTP is second factor.' : ''));
+        const otp = prompt('Enter OTP code:');
+        if (!otp) return;
+        const verify = await adminApi('POST', '/api/admin/platform/shopee/otp/verify', {
+          challenge_id,
+          otp: otp.trim(),
+        });
+        if (!verify || !verify.success) { showError(err, (verify && verify.error && verify.error.message) || 'OTP verify failed.'); return; }
+        if (verify.data.status === 'merchant-selection-required') {
+          const merchants = verify.data.merchants.map(m => m.id + ': ' + m.name).join('\\n');
+          const chosen = prompt('Multiple merchants — pick one ID:\\n' + merchants);
+          if (!chosen) return;
+          const verify2 = await adminApi('POST', '/api/admin/platform/shopee/otp/verify', {
+            challenge_id,
+            otp: otp.trim(),
+            merchant_id: chosen,
+          });
+          if (!verify2 || !verify2.success) { showError(err, (verify2 && verify2.error && verify2.error.message) || 'Selection failed.'); return; }
+        }
+        alert('Shopee connected!');
+        loadPlatform();
+      } catch (e) {
+        showError(err, 'OTP flow failed: ' + (e instanceof Error ? e.message : String(e)));
+      }
     }
 
     const GW_FIELDS = {

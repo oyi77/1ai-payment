@@ -14,6 +14,8 @@ export interface Config {
 	PUBLIC_BASE_URL: string;
 	CORS_ORIGIN: string;
 	ADMIN_API_KEY: string;
+	/** Enable admin in-dashboard OTP connect for experimental feed gateways. */
+	ADMIN_AUTH_EXPERIMENTAL: boolean;
 	// Shopee (feed-based gateway — experimental, paygateme port)
 	SHOPEE_API_KEY: string;
 	SHOPEE_ENVIRONMENT: "sandbox" | "production";
@@ -210,6 +212,7 @@ export function getConfig(): Config {
 		ENCRYPTION_KEY: required("ENCRYPTION_KEY"),
 		CORS_ORIGIN: corsOrigin,
 		ADMIN_API_KEY: adminApiKey,
+		ADMIN_AUTH_EXPERIMENTAL: bool("ADMIN_AUTH_EXPERIMENTAL", false),
 		MIDTRANS_SERVER_KEY: optional("MIDTRANS_SERVER_KEY"),
 		MIDTRANS_CLIENT_KEY: optional("MIDTRANS_CLIENT_KEY"),
 		MIDTRANS_ENVIRONMENT: optional(

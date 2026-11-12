@@ -20,7 +20,7 @@ Full details: `~/.1ai/core/PROCESS.md` (auto-injected by hooks)
 Payment gateway **aggregator** — unified API for creating payments across 14 payment gateways and routing callbacks to owning projects. 16 gateways are registered in total (14 payment + 2 bank-mutation aggregators).
 Stack: TypeScript / Hono / LibSQL (SQLite)
 Domain: Payment creation, webhook aggregation, signature verification, order routing, callback forwarding
-Gateways: midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria, lynk, mutasiku, moota
+Gateways: midtrans, tripay, duitku, nowpayments, ipaymu, scalev, xendit, telegram_stars, telegram_payments, paypal, x402, erc8183, saweria, lynk, mutasiku, moota, shopee*, gopay* (*experimental, feed-based, admin-owned session)
 
 Engineering rules are enforced by machine-level loaders when `setup-dev.sh` has been run:
 - Claude Code: SessionStart hook injects `~/.1ai/core/RULES.md` + enforcement table

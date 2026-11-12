@@ -347,6 +347,28 @@ const MIGRATIONS: Migration[] = [
       `);
 		},
 	},
+	{
+		version: "015",
+		name: "platform_gateways (admin-owned credentials)",
+		run: async (db: Client) => {
+			// Platform-owned gateway credentials (Shopee/GoPay sessions minted by
+			// admin). Distinct from merchant-level BYOK. Admin-only writes.
+			// Rollback: DROP TABLE IF EXISTS platform_gateways;
+			await db.executeMultiple(`
+        CREATE TABLE IF NOT EXISTS platform_gateways (
+          id TEXT PRIMARY KEY,
+          gateway TEXT NOT NULL UNIQUE,
+          credentials TEXT NOT NULL,
+          environment TEXT DEFAULT 'sandbox',
+          enabled INTEGER DEFAULT 1,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_platform_gateways_gateway
+          ON platform_gateways(gateway, enabled);
+      `);
+		},
+	},
 ];
 export async function runMigrations(db: Client): Promise<void> {
 	// Ensure the tracking table exists
