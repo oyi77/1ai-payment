@@ -100,6 +100,56 @@ Auth:
 | Mutasiku | `mutasiku` | IDR | HMAC-SHA256 over compact JSON (mutation aggregator, no payment creation) |
 | Moota | `moota` | IDR | HMAC-SHA256 over raw body (mutation aggregator, no payment creation) |
 | Saweria | `saweria` | IDR | Webhook inbound disabled (unsigned callbacks answered `501`); payment creation only |
+| Shopee | `shopee` | IDR | Feed-based reconciliation (unique-amount matching); **experimental** — unofficial reverse-engineered merchant API, admin-owned session |
+| GoPay | `gopay` | IDR | Feed-based reconciliation (unique-amount matching); **experimental** — unofficial reverse-engineered GoBiz API, admin-owned session |
+
+### Platform Connections (admin only)
+
+Shopee and GoPay are **feed-based**: there is no signed inbound webhook. Settlement works by allocating a unique amount per order (base + offset ≤999) and polling the provider's merchant transaction feed for a matching credit. Because these use **reverse-engineered private APIs** (not affiliated with Shopee/GoPay/Gojek), the account session is **admin-owned** — customers never touch it.
+
+Customers integrate normally: register → API key → read docs → call `POST /api/payments`. They see `shopee`/`gopay` as ordinary gateways in `/api/gateways`; the underlying session is managed by the platform.
+
+**Admin connects a provider** (encrypted at rest, never shown back):
+
+```bash
+# Paste a session JSON (minted via paygateme CLI or the OTP flow below)
+curl -X PUT http://localhost:3100/api/admin/platform/shopee \
+  -H "X-Admin-Key: $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"credentials":{"session":"{...}","staticQris":"000201..."},"environment":"production"}'
+
+# Or mint inside the dashboard (requires ADMIN_AUTH_EXPERIMENTAL=true).
+# Shopee (challenge-id round-trip, merchant selection on multi-merchant accounts):
+curl -X POST http://localhost:3100/api/admin/platform/shopee/otp/start \
+  -H "X-Admin-Key: $ADMIN_API_KEY" -d '{"phone":"081234567890"}'
+curl -X POST http://localhost:3100/api/admin/platform/shopee/otp/verify \
+  -H "X-Admin-Key: $ADMIN_API_KEY" -d '{"challenge_id":"...","otp":"123456","merchant_id":"..."}'
+
+# GoPay (stateless — otp_token round-trips, merchantId + static QRIS auto-resolved):
+curl -X POST http://localhost:3100/api/admin/platform/gopay/otp/start \
+  -H "X-Admin-Key: $ADMIN_API_KEY" -d '{"phone":"081234567890","country_code":"62"}'
+curl -X POST http://localhost:3100/api/admin/platform/gopay/otp/verify \
+  -H "X-Admin-Key: $ADMIN_API_KEY" -d '{"otp":"123456","otp_token":"..."}'
+```
+
+Resolution order for a gateway session: `platform_gateways` table (admin-minted) → merchant BYOK (`merchant_gateways`) → platform env (`SHOPEE_SESSION_JSON`/`GOPAY_SESSION_JSON`). When the session expires, the feed surfaces an `AUTH_REQUIRED` error; the admin re-connects.
+
+**Endpoints** (all `X-Admin-Key`):
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/admin/platform` | GET | List connected platform gateways (masked) |
+| `/api/admin/platform/:gateway` | GET | Status of one connection |
+| `/api/admin/platform/:gateway` | PUT | Set/replace credentials (session, staticQris) |
+| `/api/admin/platform/:gateway` | PATCH | Toggle enabled |
+| `/api/admin/platform/:gateway` | DELETE | Remove connection |
+| `/api/admin/platform/shopee/otp/start` | POST | Begin Shopee OTP connect (experimental flag) |
+| `/api/admin/platform/shopee/otp/verify` | POST | Verify Shopee OTP → mint session |
+| `/api/admin/platform/gopay/otp/start` | POST | Begin GoPay OTP connect → returns `otp_token` |
+| `/api/admin/platform/gopay/otp/verify` | POST | Verify GoPay OTP → mint session (auto-resolves merchantId + QRIS) |
+
+> ⚠️ Shopee/GoPay sessions rely on undocumented private endpoints. Expect breakage when providers update. Treat as experimental until live end-to-end verified.
+
 ### Create Payment
 
 ```bash

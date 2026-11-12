@@ -180,6 +180,24 @@ describe("admin /api/admin/platform routes", () => {
 		const data = await res.json();
 		expect(data.error.code).toBe("FEATURE_DISABLED");
 	});
+
+	test("GoPay OTP endpoints disabled without experimental flag", async () => {
+		const start = await req("POST", "/platform/gopay/otp/start", { phone: "081234567890" });
+		expect(start.status).toBe(403);
+		const verify = await req("POST", "/platform/gopay/otp/verify", { otp: "123456", otp_token: "t" });
+		expect(verify.status).toBe(403);
+	});
+
+	test("GoPay OTP start validates phone", async () => {
+		process.env.ADMIN_AUTH_EXPERIMENTAL = "true";
+		resetConfigCache();
+		const res = await req("POST", "/platform/gopay/otp/start", {});
+		expect(res.status).toBe(400);
+		const data = await res.json();
+		expect(data.error.code).toBe("INVALID_BODY");
+		process.env.ADMIN_AUTH_EXPERIMENTAL = "false";
+		resetConfigCache();
+	});
 });
 
 describe("resolveSession priority", () => {

@@ -779,6 +779,7 @@ const order = await payment.create({
               + '<td style="white-space:nowrap">'
               + '  <button class="btn btn-primary btn-small" onclick="connectPlatformGateway(\'' + gw + '\')">Paste session</button>'
               + (gw === 'shopee' ? '  <button class="btn btn-secondary btn-small" onclick="startShopeeOtp()">OTP connect</button>' : '')
+              + (gw === 'gopay' ? '  <button class="btn btn-secondary btn-small" onclick="startGoPayOtp()">OTP connect</button>' : '')
               + '</td>'
               + '</tr>';
           }
@@ -889,6 +890,30 @@ const order = await payment.create({
           if (!verify2 || !verify2.success) { showError(err, (verify2 && verify2.error && verify2.error.message) || 'Selection failed.'); return; }
         }
         alert('Shopee connected!');
+        loadPlatform();
+      } catch (e) {
+        showError(err, 'OTP flow failed: ' + (e instanceof Error ? e.message : String(e)));
+      }
+    }
+
+    async function startGoPayOtp() {
+      const err = document.getElementById('platErr');
+      hideError(err);
+      const phone = prompt('Enter GoPay phone number (e.g. 081234567890):');
+      if (!phone) return;
+      try {
+        const res = await adminApi('POST', '/api/admin/platform/gopay/otp/start', { phone: phone.trim() });
+        if (!res || !res.success) { showError(err, (res && res.error && res.error.message) || 'OTP start failed.'); return; }
+        const otpToken = res.data.otp_token;
+        alert('OTP sent! Enter the code from your phone.');
+        const otp = prompt('Enter OTP code:');
+        if (!otp) return;
+        const verify = await adminApi('POST', '/api/admin/platform/gopay/otp/verify', {
+          otp: otp.trim(),
+          otp_token: otpToken,
+        });
+        if (!verify || !verify.success) { showError(err, (verify && verify.error && verify.error.message) || 'OTP verify failed.'); return; }
+        alert('GoPay connected!' + (verify.data.has_static_qris ? ' Static QRIS auto-detected.' : ''));
         loadPlatform();
       } catch (e) {
         showError(err, 'OTP flow failed: ' + (e instanceof Error ? e.message : String(e)));

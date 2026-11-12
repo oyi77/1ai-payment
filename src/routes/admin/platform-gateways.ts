@@ -193,6 +193,8 @@ platformGatewaysRouter.delete("/platform/:gateway", async (c) => {
 import { getConfig } from "../../config/env";
 import type { OtpChallenge } from "../../gateways/shopee/types";
 
+import { requestGoPayOtp, verifyGoPayOtp, completeGoPayLogin, isGoPayAuthRequired } from "../../gateways/gopay/auth";
+
 const OTP_TTL_MS = 5 * 60 * 1000;
 const pendingChallenges = new Map<string, { challenge: OtpChallenge; expiresAt: number }>();
 
@@ -333,6 +335,100 @@ platformGatewaysRouter.post("/platform/shopee/otp/verify", async (c) => {
 			"OTP_VERIFY_FAILED",
 			e instanceof Error ? e.message : "OTP verify failed",
 			502,
+		);
+	}
+});
+
+// ── GoPay OTP connect (admin-only, experimental) ─────────────────
+//
+// Stateless: GoID's otp_token round-trips through the admin, so no server-side
+// challenge store is needed (unlike Shopee). Two steps:
+//   1. POST /platform/gopay/otp/start { phone, country_code? } → { otp_token }
+//   2. POST /platform/gopay/otp/verify { otp, otp_token }
+//      → mints session (tokens + merchantId + staticQris) → platform_gateways.
+
+platformGatewaysRouter.post("/platform/gopay/otp/start", async (c) => {
+	if (!requireExperimental()) {
+		return err("FEATURE_DISABLED", "Admin OTP connect is disabled.", 403);
+	}
+	let body: { phone?: unknown; country_code?: unknown };
+	try {
+		body = await c.req.json();
+	} catch {
+		return err("INVALID_BODY", "Invalid JSON body", 400);
+	}
+	if (typeof body.phone !== "string" || !body.phone.trim()) {
+		return err("INVALID_BODY", "phone is required", 400);
+	}
+	const cc = typeof body.country_code === "string" ? body.country_code : "62";
+	try {
+		const challenge = await requestGoPayOtp(body.phone.trim(), cc);
+		return c.json({
+			success: true,
+			data: { otp_token: challenge.otpToken, phone: challenge.phone },
+		});
+	} catch (e) {
+		logger.error("GoPay OTP start failed", {
+			error: e instanceof Error ? e.message : String(e),
+		});
+		return err(
+			"OTP_START_FAILED",
+			e instanceof Error ? e.message : "OTP start failed",
+			isGoPayAuthRequired(e) ? 401 : 502,
+		);
+	}
+});
+
+platformGatewaysRouter.post("/platform/gopay/otp/verify", async (c) => {
+	if (!requireExperimental()) {
+		return err("FEATURE_DISABLED", "Admin OTP connect is disabled.", 403);
+	}
+	let body: { otp?: unknown; otp_token?: unknown };
+	try {
+		body = await c.req.json();
+	} catch {
+		return err("INVALID_BODY", "Invalid JSON body", 400);
+	}
+	const otp = typeof body.otp === "string" ? body.otp.trim() : "";
+	const otpToken = typeof body.otp_token === "string" ? body.otp_token : "";
+	if (!otp || !otpToken) {
+		return err("INVALID_BODY", "otp and otp_token are required", 400);
+	}
+
+	try {
+		const tokens = await verifyGoPayOtp(otp, otpToken);
+		const session = await completeGoPayLogin(tokens);
+
+		const db = getDb();
+		await db.execute({
+			sql: `INSERT INTO platform_gateways (id, gateway, credentials, environment, enabled)
+            VALUES ('pgw_gopay', 'gopay', ?, 'production', 1)
+            ON CONFLICT(gateway) DO UPDATE SET
+              credentials = excluded.credentials, enabled = 1, updated_at = datetime('now')`,
+			args: [encrypt(JSON.stringify({ session: JSON.stringify(session), staticQris: session.staticQris }))],
+		});
+		logger.info("GoPay platform session minted via OTP", {
+			merchant: session.merchantName || session.merchantId,
+			has_qris: Boolean(session.staticQris),
+		});
+		return c.json({
+			success: true,
+			data: {
+				status: "connected",
+				gateway: "gopay",
+				merchant: { id: session.merchantId, name: session.merchantName || "" },
+				has_static_qris: Boolean(session.staticQris),
+				expires_at: session.expiresAt || null,
+			},
+		});
+	} catch (e) {
+		logger.error("GoPay OTP verify failed", {
+			error: e instanceof Error ? e.message : String(e),
+		});
+		return err(
+			"OTP_VERIFY_FAILED",
+			e instanceof Error ? e.message : "OTP verify failed",
+			isGoPayAuthRequired(e) ? 401 : 502,
 		);
 	}
 });
