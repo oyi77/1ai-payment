@@ -35,6 +35,8 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
+	delete process.env.SHOPEE_SESSION_JSON;
+	delete process.env.GOPAY_SESSION_JSON;
 	resetConfigCache();
 });
 
@@ -94,8 +96,8 @@ describe("getPlatformGateway", () => {
 });
 
 describe("admin /api/admin/platform routes", () => {
-	let BASE: string;
-	let server: ReturnType<typeof Bun.serve>;
+	let app: ReturnType<typeof import("hono").Hono>;
+	let server: { fetch: typeof fetch; stop: () => void };
 
 	beforeEach(async () => {
 		process.env.ADMIN_API_KEY = "test-admin-key-plat";
@@ -104,26 +106,31 @@ describe("admin /api/admin/platform routes", () => {
 		const { platformGatewaysRouter } = await import(
 			"../../src/routes/admin/platform-gateways"
 		);
-		const app = new Hono();
-		app.route("/api/admin", platformGatewaysRouter);
-		server = Bun.serve({ port: 0, fetch: app.fetch });
-		BASE = `http://localhost:${server.port}/api/admin`;
+		const h = new Hono();
+		h.route("/api/admin", platformGatewaysRouter);
+		app = h;
+		server = { fetch: app.fetch.bind(app), stop: () => {} };
 	});
 
 	afterEach(() => {
-		server?.stop(true);
+		server?.stop();
 		resetConfigCache();
 	});
 
 	const ADMIN = { "X-Admin-Key": "test-admin-key-plat", "Content-Type": "application/json" };
 
+	async function req(method: string, path: string, body?: unknown, headers: Record<string, string> = ADMIN) {
+		const res = await server.fetch(new Request(`http://localhost/api/admin${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined }));
+		return res;
+	}
+
 	test("401 without admin key", async () => {
-		const res = await fetch(`${BASE}/platform`);
+		const res = await req("GET", "/platform", undefined, { "Content-Type": "application/json" });
 		expect(res.status).toBe(401);
 	});
 
 	test("200 lists supported gateways", async () => {
-		const res = await fetch(`${BASE}/platform`, { headers: ADMIN });
+		const res = await req("GET", "/platform");
 		expect(res.status).toBe(200);
 		const data = await res.json();
 		expect(data.success).toBe(true);
@@ -132,68 +139,43 @@ describe("admin /api/admin/platform routes", () => {
 	});
 
 	test("PUT upserts credentials and returns masked", async () => {
-		const res = await fetch(`${BASE}/platform/shopee`, {
-			method: "PUT",
-			headers: ADMIN,
-			body: JSON.stringify({
-				credentials: { session: '{"token":"abc"}', staticQris: "000201010211" },
-				environment: "production",
-			}),
+		const res = await req("PUT", "/platform/shopee", {
+			credentials: { session: '{"token":"abc"}', staticQris: "000201010211" },
+			environment: "production",
 		});
 		expect(res.status).toBe(200);
 		const data = await res.json();
 		expect(data.success).toBe(true);
-		// Session masked (length only), staticQris truncated but not empty.
 		expect(data.data.credentials.session).toMatch(/^<\d+ chars>$/);
 		expect(data.data.credentials.staticQris).toMatch(/^000201010211/);
 
-		// Persisted.
 		const rec = await getPlatformGateway("shopee");
 		expect(rec?.credentials.session).toBe('{"token":"abc"}');
 	});
 
 	test("PATCH toggles enabled", async () => {
-		await fetch(`${BASE}/platform/gopay`, {
-			method: "PUT",
-			headers: ADMIN,
-			body: JSON.stringify({ credentials: { session: "{}" } }),
-		});
-		const res = await fetch(`${BASE}/platform/gopay`, {
-			method: "PATCH",
-			headers: ADMIN,
-			body: JSON.stringify({ enabled: false }),
-		});
+		await req("PUT", "/platform/gopay", { credentials: { session: "{}" } });
+		const res = await req("PATCH", "/platform/gopay", { enabled: false });
 		expect(res.status).toBe(200);
 		const rec = await getPlatformGateway("gopay");
-		expect(rec).toBeNull(); // disabled → filtered out
+		expect(rec).toBeNull();
 	});
 
 	test("DELETE removes connection", async () => {
-		await fetch(`${BASE}/platform/gopay`, {
-			method: "PUT",
-			headers: ADMIN,
-			body: JSON.stringify({ credentials: { session: "{}" } }),
-		});
-		const res = await fetch(`${BASE}/platform/gopay`, {
-			method: "DELETE",
-			headers: ADMIN,
-		});
+		await req("PUT", "/platform/gopay", { credentials: { session: "{}" } });
+		const res = await req("DELETE", "/platform/gopay");
 		expect(res.status).toBe(200);
 		const rec = await getPlatformGateway("gopay");
 		expect(rec).toBeNull();
 	});
 
 	test("400 on unsupported gateway", async () => {
-		const res = await fetch(`${BASE}/platform/midtrans`, { headers: ADMIN });
+		const res = await req("GET", "/platform/midtrans");
 		expect(res.status).toBe(400);
 	});
 
 	test("POST OTP endpoints disabled without experimental flag", async () => {
-		const res = await fetch(`${BASE}/platform/shopee/otp/start`, {
-			method: "POST",
-			headers: ADMIN,
-			body: JSON.stringify({ phone: "081234567890" }),
-		});
+		const res = await req("POST", "/platform/shopee/otp/start", { phone: "081234567890" });
 		expect(res.status).toBe(403);
 		const data = await res.json();
 		expect(data.error.code).toBe("FEATURE_DISABLED");
